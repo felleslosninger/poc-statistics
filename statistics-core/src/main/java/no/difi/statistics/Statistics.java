@@ -24,8 +24,16 @@ public class Statistics {
     }
 
     public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return timeSeries(seriesName, "minutes", from, to);
+    }
+
+    public List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return timeSeries(seriesName, "hours", from, to);
+    }
+
+    private List<TimeSeriesPoint> timeSeries(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = elasticSearchClient.prepareSearch(seriesName)
-                .setTypes("minutes")
+                .setTypes(type)
                 .addField("time").addField("value")
                 .setQuery(rangeQuery("time").from(dateTimeFormatter.format(from)).to(dateTimeFormatter.format(to)))
                 .addSort("time", SortOrder.ASC)
