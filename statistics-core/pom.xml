@@ -92,7 +92,15 @@
                                 <namingStrategy>alias</namingStrategy>
                                 <ports>
                                     <port>elasticsearch.port:9300</port>
+                                    <port>elasticsearch.rest.port:9200</port>
                                 </ports>
+                                <wait>
+                                    <http>
+                                        <url>http://${docker.host.address}:${elasticsearch.rest.port}/_cluster/health</url>
+                                        <method>GET</method>
+                                        <status>200</status>
+                                    </http>
+                                </wait>
                             </run>
                         </image>
                     </images>
