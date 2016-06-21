@@ -86,10 +86,29 @@
                 <configuration>
                     <images>
                         <image>
+                            <name>docker-repository.dmz.local/${project.artifactId}:${project.version}</name>
+                            <build>
+                                <from>java:openjdk-8-jdk-alpine</from>
+                                <entryPoint>java -jar /maven/${project.build.finalName}.${project.packaging}</entryPoint>
+                                <assembly>
+                                    <inline>
+                                        <id>${project.artifactId}</id>
+                                        <fileSets>
+                                            <fileSet>
+                                                <directory>${project.build.directory}</directory>
+                                                <outputDirectory>.</outputDirectory>
+                                                <includes>
+                                                    <include>${project.build.finalName}.${project.packaging}</include>
+                                                </includes>
+                                            </fileSet>
+                                        </fileSets>
+                                    </inline>
+                                </assembly>
+                            </build>
+                        </image>
+                        <image>
                             <name>elasticsearch</name>
-                            <alias>elasticsearch-it</alias>
                             <run>
-                                <namingStrategy>alias</namingStrategy>
                                 <ports>
                                     <port>elasticsearch.port:9300</port>
                                     <port>elasticsearch.rest.port:9200</port>
