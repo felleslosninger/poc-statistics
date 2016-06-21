@@ -69,6 +69,13 @@
                 <version>0.15.7</version>
                 <executions>
                     <execution>
+                        <id>build-docker-image</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                    <execution>
                         <id>start-elasticsearch</id>
                         <phase>pre-integration-test</phase>
                         <goals>
