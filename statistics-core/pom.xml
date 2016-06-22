@@ -76,6 +76,13 @@
                         </goals>
                     </execution>
                     <execution>
+                        <id>push-docker-image</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>push</goal>
+                        </goals>
+                    </execution>
+                    <execution>
                         <id>start-elasticsearch</id>
                         <phase>pre-integration-test</phase>
                         <goals>
@@ -93,7 +100,7 @@
                 <configuration>
                     <images>
                         <image>
-                            <name>docker-repository.dmz.local/${project.artifactId}:${project.version}</name>
+                            <name>docker-registry.dmz.local/${project.artifactId}:${project.version}</name>
                             <build>
                                 <from>java:openjdk-8-jdk-alpine</from>
                                 <entryPoint>java -jar /maven/${project.build.finalName}.${project.packaging}</entryPoint>
