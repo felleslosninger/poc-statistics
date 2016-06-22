@@ -90,6 +90,20 @@
                 <version>0.15.7</version>
                 <executions>
                     <execution>
+                        <id>build-docker-image</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>push-docker-image</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>push</goal>
+                        </goals>
+                    </execution>
+                    <execution>
                         <id>start-elasticsearch</id>
                         <phase>pre-integration-test</phase>
                         <goals>
@@ -107,10 +121,29 @@
                 <configuration>
                     <images>
                         <image>
+                            <name>docker-registry.dmz.local/${project.artifactId}:${project.version}</name>
+                            <build>
+                                <from>java:openjdk-8-jdk-alpine</from>
+                                <entryPoint>java -jar /maven/${project.build.finalName}.${project.packaging}</entryPoint>
+                                <assembly>
+                                    <inline>
+                                        <id>${project.artifactId}</id>
+                                        <fileSets>
+                                            <fileSet>
+                                                <directory>${project.build.directory}</directory>
+                                                <outputDirectory>.</outputDirectory>
+                                                <includes>
+                                                    <include>${project.build.finalName}.${project.packaging}</include>
+                                                </includes>
+                                            </fileSet>
+                                        </fileSets>
+                                    </inline>
+                                </assembly>
+                            </build>
+                        </image>
+                        <image>
                             <name>elasticsearch</name>
-                            <alias>elasticsearch-it</alias>
                             <run>
-                                <namingStrategy>alias</namingStrategy>
                                 <ports>
                                     <port>elasticsearch.port:9300</port>
                                     <port>elasticsearch.rest.port:9200</port>
