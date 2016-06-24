@@ -35,8 +35,8 @@ public class AppConfig {
     }
 
     @Bean
-    public StatisticsController api() {
-        return new StatisticsController();
+    public StatisticsController api() throws UnknownHostException {
+        return new StatisticsController(statistics());
     }
 
 }

@@ -4,7 +4,6 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.sort.SortOrder;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -18,7 +17,6 @@ public class Statistics {
     private Client elasticSearchClient;
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
-    @Autowired
     public Statistics(Client elasticSearchClient) {
         this.elasticSearchClient = elasticSearchClient;
     }

@@ -24,4 +24,27 @@
         </plugins>
     </build>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <name>libs-release</name>
+            <url>http://eid-artifactory.dmz.local:8080/artifactory/libs-release</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>central</id>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <name>plugins-release</name>
+            <url>http://eid-artifactory.dmz.local:8080/artifactory/plugins-release</url>
+        </pluginRepository>
+    </pluginRepositories>
+
+
 </project>

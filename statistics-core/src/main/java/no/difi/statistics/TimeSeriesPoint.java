@@ -1,7 +1,10 @@
 package no.difi.statistics;
 
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.time.ZonedDateTime;
 
+@XmlRootElement
 public class TimeSeriesPoint {
 
     private ZonedDateTime time;
@@ -12,11 +15,13 @@ public class TimeSeriesPoint {
         this.value = value;
     }
 
-    public ZonedDateTime time() {
+    @XmlElement
+    public ZonedDateTime getTime() {
         return time;
     }
 
-    public int value() {
+    @XmlElement
+    public int getValue() {
         return value;
     }
 

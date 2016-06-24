@@ -13,7 +13,7 @@
     <artifactId>statistics-core</artifactId>
 
     <properties>
-        <springboot.version>1.3.5.RELEASE</springboot.version>
+        <springboot.version>1.4.0.M3</springboot.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
@@ -28,6 +28,23 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
             <version>${springboot.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>2.7.5</version>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>3.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>3.0.0</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -71,6 +88,8 @@
                 <configuration>
                     <trimStackTrace>false</trimStackTrace>
                     <systemPropertyVariables>
+                        <statistics.host>${docker.host.address}</statistics.host>
+                        <statistics.port>${statistics.port}</statistics.port>
                         <elasticsearch.host>${docker.host.address}</elasticsearch.host>
                         <elasticsearch.port>${elasticsearch.port}</elasticsearch.port>
                     </systemPropertyVariables>
@@ -104,14 +123,14 @@
                         </goals>
                     </execution>
                     <execution>
-                        <id>start-elasticsearch</id>
+                        <id>start-containers</id>
                         <phase>pre-integration-test</phase>
                         <goals>
                             <goal>run</goal>
                         </goals>
                     </execution>
                     <execution>
-                        <id>stop-elasticsearch</id>
+                        <id>stop-containers</id>
                         <phase>post-integration-test</phase>
                         <goals>
                             <goal>stop</goal>
@@ -140,10 +159,33 @@
                                     </inline>
                                 </assembly>
                             </build>
+                            <run>
+                                <ports>
+                                    <port>statistics.port:8080</port>
+                                </ports>
+                                <wait>
+                                    <http>
+                                        <url>http://${docker.host.address}:${statistics.port}</url>
+                                        <method>GET</method>
+                                        <status>200</status>
+                                    </http>
+                                    <time>200000</time>
+                                </wait>
+                                <links>
+                                    <link>elasticsearch</link>
+                                </links>
+                                <env>
+                                    <elasticsearch.host>elasticsearch</elasticsearch.host>
+                                    <elasticsearch.port>9300</elasticsearch.port>
+                                </env>
+                                <log/>
+                            </run>
                         </image>
                         <image>
                             <name>elasticsearch</name>
+                            <alias>elasticsearch</alias>
                             <run>
+                                <namingStrategy>alias</namingStrategy>
                                 <ports>
                                     <port>elasticsearch.port:9300</port>
                                     <port>elasticsearch.rest.port:9200</port>

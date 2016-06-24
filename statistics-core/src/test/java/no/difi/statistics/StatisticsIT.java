@@ -1,40 +1,43 @@
 package no.difi.statistics;
 
-import no.difi.statistics.config.AppConfig;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.junit.After;
+import org.junit.BeforeClass;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-import static java.lang.System.out;
+import static io.restassured.RestAssured.get;
+import static io.restassured.path.json.JsonPath.from;
+import static java.lang.Integer.parseInt;
+import static java.lang.String.format;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.assertEquals;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = AppConfig.class)
 public class StatisticsIT {
 
-    @Autowired
-    private Client client;
-    @Autowired
-    private Statistics statistics;
-
-    private String indexName = "test-index";
+    private String timeSeriesName = "test";
     private ZonedDateTime now = ZonedDateTime.now();
+    private static Client client;
+
+    @BeforeClass
+    public static void initAll() throws UnknownHostException {
+        client = elasticSearchClient();
+    }
 
     @After
     public void cleanup() throws ExecutionException, InterruptedException {
-        client.admin().indices().delete(new DeleteIndexRequest(indexName)).get();
+        client.admin().indices().delete(new DeleteIndexRequest(timeSeriesName)).get();
     }
 
     @Test
@@ -43,10 +46,9 @@ public class StatisticsIT {
         indexTimeSeriesMinutePoint(now.minusMinutes(1001), 1001);
         indexTimeSeriesMinutePoint(now.minusMinutes(1002), 1002);
         indexTimeSeriesMinutePoint(now.minusMinutes(1003), 1003);
-        List<TimeSeriesPoint> timeSeries = statistics.minutes(indexName, now.minusMinutes(1002), now.minusMinutes(1001));
-        assertEquals(2, timeSeries.size());
-        assertEquals(1002, timeSeries.get(0).value());
-        assertEquals(1001, timeSeries.get(1).value());
+        List<HashMap<String, ?>> timeSeries = from(minutes(timeSeriesName, now.minusMinutes(1002), now.minusMinutes(1001))).getList("");
+        assertEquals(1002, timeSeries.get(0).get("value"));
+        assertEquals(1001, timeSeries.get(1).get("value"));
     }
 
     @Test
@@ -55,7 +57,7 @@ public class StatisticsIT {
         indexTimeSeriesMinutePoint(now.minusMinutes(19), 19);
         indexTimeSeriesMinutePoint(now.minusMinutes(18), 18);
         indexTimeSeriesMinutePoint(now.minusMinutes(17), 17);
-        List<TimeSeriesPoint> timeSeries = statistics.minutes(indexName, now.minusMinutes(9), now.minusMinutes(8));
+        List<HashMap<String, ?>> timeSeries = from(minutes(timeSeriesName, now.minusMinutes(9), now.minusMinutes(8))).getList("");
         assertEquals(0, timeSeries.size());
     }
 
@@ -65,7 +67,7 @@ public class StatisticsIT {
         indexTimeSeriesMinutePoint(now.minusMinutes(200), 200);
         indexTimeSeriesMinutePoint(now.minusMinutes(300), 300);
         indexTimeSeriesMinutePoint(now.minusMinutes(400), 400);
-        List<TimeSeriesPoint> timeSeries = statistics.minutes(indexName, now.minusYears(2000), now.plusYears(2000));
+        List<HashMap<String, ?>> timeSeries = from(minutes(timeSeriesName, now.minusYears(2000), now.plusYears(2000))).getList("");
         assertEquals(4, timeSeries.size());
     }
 
@@ -75,10 +77,10 @@ public class StatisticsIT {
         indexTimeSeriesHourPoint(now.minusHours(1001), 1001);
         indexTimeSeriesHourPoint(now.minusHours(1002), 1002);
         indexTimeSeriesHourPoint(now.minusHours(1003), 1003);
-        List<TimeSeriesPoint> timeSeries = statistics.hours(indexName, now.minusHours(1002), now.minusHours(1001));
+        List<HashMap<String, ?>> timeSeries = from(hours(timeSeriesName, now.minusHours(1002), now.minusHours(1001))).getList("");
         assertEquals(2, timeSeries.size());
-        assertEquals(1002, timeSeries.get(0).value());
-        assertEquals(1001, timeSeries.get(1).value());
+        assertEquals(1002, timeSeries.get(0).get("value"));
+        assertEquals(1001, timeSeries.get(1).get("value"));
     }
 
     @Test
@@ -87,7 +89,7 @@ public class StatisticsIT {
         indexTimeSeriesHourPoint(now.minusHours(19), 19);
         indexTimeSeriesHourPoint(now.minusHours(18), 18);
         indexTimeSeriesHourPoint(now.minusHours(17), 17);
-        List<TimeSeriesPoint> timeSeries = statistics.hours(indexName, now.minusHours(9), now.minusHours(8));
+        List<HashMap<String, ?>> timeSeries = from(hours(timeSeriesName, now.minusHours(9), now.minusHours(8))).getList("");
         assertEquals(0, timeSeries.size());
     }
 
@@ -97,7 +99,7 @@ public class StatisticsIT {
         indexTimeSeriesHourPoint(now.minusHours(200), 200);
         indexTimeSeriesHourPoint(now.minusHours(300), 300);
         indexTimeSeriesHourPoint(now.minusHours(400), 400);
-        List<TimeSeriesPoint> timeSeries = statistics.hours(indexName, now.minusYears(2000), now.plusYears(2000));
+        List<HashMap<String, ?>> timeSeries = from(hours(timeSeriesName, now.minusYears(2000), now.plusYears(2000))).getList("");
         assertEquals(4, timeSeries.size());
     }
 
@@ -110,15 +112,57 @@ public class StatisticsIT {
     }
 
     private void indexTimeSeriesPoint(String type, ZonedDateTime timestamp, int value) throws IOException {
-        client.prepareIndex(indexName, type)
+        client.prepareIndex(timeSeriesName, type)
                 .setSource(
                         jsonBuilder().startObject()
-                                .field("time", DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(timestamp))
+                                .field("time", formatTimestamp(timestamp))
                                 .field("value", value)
                                 .endObject()
                 )
                 .setRefresh(true) // Make document immediately searchable for the purpose of this test
                 .get();
     }
+
+    private String minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return get(urlForMinuteSeries(seriesName, from, to)).asString();
+    }
+
+    private String hours(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return get(urlForHourSeries(seriesName, from, to)).asString();
+    }
+
+    private String formatTimestamp(ZonedDateTime timestamp) {
+        return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(timestamp);
+    }
+
+    private String urlForMinuteSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return urlForSeries("minutes", seriesName, from, to);
+    }
+
+    private String urlForHourSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return urlForSeries("hours", seriesName, from, to);
+    }
+
+    private String urlForSeries(String type, String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        String host = System.getProperty("statistics.host");
+        String port = System.getProperty("statistics.port");
+        return format(
+                "http://%s:%s/%s/%s?from=%s&to=%s",
+                host,
+                port,
+                type,
+                seriesName,
+                formatTimestamp(from),
+                formatTimestamp(to)
+        );
+    }
+
+    private static Client elasticSearchClient() throws UnknownHostException {
+        String host = System.getProperty("elasticsearch.host");
+        int port = parseInt(System.getProperty("elasticsearch.port"));
+        return TransportClient.builder().build()
+                .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host), port));
+    }
+
 
 }
