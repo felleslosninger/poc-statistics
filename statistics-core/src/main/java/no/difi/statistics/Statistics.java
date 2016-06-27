@@ -33,6 +33,10 @@ public class Statistics {
         return timeSeries(seriesName, "days", from, to);
     }
 
+    public List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return timeSeries(seriesName, "months", from, to);
+    }
+
     private List<TimeSeriesPoint> timeSeries(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = elasticSearchClient.prepareSearch(seriesName)
                 .setTypes(type)
