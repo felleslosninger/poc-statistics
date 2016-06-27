@@ -61,4 +61,13 @@ public class StatisticsController {
         return statistics.months(seriesName, from, to);
     }
 
+    @GetMapping("years/{seriesName}")
+    public List<TimeSeriesPoint> years(
+            @PathVariable String seriesName,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+    ) {
+        return statistics.years(seriesName, from, to);
+    }
+
 }

@@ -167,6 +167,38 @@ public class StatisticsIT {
         assertEquals(4, timeSeries.size());
     }
 
+    @Test
+    public void givenYearSeriesWhenQueryingForRangeInsideSeriesThenCorrespondingDataPointsAreReturned() throws IOException, InterruptedException {
+        indexTimeSeriesYearPoint(now.minusYears(1000), 1000);
+        indexTimeSeriesYearPoint(now.minusYears(1001), 1001);
+        indexTimeSeriesYearPoint(now.minusYears(1002), 1002);
+        indexTimeSeriesYearPoint(now.minusYears(1003), 1003);
+        List<HashMap<String, ?>> timeSeries = from(years(timeSeriesName, now.minusYears(1002), now.minusYears(1001))).getList("");
+        assertEquals(2, timeSeries.size());
+        assertEquals(1002, timeSeries.get(0).get("value"));
+        assertEquals(1001, timeSeries.get(1).get("value"));
+    }
+
+    @Test
+    public void givenYearSeriesWhenQueryingForRangeOutsideSeriesThenNoDataPointsAreReturned() throws IOException, InterruptedException {
+        indexTimeSeriesYearPoint(now.minusYears(20), 20);
+        indexTimeSeriesYearPoint(now.minusYears(19), 19);
+        indexTimeSeriesYearPoint(now.minusYears(18), 18);
+        indexTimeSeriesYearPoint(now.minusYears(17), 17);
+        List<HashMap<String, ?>> timeSeries = from(years(timeSeriesName, now.minusYears(9), now.minusYears(8))).getList("");
+        assertEquals(0, timeSeries.size());
+    }
+
+    @Test
+    public void givenYearSeriesWhenQueryingForApproxUnlimitedRangeThenAllDataPointsAreReturned() throws IOException, InterruptedException {
+        indexTimeSeriesYearPoint(now.minusYears(100), 100);
+        indexTimeSeriesYearPoint(now.minusYears(200), 200);
+        indexTimeSeriesYearPoint(now.minusYears(300), 300);
+        indexTimeSeriesYearPoint(now.minusYears(400), 400);
+        List<HashMap<String, ?>> timeSeries = from(years(timeSeriesName, now.minusYears(2000), now.plusYears(2000))).getList("");
+        assertEquals(4, timeSeries.size());
+    }
+
     private void indexTimeSeriesMinutePoint(ZonedDateTime timestamp, int value) throws IOException {
         indexTimeSeriesPoint("minutes", timestamp, value);
     }
@@ -181,6 +213,10 @@ public class StatisticsIT {
 
     private void indexTimeSeriesMonthPoint(ZonedDateTime timestamp, int value) throws IOException {
         indexTimeSeriesPoint("months", timestamp, value);
+    }
+
+    private void indexTimeSeriesYearPoint(ZonedDateTime timestamp, int value) throws IOException {
+        indexTimeSeriesPoint("years", timestamp, value);
     }
 
     private void indexTimeSeriesPoint(String type, ZonedDateTime timestamp, int value) throws IOException {
@@ -211,6 +247,10 @@ public class StatisticsIT {
         return get(urlForMonthSeries(seriesName, from, to)).asString();
     }
 
+    private String years(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return get(urlForYearSeries(seriesName, from, to)).asString();
+    }
+
     private String formatTimestamp(ZonedDateTime timestamp) {
         return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(timestamp);
     }
@@ -229,6 +269,10 @@ public class StatisticsIT {
 
     private String urlForMonthSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return urlForSeries("months", seriesName, from, to);
+    }
+
+    private String urlForYearSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return urlForSeries("years", seriesName, from, to);
     }
 
     private String urlForSeries(String type, String seriesName, ZonedDateTime from, ZonedDateTime to) {
