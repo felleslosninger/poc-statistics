@@ -103,12 +103,48 @@ public class StatisticsIT {
         assertEquals(4, timeSeries.size());
     }
 
+    @Test
+    public void givenDaySeriesWhenQueryingForRangeInsideSeriesThenCorrespondingDataPointsAreReturned() throws IOException, InterruptedException {
+        indexTimeSeriesDayPoint(now.minusDays(1000), 1000);
+        indexTimeSeriesDayPoint(now.minusDays(1001), 1001);
+        indexTimeSeriesDayPoint(now.minusDays(1002), 1002);
+        indexTimeSeriesDayPoint(now.minusDays(1003), 1003);
+        List<HashMap<String, ?>> timeSeries = from(days(timeSeriesName, now.minusDays(1002), now.minusDays(1001))).getList("");
+        assertEquals(2, timeSeries.size());
+        assertEquals(1002, timeSeries.get(0).get("value"));
+        assertEquals(1001, timeSeries.get(1).get("value"));
+    }
+
+    @Test
+    public void givenDaySeriesWhenQueryingForRangeOutsideSeriesThenNoDataPointsAreReturned() throws IOException, InterruptedException {
+        indexTimeSeriesDayPoint(now.minusDays(20), 20);
+        indexTimeSeriesDayPoint(now.minusDays(19), 19);
+        indexTimeSeriesDayPoint(now.minusDays(18), 18);
+        indexTimeSeriesDayPoint(now.minusDays(17), 17);
+        List<HashMap<String, ?>> timeSeries = from(days(timeSeriesName, now.minusDays(9), now.minusDays(8))).getList("");
+        assertEquals(0, timeSeries.size());
+    }
+
+    @Test
+    public void givenDaySeriesWhenQueryingForApproxUnlimitedRangeThenAllDataPointsAreReturned() throws IOException, InterruptedException {
+        indexTimeSeriesDayPoint(now.minusDays(100), 100);
+        indexTimeSeriesDayPoint(now.minusDays(200), 200);
+        indexTimeSeriesDayPoint(now.minusDays(300), 300);
+        indexTimeSeriesDayPoint(now.minusDays(400), 400);
+        List<HashMap<String, ?>> timeSeries = from(days(timeSeriesName, now.minusYears(2000), now.plusYears(2000))).getList("");
+        assertEquals(4, timeSeries.size());
+    }
+
     private void indexTimeSeriesMinutePoint(ZonedDateTime timestamp, int value) throws IOException {
         indexTimeSeriesPoint("minutes", timestamp, value);
     }
 
     private void indexTimeSeriesHourPoint(ZonedDateTime timestamp, int value) throws IOException {
         indexTimeSeriesPoint("hours", timestamp, value);
+    }
+
+    private void indexTimeSeriesDayPoint(ZonedDateTime timestamp, int value) throws IOException {
+        indexTimeSeriesPoint("days", timestamp, value);
     }
 
     private void indexTimeSeriesPoint(String type, ZonedDateTime timestamp, int value) throws IOException {
@@ -131,6 +167,10 @@ public class StatisticsIT {
         return get(urlForHourSeries(seriesName, from, to)).asString();
     }
 
+    private String days(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return get(urlForDaySeries(seriesName, from, to)).asString();
+    }
+
     private String formatTimestamp(ZonedDateTime timestamp) {
         return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(timestamp);
     }
@@ -141,6 +181,10 @@ public class StatisticsIT {
 
     private String urlForHourSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return urlForSeries("hours", seriesName, from, to);
+    }
+
+    private String urlForDaySeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return urlForSeries("days", seriesName, from, to);
     }
 
     private String urlForSeries(String type, String seriesName, ZonedDateTime from, ZonedDateTime to) {

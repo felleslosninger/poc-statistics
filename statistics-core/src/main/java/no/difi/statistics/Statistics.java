@@ -29,6 +29,10 @@ public class Statistics {
         return timeSeries(seriesName, "hours", from, to);
     }
 
+    public List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return timeSeries(seriesName, "days", from, to);
+    }
+
     private List<TimeSeriesPoint> timeSeries(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = elasticSearchClient.prepareSearch(seriesName)
                 .setTypes(type)

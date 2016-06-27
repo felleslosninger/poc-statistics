@@ -43,5 +43,13 @@ public class StatisticsController {
         return statistics.hours(seriesName, from, to);
     }
 
+    @GetMapping("days/{seriesName}")
+    public List<TimeSeriesPoint> days(
+            @PathVariable String seriesName,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+    ) {
+        return statistics.days(seriesName, from, to);
+    }
 
 }
