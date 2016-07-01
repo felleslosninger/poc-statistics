@@ -4,7 +4,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static java.lang.String.format;
@@ -17,23 +16,23 @@ import static java.util.Collections.singletonList;
 
 public class IndexNameResolver {
 
-    public static List<String> resolveMinuteSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public static List<String> resolveMinuteIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return indexNamesForSeriesPerDay(seriesName, MINUTES, from, to);
     }
 
-    public static List<String> resolveHourSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public static List<String> resolveHourIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return indexNamesForSeriesPerDay(seriesName, HOURS, from, to);
     }
 
-    public static List<String> resolveDaySeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public static List<String> resolveDayIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return indexNamesForSeriesPerYear(seriesName, DAYS, from, to);
     }
 
-    public static List<String> resolveMonthSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public static List<String> resolveMonthIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return indexNamesForSeriesPerYear(seriesName, MONTHS, from, to);
     }
 
-    public static List<String> resolveYearSeries(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public static List<String> resolveYearIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return singletonList(format("%s:%s", seriesName, toIndexPart(YEARS)));
     }
 

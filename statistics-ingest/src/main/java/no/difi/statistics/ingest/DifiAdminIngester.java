@@ -37,7 +37,7 @@ public class DifiAdminIngester extends AbstractIngester {
                     JsonArray fields = ((JsonObject)jsonValue).getJsonArray("fields");
                     indexTimeSeriesPoint(
                             indexNameForMinuteSeries("idporten-login", t),
-                            fields.getJsonObject(1).getString("value"), // type
+                            fields.getJsonObject(0).getString("value"), // type
                             dataPoint(t, fields)
                     );
                 }
