@@ -7,7 +7,7 @@
     <groupId>no.difi.statistics</groupId>
     <artifactId>statistics</artifactId>
     <packaging>pom</packaging>
-    <version>1.0-SNAPSHOT</version>
+    <version>DEV-SNAPSHOT</version>
     <modules>
         <module>statistics-api</module>
         <module>statistics-ingest</module>
@@ -15,10 +15,15 @@
     </modules>
 
     <properties>
+        <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
         <springboot.version>1.4.0.M3</springboot.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <scm>
+        <developerConnection>scm:git:https://github.com/difi/poc-statistics</developerConnection>
+    </scm>
 
     <dependencyManagement>
         <dependencies>
@@ -69,6 +74,11 @@
                     </configuration>
                 </plugin>
                 <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>buildnumber-maven-plugin</artifactId>
+                    <version>1.4</version>
+                </plugin>
+                <plugin>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>2.19.1</version>
                     <configuration>
@@ -86,21 +96,44 @@
                 <plugin>
                     <groupId>io.fabric8</groupId>
                     <artifactId>docker-maven-plugin</artifactId>
-                    <version>0.15.7</version>
+                    <version>0.15.9</version>
+                    <configuration>
+                        <images>
+                            <image>
+                                <name>docker-registry.dmz.local/${project.artifactId}:${project.version}</name>
+                            </image>
+                        </images>
+                    </configuration>
                     <executions>
                         <execution>
-                            <id>build-docker-image</id>
+                            <id>build-docker-images</id>
                             <phase>package</phase>
                             <goals>
                                 <goal>build</goal>
                             </goals>
                         </execution>
                         <execution>
-                            <id>push-docker-image</id>
+                            <id>push-docker-images</id>
                             <phase>deploy</phase>
                             <goals>
+                                <goal>build</goal>
                                 <goal>push</goal>
                             </goals>
+                            <configuration>
+                                <images>
+                                    <image>
+                                        <name>docker-registry.dmz.local/${project.artifactId}:${maven.build.timestamp}</name>
+                                        <build>
+                                            <labels>
+                                                <label>ScmId=${buildNumber}</label>
+                                            </labels>
+                                            <tags>
+                                                <tag>latest</tag>
+                                            </tags>
+                                        </build>
+                                    </image>
+                                </images>
+                            </configuration>
                         </execution>
                         <execution>
                             <id>start-containers</id>
@@ -120,6 +153,21 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>find-commit-id</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 
     <repositories>
