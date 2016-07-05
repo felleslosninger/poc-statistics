@@ -287,8 +287,8 @@ public class StatisticsIT {
     private String urlForSeries(String seriesTimeUnit, String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return format(
                 "http://%s:%s/%s/%s/%s?from=%s&to=%s",
-                System.getProperty("statistics.host"),
-                System.getProperty("statistics.port"),
+                System.getProperty("no.difi.statistics.host"),
+                System.getProperty("no.difi.statistics.port"),
                 seriesTimeUnit,
                 seriesName,
                 "total",
@@ -337,8 +337,8 @@ public class StatisticsIT {
     }
 
     private static Client elasticSearchClient() throws UnknownHostException {
-        String host = System.getProperty("elasticsearch.host");
-        int port = parseInt(System.getProperty("elasticsearch.port"));
+        String host = System.getProperty("no.difi.statistics.elasticsearch.host");
+        int port = parseInt(System.getProperty("no.difi.statistics.elasticsearch.port"));
         return TransportClient.builder().build()
                 .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host), port));
     }
