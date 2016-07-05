@@ -23,8 +23,8 @@ public class AppConfig {
 
     @Bean(destroyMethod = "close")
     public Client elasticSearchClient() throws UnknownHostException {
-        String host = environment.getRequiredProperty("elasticsearch.host");
-        int port = environment.getRequiredProperty("elasticsearch.port", Integer.class);
+        String host = environment.getRequiredProperty("no.difi.statistics.elasticsearch.host");
+        int port = environment.getRequiredProperty("no.difi.statistics.elasticsearch.port", Integer.class);
         return TransportClient.builder().build()
                 .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host), port));
     }

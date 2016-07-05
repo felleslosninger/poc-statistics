@@ -1,4 +1,8 @@
 node {
     checkout scm
-    sh 'mvn clean deploy'
+    if (env.BRANCH_NAME == 'develop') {
+        sh 'mvn clean deploy'
+    } else {
+        sh 'mvn clean verify'
+    }
 }

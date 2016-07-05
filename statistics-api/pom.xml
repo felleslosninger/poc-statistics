@@ -5,7 +5,7 @@
     <parent>
         <artifactId>statistics</artifactId>
         <groupId>no.difi.statistics</groupId>
-        <version>1.0-SNAPSHOT</version>
+        <version>DEV-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
@@ -62,10 +62,10 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <systemPropertyVariables>
-                        <statistics.host>${docker.host.address}</statistics.host>
-                        <statistics.port>${statistics.port}</statistics.port>
-                        <elasticsearch.host>${docker.host.address}</elasticsearch.host>
-                        <elasticsearch.port>${elasticsearch.port}</elasticsearch.port>
+                        <no.difi.statistics.host>${docker.host.address}</no.difi.statistics.host>
+                        <no.difi.statistics.port>${statistics.port}</no.difi.statistics.port>
+                        <no.difi.statistics.elasticsearch.host>${docker.host.address}</no.difi.statistics.elasticsearch.host>
+                        <no.difi.statistics.elasticsearch.port>${elasticsearch.port}</no.difi.statistics.elasticsearch.port>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -75,7 +75,7 @@
                 <configuration>
                     <images>
                         <image>
-                            <name>docker-registry.dmz.local/${project.artifactId}:${project.version}</name>
+                            <alias>${project.artifactId}</alias>
                             <build>
                                 <from>java:openjdk-8-jdk-alpine</from>
                                 <entryPoint>["java", "-jar", "/maven/${project.build.finalName}.${project.packaging}"]</entryPoint>
@@ -95,6 +95,7 @@
                                 </assembly>
                             </build>
                             <run>
+                                <namingStrategy>alias</namingStrategy>
                                 <ports>
                                     <port>statistics.port:8080</port>
                                 </ports>
@@ -109,10 +110,6 @@
                                 <links>
                                     <link>elasticsearch</link>
                                 </links>
-                                <env>
-                                    <elasticsearch.host>elasticsearch</elasticsearch.host>
-                                    <elasticsearch.port>9300</elasticsearch.port>
-                                </env>
                                 <log/>
                             </run>
                         </image>
@@ -122,16 +119,9 @@
                             <run>
                                 <namingStrategy>alias</namingStrategy>
                                 <ports>
+                                    <!-- Need to make port available for integration test which ingests data directly -->
                                     <port>elasticsearch.port:9300</port>
-                                    <port>elasticsearch.rest.port:9200</port>
                                 </ports>
-                                <wait>
-                                    <http>
-                                        <url>http://${docker.host.address}:${elasticsearch.rest.port}/_cluster/health</url>
-                                        <method>GET</method>
-                                        <status>200</status>
-                                    </http>
-                                </wait>
                             </run>
                         </image>
                     </images>
