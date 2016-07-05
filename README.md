@@ -46,6 +46,14 @@ Endepunktet til applikasjonen vil da være tilgjengelig på http://$(docker-mach
 _Dette forutsetter at port 80 er tilgjengelig i Docker-maskinen din. Hvis ikke kan du endre port-assosiasjonen i
 p-flagget ovenfor._
 
+Alternativt kan applikasjonen startes via Maven:
+
+```
+$ mvn docker:run
+```
+
+Merk at i dette tilfellet benyttes dynamisk port-assosiasjon, så du må inspisere konteineren for å utlede endepunktet.
+
 ### Lag en versjonert utgave av applikasjonen
 
 Dette laster opp Docker-bildene til Difi sitt Docker-register. De blir samtidig tagget med et tidsstempel som
