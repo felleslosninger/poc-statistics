@@ -49,7 +49,7 @@ p-flagget ovenfor._
 Alternativt kan applikasjonen startes via Maven:
 
 ```
-$ mvn docker:run
+$ mvn -pl statistics-api docker:run
 ```
 
 Merk at i dette tilfellet benyttes dynamisk port-assosiasjon, så du må inspisere konteineren for å utlede endepunktet.
