@@ -24,7 +24,7 @@ Dette bygger Docker-bilder for prosjektets artifakter.
 $ mvn package
 ```
 
-### Verifiserer du at Docker-bildene fungerer som de skal
+### Verifiser at Docker-bildene fungerer som de skal
 
 Følgende kjører et sett med integrasjonstester for å verifisere at Docker-bildene fungerer korrekt.
 
@@ -41,7 +41,7 @@ $ docker run -d --name elasticsearch --restart=unless-stopped elasticsearch:2.3
 $ docker run -d --name statistics-api --restart=unless-stopped --link elasticsearch -e elasticsearch.host=elasticsearch -e elasticsearch.port=9300 -p 80:8080 docker-registry.dmz.local/statistics-api:${project.version}
 ```
 
-Endepunktet til applikasjonen vil da være tilgjengelig på [http://$(docker-machine ip)].
+Endepunktet til applikasjonen vil da være tilgjengelig på http://$(docker-machine ip).
 
 _Dette forutsetter at port 80 er tilgjengelig i Docker-maskinen din. Hvis ikke kan du endre port-assosiasjonen i
 p-flagget ovenfor._
@@ -67,12 +67,12 @@ Docker-bildet finnes slik (gitt at konteineren heter ``statistics-api``:
 $ docker ps --filter="name=statistics-api" --format="{{.Image}}"
 ```
 
-Kildekode-revisjonen finnes slik (også gitt at konteineren heter ``statistics-api``:
+Kildekode-revisjonen finner du slik (også gitt at konteineren heter ``statistics-api``):
 ```
 $ docker inspect --format={{.ContainerConfig.Labels.label}} $(docker ps --filter="name=statistics-api" --format="{{.Image}}")
 ```
 
-Gitt at navnet på bildet er ``docker-registry.dmz.local/statistics-api:latest``, så kan kildekode-revisjonen finnes slik:
+Alternativt kan du finne kildekode-revisjonen gitt navnet på bildet:
 ```
 $ docker inspect --format={{.ContainerConfig.Labels.label}} docker-registry.dmz.local/statistics-api:20160704142905
 ```
