@@ -109,6 +109,16 @@
                     </configuration>
                     <executions>
                         <execution>
+                            <id>clean-docker-images</id>
+                            <phase>clean</phase>
+                            <goals>
+                                <goal>remove</goal>
+                            </goals>
+                            <configuration>
+                                <removeAll>true</removeAll>
+                            </configuration>
+                        </execution>
+                        <execution>
                             <id>build-docker-images</id>
                             <phase>package</phase>
                             <goals>
