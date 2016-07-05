@@ -38,13 +38,26 @@ Slik startes applikasjonen på din lokale Docker-maskin:
 
 ```
 $ docker run -d --name elasticsearch --restart=unless-stopped elasticsearch:2.3
-$ docker run -d --name statistics-api --restart=unless-stopped --link elasticsearch -e elasticsearch.host=elasticsearch -e elasticsearch.port=9300 -p 80:8080 docker-registry.dmz.local/statistics-api:${project.version}
+$ docker run -d --name statistics-api --restart=unless-stopped --link elasticsearch -p 80:8080 docker-registry.dmz.local/statistics-api:DEV-SNAPSHOT
 ```
 
 Endepunktet til applikasjonen vil da være tilgjengelig på http://$(docker-machine ip).
 
 _Dette forutsetter at port 80 er tilgjengelig i Docker-maskinen din. Hvis ikke kan du endre port-assosiasjonen i
 p-flagget ovenfor._
+
+Alternativt kan applikasjonen startes via Maven:
+
+```
+$ mvn -pl statistics-api docker:run
+```
+
+Merk at i dette tilfellet benyttes dynamisk port-assosiasjon, så du må inspisere konteineren for å utlede endepunktet.
+
+Konteinerne stoppes og fjernes tilsvarende på denne måten:
+```
+$ mvn -pl statistics-api docker:stop
+```
 
 ### Lag en versjonert utgave av applikasjonen
 
