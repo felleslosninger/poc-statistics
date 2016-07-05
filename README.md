@@ -38,7 +38,7 @@ Slik startes applikasjonen på din lokale Docker-maskin:
 
 ```
 $ docker run -d --name elasticsearch --restart=unless-stopped elasticsearch:2.3
-$ docker run -d --name statistics-api --restart=unless-stopped --link elasticsearch -e elasticsearch.host=elasticsearch -e elasticsearch.port=9300 -p 80:8080 docker-registry.dmz.local/statistics-api:${project.version}
+$ docker run -d --name statistics-api --restart=unless-stopped --link elasticsearch -p 80:8080 docker-registry.dmz.local/statistics-api:DEV-SNAPSHOT
 ```
 
 Endepunktet til applikasjonen vil da være tilgjengelig på http://$(docker-machine ip).
