@@ -139,6 +139,7 @@
                                         <build>
                                             <labels>
                                                 <label>ScmId=${buildNumber}</label>
+                                                <label>Version=${maven.build.timestamp}</label>
                                             </labels>
                                             <tags>
                                                 <tag>latest</tag>
