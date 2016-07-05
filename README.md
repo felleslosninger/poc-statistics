@@ -76,3 +76,10 @@ Alternativt kan du finne kildekode-revisjonen gitt navnet på bildet:
 ```
 $ docker inspect --format={{.ContainerConfig.Labels.label}} docker-registry.dmz.local/statistics-api:20160704142905
 ```
+
+## Kontinuerlige leveranser
+
+For å understøtte kontinuerlige leveranser benyttes Jenkins sin ['pipeline-as-code'](https://jenkins.io/solutions/pipeline/)-
+funksjonalitet. Det benyttes da en _Jenkinsfile_ som ligger på roten av prosjektet og spesifiserer byggejobben. I dette
+prosjektet spesifiseres det at en versjonert utgave av applikasjonen skal lages ved hver endring på _develop_-grenen.
+Endringer på andre grener vil kun sette i gang et verifiseringsbygg.
