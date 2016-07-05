@@ -54,6 +54,11 @@ $ mvn -pl statistics-api docker:run
 
 Merk at i dette tilfellet benyttes dynamisk port-assosiasjon, så du må inspisere konteineren for å utlede endepunktet.
 
+Konteinerne stoppes og fjernes tilsvarende på denne måten:
+```
+$ mvn -pl statistics-api docker:stop
+```
+
 ### Lag en versjonert utgave av applikasjonen
 
 Dette laster opp Docker-bildene til Difi sitt Docker-register. De blir samtidig tagget med et tidsstempel som
