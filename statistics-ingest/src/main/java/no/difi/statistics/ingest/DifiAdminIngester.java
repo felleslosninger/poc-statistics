@@ -37,12 +37,16 @@ public class DifiAdminIngester extends AbstractIngester {
                     JsonArray fields = ((JsonObject)jsonValue).getJsonArray("fields");
                     indexTimeSeriesPoint(
                             indexNameForMinuteSeries("idporten-login", t),
-                            fields.getJsonObject(0).getString("value"), // type
+                            mappingTypeName(fields.getJsonObject(0).getString("value")),
                             dataPoint(t, fields)
                     );
                 }
             }
         }
+    }
+
+    private String mappingTypeName(String input) {
+        return input.replaceAll(",", ""); // Commas not allowed in Elasticsearch mapping type name
     }
 
     private TimeSeriesPoint dataPoint(ZonedDateTime timestamp, JsonArray fields) {
