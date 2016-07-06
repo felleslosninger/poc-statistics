@@ -11,8 +11,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.List;
+
+import static java.lang.String.format;
 
 @RestController
 public class StatisticsController {
@@ -30,8 +33,11 @@ public class StatisticsController {
     }
 
     @GetMapping("/")
-    public String index() {
-        return "Statistics API";
+    public String index() throws IOException {
+        return format(
+                "Statistics API version %s",
+                System.getProperty("difi.version", "N/A")
+        );
     }
 
     @GetMapping("minutes/{seriesName}/{type}")

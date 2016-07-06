@@ -46,8 +46,6 @@
                     <images>
                         <image>
                             <build>
-                                <from>java:openjdk-8-jdk-alpine</from>
-                                <entryPoint>["java", "-jar", "/maven/${project.build.finalName}.${project.packaging}"]</entryPoint>
                                 <assembly>
                                     <inline>
                                         <id>${project.artifactId}</id>

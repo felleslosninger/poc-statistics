@@ -72,6 +72,8 @@ _Dette forutsetter tilgang til Difi sitt [Docker-register](docker-registry.dmz.l
 
 ## Sporbarhet
 
+Versjonsnummeret kan hentes ved å gjøre en HTTP GET på '/'.
+
 Fra en kjørende konteiner er det mulig å finne ut hvilket Docker-bilde i registeret applikasjonen benytter, samt
 hvilken revisjon av kildekoden som er i bruk. Dette er essensielt for feilsøking og feilretting.
  

@@ -16,7 +16,8 @@
 
     <properties>
         <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
-        <springboot.version>1.4.0.M3</springboot.version>
+        <difi.version>${maven.build.timestamp}</difi.version>
+        <springboot.version>1.4.0.RC1</springboot.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
@@ -36,6 +37,7 @@
     </dependencyManagement>
 
     <build>
+        <finalName>${project.artifactId}</finalName>
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -49,6 +51,14 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>2.5.2</version>
+                    <configuration>
+                        <!-- This project does not install JAR/WAR artifacts, as it is employing Docker -->
+                        <skip>true</skip>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <artifactId>maven-deploy-plugin</artifactId>
@@ -67,19 +77,21 @@
                     </configuration>
                 </plugin>
                 <plugin>
-                    <artifactId>maven-war-plugin</artifactId>
-                    <version>2.6</version>
-                    <configuration>
-                        <failOnMissingWebXml>false</failOnMissingWebXml>
-                    </configuration>
-                </plugin>
-                <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>buildnumber-maven-plugin</artifactId>
                     <version>1.4</version>
                     <configuration>
                         <getRevisionOnlyOnce>true</getRevisionOnlyOnce>
                     </configuration>
+                    <executions>
+                        <execution>
+                            <id>find-commit-id</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>create</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
                 <plugin>
                     <artifactId>maven-failsafe-plugin</artifactId>
@@ -103,6 +115,12 @@
                     <configuration>
                         <images>
                             <image>
+                                <build>
+                                    <from>java:openjdk-8-jdk-alpine</from>
+                                    <entryPoint>
+                                        ["java","-jar","-Ddifi.version=${difi.version}","/maven/${project.artifactId}.${project.packaging}"]
+                                    </entryPoint>
+                                </build>
                                 <name>docker-registry.dmz.local/${project.artifactId}:${project.version}</name>
                             </image>
                         </images>
@@ -135,11 +153,11 @@
                             <configuration>
                                 <images>
                                     <image>
-                                        <name>docker-registry.dmz.local/${project.artifactId}:${maven.build.timestamp}</name>
+                                        <name>docker-registry.dmz.local/${project.artifactId}:${difi.version}</name>
                                         <build>
                                             <labels>
                                                 <label>ScmId=${buildNumber}</label>
-                                                <label>Version=${maven.build.timestamp}</label>
+                                                <label>Version=${difi.version}</label>
                                             </labels>
                                             <tags>
                                                 <tag>latest</tag>
@@ -171,15 +189,6 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>buildnumber-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>find-commit-id</id>
-                        <phase>deploy</phase>
-                        <goals>
-                            <goal>create</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
