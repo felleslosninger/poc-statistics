@@ -8,6 +8,8 @@ import org.springframework.http.HttpRequest;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -48,6 +50,17 @@ public class StatisticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
         return statistics.minutes(seriesName, type, from, to);
+    }
+
+    @PostMapping("minutes/{seriesName}/{type}")
+    public List<TimeSeriesPoint> minutesAbovePercentile(
+            @PathVariable String seriesName,
+            @PathVariable String type,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
+            @RequestBody TimeSeriesFilter filter
+    ) {
+        return statistics.minutes(seriesName, type, from, to, filter);
     }
 
     @GetMapping("hours/{seriesName}/{type}")

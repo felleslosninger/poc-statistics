@@ -49,6 +49,12 @@
             <version>${springboot.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>docker-client</artifactId>
+            <version>1.0.16</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -95,6 +101,7 @@
                                 <namingStrategy>alias</namingStrategy>
                                 <ports>
                                     <port>statistics.port:8080</port>
+                                    <port>5005:5005</port>
                                 </ports>
                                 <wait>
                                     <http>

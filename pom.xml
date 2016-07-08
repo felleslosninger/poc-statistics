@@ -118,7 +118,7 @@
                                 <build>
                                     <from>java:openjdk-8-jdk-alpine</from>
                                     <entryPoint>
-                                        ["java","-jar","-Ddifi.version=${difi.version}","/maven/${project.artifactId}.${project.packaging}"]
+                                        ["java","-jar","-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005","-Ddifi.version=${difi.version}","/maven/${project.artifactId}.${project.packaging}"]
                                     </entryPoint>
                                 </build>
                                 <name>docker-registry.dmz.local/${project.artifactId}:${project.version}</name>
