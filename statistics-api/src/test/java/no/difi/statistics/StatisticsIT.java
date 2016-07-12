@@ -18,20 +18,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import static io.restassured.RestAssured.get;
 import static io.restassured.RestAssured.given;
-import static io.restassured.RestAssured.post;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 
 public class StatisticsIT {
 
@@ -190,19 +195,50 @@ public class StatisticsIT {
         assertEquals(4, size(timeSeries));
     }
 
-    @Test
-    public void givenMinuteSeriesWithSize14WhenQueryingForDataPointsWithMeasurementAbove92ndPercentileThenTwoLargestMeasurementsAreReturned() throws IOException {
-        indexMinutePointsFrom(now.minusMinutes(14), 1000, 4, 700, 1, 1, 2, 3, 5, 44, 8, 21, 131, 55, 89);
-        List<TimeSeriesPoint> resultingPoints = minutesAbovePercentile(92, measurementId, timeSeriesName, now.minusMinutes(100), now.minusMinutes(0));
-        // pos = (percentile * size(data))/100 = (92 * 14)/100 = 12.88 => elem 13 and 14 above 92nd percentile
-        assertEquals(2, resultingPoints.size());
-        assertEquals(1000, measurementValue(0, resultingPoints));
-        assertEquals(700, measurementValue(1, resultingPoints));
+    @Test // 1, 2, 3, 4, 5, 8, 21, 44, 55, 89, 131, 700, 1000
+    public void givenMinuteSeriesWithSize14WhenQueryingForDataPointsWithMeasurementAbove92ndPercentileThenLargestMeasurementsFromPosition13AreReturned() throws IOException {
+        int[] points = {1000, 4, 700, 1, 2, 3, 5, 44, 8, 21, 200, 131, 55, 89};
+        indexMinutePointsFrom(now.minusMinutes(14), points);
+        List<TimeSeriesPoint> resultingPoints = minutesAbovePercentile(
+                92, measurementId, timeSeriesName,
+                now.minusMinutes(100), now.minusMinutes(0)
+        );
+        assertPercentile(92, points, resultingPoints);
+    }
+
+    @Test // 3, 5, 11, 13, 56, 234, 235, 546, 566, 574, 674, 777, 1244, 3454, 3455, 5667, 9000, 547547
+    public void givenMinuteSeriesWithSize18WhenQueryingForDataPointsWithMeasurementAbove35thPercentileThenLargestMeasurementsFromPosition6AreReturned() throws IOException {
+        int[] points = {13, 11, 546, 234, 3455, 547547, 574, 3, 3454, 5, 1244, 674, 566, 5667, 56, 777, 235, 9000};
+        indexMinutePointsFrom(now.minusMinutes(300), points);
+        List<TimeSeriesPoint> resultingPoints = minutesAbovePercentile(
+                40, measurementId, timeSeriesName,
+                now.minusMinutes(301), now.minusMinutes(0)
+        );
+        assertPercentile(40, points, resultingPoints);
+    }
+
+    private void assertPercentile(int percent, int[] points, List<TimeSeriesPoint> resultingPoints) {
+        int index = new BigDecimal(percent).multiply(new BigDecimal(points.length))
+                .divide(new BigDecimal(100)).round(new MathContext(0, RoundingMode.UP)).intValue();
+        int expectedPercentile = sort(points)[index-1];
+        assertEquals(points.length - index, resultingPoints.size());
+        for (TimeSeriesPoint point : resultingPoints) {
+            assertThat(measurementValue(point), greaterThanOrEqualTo(expectedPercentile));
+        }
+    }
+
+    private int[] sort(int[] src) {
+        int[] dst = src.clone();
+        Arrays.sort(dst);
+        return dst;
     }
 
     private int measurementValue(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
-        return timeSeries.get(i).getMeasurement(measurementId)
-                .map(Measurement::getValue).orElseThrow(RuntimeException::new);
+        return measurementValue(timeSeries.get(i));
+    }
+
+    private int measurementValue(TimeSeriesPoint point) {
+        return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
     private int size(List<TimeSeriesPoint> timeSeries) throws IOException {

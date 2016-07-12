@@ -6,6 +6,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
 import org.elasticsearch.search.sort.SortOrder;
@@ -76,7 +77,7 @@ public class Statistics {
                 .prepareSearch(indexNames.stream().collect(joining(",")))
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(type)
-                .setQuery(QueryBuilders.rangeQuery(timeFieldName).from(dateTimeFormatter.format(from)).to(dateTimeFormatter.format(to)))
+                .setQuery(timeRange(from, to))
                 .addSort(timeFieldName, SortOrder.ASC)
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
@@ -104,18 +105,18 @@ public class Statistics {
                 .prepareSearch(indexNames.stream().collect(joining(",")))
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(type)
-                .setQuery(QueryBuilders.rangeQuery(timeFieldName).from(dateTimeFormatter.format(from)).to(dateTimeFormatter.format(to)))
+                .setQuery(timeRange(from, to))
                 .addSort(timeFieldName, SortOrder.ASC)
                 .setSize(0) // We are after aggregation and not the search hits
                 .addAggregation(percentiles("idporten_login_percentiles").field(filter.getMeasurementId()).percentiles(filter.getPercentile()))
                 .execute().actionGet();
         double percentileValue = ((Percentiles)response.getAggregations().get("idporten_login_percentiles")).percentile(filter.getPercentile());
-        logger.info(filter.getPercentile() + "th percentile value: " + percentileValue);
+        logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
         response = elasticSearchClient
                 .prepareSearch(indexNames.stream().collect(joining(",")))
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(type)
-                .setQuery(QueryBuilders.rangeQuery(timeFieldName).from(dateTimeFormatter.format(from)).to(dateTimeFormatter.format(to)))
+                .setQuery(timeRange(from, to))
                 .setPostFilter(QueryBuilders.rangeQuery(filter.getMeasurementId()).gt(percentileValue))
                 .addSort(timeFieldName, SortOrder.ASC)
                 .setSize(10_000) // 10 000 is maximum
@@ -126,6 +127,10 @@ public class Statistics {
             series.add(point(hit));
         }
         return series;
+    }
+
+    private RangeQueryBuilder timeRange(ZonedDateTime from, ZonedDateTime to) {
+        return QueryBuilders.rangeQuery(timeFieldName).from(dateTimeFormatter.format(from)).to(dateTimeFormatter.format(to));
     }
 
     private TimeSeriesPoint point(SearchHit hit) {
