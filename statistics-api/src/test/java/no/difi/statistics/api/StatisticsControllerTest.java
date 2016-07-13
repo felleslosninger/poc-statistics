@@ -64,6 +64,11 @@ public class StatisticsControllerTest {
     }
 
     @Test
+    public void test() {
+
+    }
+
+    @Test
     @Ignore
     public void whenSendingRequestWithoutFromAndToThenExpectNormalResponseAndNoRangeInServiceCall() throws Exception {
         final String timeSeries = "test";

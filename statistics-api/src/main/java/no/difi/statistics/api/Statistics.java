@@ -6,7 +6,9 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +25,7 @@ import static no.difi.statistics.util.IndexNameResolver.resolveHourIndexNames;
 import static no.difi.statistics.util.IndexNameResolver.resolveMinuteIndexNames;
 import static no.difi.statistics.util.IndexNameResolver.resolveMonthIndexNames;
 import static no.difi.statistics.util.IndexNameResolver.resolveYearIndexNames;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
 
 public class Statistics {
 
@@ -38,6 +41,10 @@ public class Statistics {
 
     public List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
         return search(resolveMinuteIndexNames(seriesName, from, to), type, from, to);
+    }
+
+    public List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+        return search(resolveMinuteIndexNames(seriesName, from, to), type, from, to, filter);
     }
 
     public List<TimeSeriesPoint> hours(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
@@ -70,7 +77,7 @@ public class Statistics {
                 .prepareSearch(indexNames.stream().collect(joining(",")))
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(type)
-                .setQuery(QueryBuilders.rangeQuery(timeFieldName).from(dateTimeFormatter.format(from)).to(dateTimeFormatter.format(to)))
+                .setQuery(timeRange(from, to))
                 .addSort(timeFieldName, SortOrder.ASC)
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
@@ -82,6 +89,48 @@ public class Statistics {
             series.add(point(hit));
         }
         return series;
+    }
+
+    private List<TimeSeriesPoint> search(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+        if (logger.isDebugEnabled()) {
+            logger.debug(format(
+                    "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
+                    indexNames.stream().collect(joining(",\n  ")),
+                    type,
+                    from,
+                    to
+            ));
+        }
+        SearchResponse response = elasticSearchClient
+                .prepareSearch(indexNames.stream().collect(joining(",")))
+                .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
+                .setTypes(type)
+                .setQuery(timeRange(from, to))
+                .addSort(timeFieldName, SortOrder.ASC)
+                .setSize(0) // We are after aggregation and not the search hits
+                .addAggregation(percentiles("idporten_login_percentiles").field(filter.getMeasurementId()).percentiles(filter.getPercentile()))
+                .execute().actionGet();
+        double percentileValue = ((Percentiles)response.getAggregations().get("idporten_login_percentiles")).percentile(filter.getPercentile());
+        logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
+        response = elasticSearchClient
+                .prepareSearch(indexNames.stream().collect(joining(",")))
+                .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
+                .setTypes(type)
+                .setQuery(timeRange(from, to))
+                .setPostFilter(QueryBuilders.rangeQuery(filter.getMeasurementId()).gt(percentileValue))
+                .addSort(timeFieldName, SortOrder.ASC)
+                .setSize(10_000) // 10 000 is maximum
+                .execute().actionGet();
+        List<TimeSeriesPoint> series = new ArrayList<>();
+        logger.info("Search result:\n" + response);
+        for (SearchHit hit : response.getHits()) {
+            series.add(point(hit));
+        }
+        return series;
+    }
+
+    private RangeQueryBuilder timeRange(ZonedDateTime from, ZonedDateTime to) {
+        return QueryBuilders.rangeQuery(timeFieldName).from(dateTimeFormatter.format(from)).to(dateTimeFormatter.format(to));
     }
 
     private TimeSeriesPoint point(SearchHit hit) {
