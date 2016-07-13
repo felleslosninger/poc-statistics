@@ -23,16 +23,19 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
 
 import static io.restassured.RestAssured.get;
 import static io.restassured.RestAssured.given;
 import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoUnit.DAYS;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
@@ -43,7 +46,7 @@ public class StatisticsIT {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final static String timeSeriesName = "test";
     private final static String measurementId = "count";
-    private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 13, 30, 31, 123, UTC);
+    private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 13, 30, 31, 123, ZoneId.of("UTC"));
     private static Client elasticsearchClient;
     private static String apiBaseUrl;
     private static ObjectMapper objectMapper;
@@ -217,6 +220,19 @@ public class StatisticsIT {
         assertPercentile(40, points, resultingPoints);
     }
 
+    @Test
+    public void givenMinuteSeriesWhenQueryingForMonthPointsThenSummarizedMinutesAreReturned() throws IOException {
+        int[] points = {13, 11, 546, 234, 3455, 547547, 574, 3, 3454, 5, 1244, 674, 566, 5667, 56, 777, 235, 9000};
+        indexMinutePointsFrom(now.truncatedTo(DAYS), points);
+        List<TimeSeriesPoint> resultingPoints = months(
+                timeSeriesName,
+                now.truncatedTo(DAYS), now.truncatedTo(DAYS).plusDays(1).minusMinutes(1)
+        );
+        assertEquals(1, size(resultingPoints));
+        assertEquals(IntStream.of(points).sum(), measurementValue(0, resultingPoints));
+        assertEquals(truncate(now, ChronoUnit.MONTHS), timestamp(0, resultingPoints));
+    }
+
     private void assertPercentile(int percent, int[] points, List<TimeSeriesPoint> resultingPoints) {
         int index = new BigDecimal(percent).multiply(new BigDecimal(points.length))
                 .divide(new BigDecimal(100)).round(new MathContext(0, RoundingMode.UP)).intValue();
@@ -227,21 +243,37 @@ public class StatisticsIT {
         }
     }
 
-    private int[] sort(int[] src) {
+    private static ZonedDateTime truncate(ZonedDateTime timestamp, ChronoUnit toUnit) {
+        switch (toUnit) {
+            case YEARS:
+                return ZonedDateTime.of(timestamp.getYear(), 1, 1, 0, 0, 0, 0, timestamp.getZone());
+            case MONTHS:
+                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), 1, 0, 0, 0, 0, timestamp.getZone());
+            case DAYS:
+                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), timestamp.getDayOfMonth(), 0, 0, 0, 0, timestamp.getZone());
+        }
+        return timestamp.truncatedTo(toUnit);
+    }
+
+    private static int[] sort(int[] src) {
         int[] dst = src.clone();
         Arrays.sort(dst);
         return dst;
     }
 
-    private int measurementValue(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
+    private static ZonedDateTime timestamp(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
+        return timeSeries.get(i).getTimestamp();
+    }
+
+    private static int measurementValue(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
         return measurementValue(timeSeries.get(i));
     }
 
-    private int measurementValue(TimeSeriesPoint point) {
+    private static int measurementValue(TimeSeriesPoint point) {
         return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
-    private int size(List<TimeSeriesPoint> timeSeries) throws IOException {
+    private static int size(List<TimeSeriesPoint> timeSeries) throws IOException {
         return timeSeries.size();
     }
 

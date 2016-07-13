@@ -8,7 +8,11 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
+import org.elasticsearch.search.aggregations.metrics.sum.Sum;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +29,9 @@ import static no.difi.statistics.util.IndexNameResolver.resolveHourIndexNames;
 import static no.difi.statistics.util.IndexNameResolver.resolveMinuteIndexNames;
 import static no.difi.statistics.util.IndexNameResolver.resolveMonthIndexNames;
 import static no.difi.statistics.util.IndexNameResolver.resolveYearIndexNames;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.dateHistogram;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.sum;
 
 public class Statistics {
 
@@ -44,7 +50,7 @@ public class Statistics {
     }
 
     public List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
-        return search(resolveMinuteIndexNames(seriesName, from, to), type, from, to, filter);
+        return searchWithPercentileFilter(resolveMinuteIndexNames(seriesName, from, to), type, from, to, filter);
     }
 
     public List<TimeSeriesPoint> hours(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
@@ -56,7 +62,12 @@ public class Statistics {
     }
 
     public List<TimeSeriesPoint> months(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveMonthIndexNames(seriesName, from, to), type, from, to);
+        List<TimeSeriesPoint> result = search(resolveMonthIndexNames(seriesName, from, to), type, from, to);
+        if (result.isEmpty()) {
+            logger.info("Empty result for month series search. Attempting to aggregate minute series...");
+            result = sumAggregatePerMonth(resolveMinuteIndexNames(seriesName, from, to), type, from, to);
+        }
+        return result;
     }
 
     public List<TimeSeriesPoint> years(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
@@ -91,7 +102,40 @@ public class Statistics {
         return series;
     }
 
-    private List<TimeSeriesPoint> search(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+    private List<TimeSeriesPoint> sumAggregatePerMonth(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to) {
+        if (logger.isDebugEnabled()) {
+            logger.debug(format(
+                    "Executing sum aggregate for per month:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
+                    indexNames.stream().collect(joining(",\n  ")),
+                    type,
+                    from,
+                    to
+            ));
+        }
+        SearchResponse response = elasticSearchClient
+                .prepareSearch(indexNames.stream().collect(joining(",")))
+                .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
+                .setTypes(type)
+                .setQuery(timeRange(from, to))
+                .addSort(timeFieldName, SortOrder.ASC)
+                .addAggregation(
+                        dateHistogram("per_month").field("timestamp").interval(DateHistogramInterval.MONTH)
+                        .subAggregation(sum("count").field("count")) // TODO: Need sub-(sum-)aggregation per (integral) field in source documents
+                )
+                .setSize(0) // We are after aggregation and not the search hits
+                .execute().actionGet();
+        List<TimeSeriesPoint> series = new ArrayList<>();
+        if (logger.isDebugEnabled()) {
+            logger.debug("Search result:\n" + response);
+        }
+        Histogram histogram = response.getAggregations().get("per_month");
+        for (Histogram.Bucket bucket : histogram.getBuckets()) {
+            series.add(point(bucket));
+        }
+        return series;
+    }
+
+    private List<TimeSeriesPoint> searchWithPercentileFilter(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
                     "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
@@ -137,8 +181,16 @@ public class Statistics {
         return TimeSeriesPoint.builder().timestamp(time(hit)).measurements(measurements(hit)).build();
     }
 
+    private TimeSeriesPoint point(Histogram.Bucket bucket) {
+        return TimeSeriesPoint.builder().timestamp(time(bucket.getKeyAsString())).measurements(measurements(bucket)).build();
+    }
+
     private ZonedDateTime time(SearchHit hit) {
-        return ZonedDateTime.parse(hit.getSource().get(timeFieldName).toString(), dateTimeFormatter);
+        return time(hit.getSource().get(timeFieldName).toString());
+    }
+
+    private ZonedDateTime time(String value) {
+        return ZonedDateTime.parse(value, dateTimeFormatter);
     }
 
     private List<Measurement> measurements(SearchHit hit) {
@@ -147,6 +199,14 @@ public class Statistics {
             int value = Integer.valueOf(hit.getSource().get(field).toString());
             measurements.add(new Measurement(field, value));
         });
+        return measurements;
+    }
+
+    private List<Measurement> measurements(Histogram.Bucket bucket) {
+        List<Measurement> measurements = new ArrayList<>();
+        for (Aggregation sum : bucket.getAggregations()) {
+            measurements.add(new Measurement(sum.getName(), (int)((Sum)sum).getValue()));
+        }
         return measurements;
     }
 
