@@ -10,6 +10,7 @@ import no.difi.statistics.model.TimeSeriesPoint;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -23,16 +24,17 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.List;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 import static io.restassured.RestAssured.get;
 import static io.restassured.RestAssured.given;
 import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoUnit.DAYS;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
@@ -43,7 +45,7 @@ public class StatisticsIT {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final static String timeSeriesName = "test";
     private final static String measurementId = "count";
-    private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 13, 30, 31, 123, UTC);
+    private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 13, 30, 31, 123, ZoneId.of("UTC"));
     private static Client elasticsearchClient;
     private static String apiBaseUrl;
     private static ObjectMapper objectMapper;
@@ -217,6 +219,40 @@ public class StatisticsIT {
         assertPercentile(40, points, resultingPoints);
     }
 
+    @Test
+    public void givenMinuteSeriesWhenQueryingForMonthPointsThenSummarizedMinutesAreReturned() throws IOException {
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        indexMinutePoints(points);
+        List<TimeSeriesPoint> resultingPoints = months(
+                timeSeriesName,
+                now.truncatedTo(DAYS),
+                now.truncatedTo(DAYS).plusMinutes(100)
+        );
+        assertEquals(1, size(resultingPoints));
+        assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1).intValue());
+        assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1).intValue());
+        assertEquals(truncate(now, ChronoUnit.MONTHS), timestamp(0, resultingPoints));
+    }
+
+    private int sum(String measurementId, List<TimeSeriesPoint> points) {
+        return points.stream().map(p -> p.getMeasurement(measurementId)).map(Optional::get).mapToInt(Measurement::getValue).sum();
+    }
+
+    private List<TimeSeriesPoint> createRandomTimeSeries(ZonedDateTime from, ChronoUnit unit, long size, String...measurementIds) {
+        List<TimeSeriesPoint> points = new ArrayList<>();
+        Random randomGenerator = new Random();
+        ZonedDateTime timestamp = from;
+        for (int i = 0; i < size; i++) {
+            TimeSeriesPoint.Builder pointBuilder = TimeSeriesPoint.builder().timestamp(timestamp);
+            for (int j = 0; j < measurementIds.length; j++) {
+                pointBuilder.measurement(measurementIds[j], randomGenerator.nextInt(1_000));
+            }
+            points.add(pointBuilder.build());
+            timestamp = timestamp.plus(1, unit);
+        }
+        return points;
+    }
+
     private void assertPercentile(int percent, int[] points, List<TimeSeriesPoint> resultingPoints) {
         int index = new BigDecimal(percent).multiply(new BigDecimal(points.length))
                 .divide(new BigDecimal(100)).round(new MathContext(0, RoundingMode.UP)).intValue();
@@ -227,26 +263,47 @@ public class StatisticsIT {
         }
     }
 
-    private int[] sort(int[] src) {
+    private static ZonedDateTime truncate(ZonedDateTime timestamp, ChronoUnit toUnit) {
+        switch (toUnit) {
+            case YEARS:
+                return ZonedDateTime.of(timestamp.getYear(), 1, 1, 0, 0, 0, 0, timestamp.getZone());
+            case MONTHS:
+                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), 1, 0, 0, 0, 0, timestamp.getZone());
+            case DAYS:
+                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), timestamp.getDayOfMonth(), 0, 0, 0, 0, timestamp.getZone());
+        }
+        return timestamp.truncatedTo(toUnit);
+    }
+
+    private static int[] sort(int[] src) {
         int[] dst = src.clone();
         Arrays.sort(dst);
         return dst;
     }
 
-    private int measurementValue(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
+    private static ZonedDateTime timestamp(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
+        return timeSeries.get(i).getTimestamp();
+    }
+
+    private static int measurementValue(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
         return measurementValue(timeSeries.get(i));
     }
 
-    private int measurementValue(TimeSeriesPoint point) {
+    private static int measurementValue(TimeSeriesPoint point) {
         return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
-    private int size(List<TimeSeriesPoint> timeSeries) throws IOException {
+    private static int size(List<TimeSeriesPoint> timeSeries) throws IOException {
         return timeSeries.size();
     }
 
     private List<TimeSeriesPoint> parseJson(String json) throws IOException {
         return objectMapper.readValue(json, new TypeReference<List<TimeSeriesPoint>>(){});
+    }
+
+    private void indexMinutePoints(List<TimeSeriesPoint> minutePoints) throws IOException {
+        for (TimeSeriesPoint point : minutePoints)
+            indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, point.getTimestamp()), "total", point);
     }
 
     private void indexMinutePointsFrom(ZonedDateTime timestamp, int...values) throws IOException {
@@ -300,23 +357,25 @@ public class StatisticsIT {
         indexTimeSeriesPoint(indexNameForMonthSeries(timeSeriesName, timestamp), "total", timestamp, value);
     }
 
-    private void indexTimeSeriesPoint(String indexName, String type, ZonedDateTime timestamp, int value) throws IOException {
+    private void indexTimeSeriesPoint(String indexName, String type, TimeSeriesPoint point) throws IOException {
         logger.info(format(
-                "Executing indexing:\nIndex: %s\nType: %s\nTimestamp: %s\nValue: %d",
+                "Executing indexing:\nIndex: %s\nType: %s\nPoint: %s",
                 indexName,
                 type,
-                timestamp,
-                value
+                point
         ));
+        XContentBuilder sourceBuilder = jsonBuilder().startObject()
+                .field("timestamp", formatTimestamp(point.getTimestamp()));
+        for (Measurement measurement : point.getMeasurements())
+            sourceBuilder.field(measurement.getId(), measurement.getValue());
         elasticsearchClient.prepareIndex(indexName, type)
-                .setSource(
-                        jsonBuilder().startObject()
-                                .field("timestamp", formatTimestamp(timestamp))
-                                .field(measurementId, value)
-                                .endObject()
-                )
+                .setSource(sourceBuilder.endObject())
                 .setRefresh(true) // Make document immediately searchable for the purpose of this test
                 .get();
+    }
+
+    private void indexTimeSeriesPoint(String indexName, String type, ZonedDateTime timestamp, int value) throws IOException {
+        indexTimeSeriesPoint(indexName, type, TimeSeriesPoint.builder().timestamp(timestamp).measurement(measurementId, value).build());
     }
 
     private List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
