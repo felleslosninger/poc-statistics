@@ -1,7 +1,10 @@
 package no.difi.statistics.api;
 
+import com.google.common.collect.ImmutableMap;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
+import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
@@ -9,6 +12,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
@@ -21,17 +25,13 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
-import static no.difi.statistics.util.IndexNameResolver.resolveDayIndexNames;
-import static no.difi.statistics.util.IndexNameResolver.resolveHourIndexNames;
-import static no.difi.statistics.util.IndexNameResolver.resolveMinuteIndexNames;
-import static no.difi.statistics.util.IndexNameResolver.resolveMonthIndexNames;
-import static no.difi.statistics.util.IndexNameResolver.resolveYearIndexNames;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.dateHistogram;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.sum;
+import static java.util.stream.Collectors.toList;
+import static no.difi.statistics.util.IndexNameResolver.*;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.*;
 
 public class Statistics {
 
@@ -85,7 +85,7 @@ public class Statistics {
             ));
         }
         SearchResponse response = elasticSearchClient
-                .prepareSearch(indexNames.stream().collect(joining(",")))
+                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(type)
                 .setQuery(timeRange(from, to))
@@ -105,32 +105,29 @@ public class Statistics {
     private List<TimeSeriesPoint> sumAggregatePerMonth(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
-                    "Executing sum aggregate for per month:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
+                    "Executing sum aggregate per month:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
                     indexNames.stream().collect(joining(",\n  ")),
                     type,
                     from,
                     to
             ));
         }
-        SearchResponse response = elasticSearchClient
-                .prepareSearch(indexNames.stream().collect(joining(",")))
+        SearchRequestBuilder requestBuilder = elasticSearchClient
+                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(type)
                 .setQuery(timeRange(from, to))
                 .addSort(timeFieldName, SortOrder.ASC)
-                .addAggregation(
-                        dateHistogram("per_month").field("timestamp").interval(DateHistogramInterval.MONTH)
-                        .subAggregation(sum("count").field("count")) // TODO: Need sub-(sum-)aggregation per (integral) field in source documents
-                )
-                .setSize(0) // We are after aggregation and not the search hits
-                .execute().actionGet();
-        List<TimeSeriesPoint> series = new ArrayList<>();
+                .addAggregation(dateHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames, type)))
+                .setSize(0); // We are after aggregation and not the search hits
+        SearchResponse response = requestBuilder.execute().actionGet();
         if (logger.isDebugEnabled()) {
             logger.debug("Search result:\n" + response);
         }
-        Histogram histogram = response.getAggregations().get("per_month");
-        for (Histogram.Bucket bucket : histogram.getBuckets()) {
-            series.add(point(bucket));
+        List<TimeSeriesPoint> series = new ArrayList<>();
+        if (response.getAggregations() != null) {
+            Histogram histogram = response.getAggregations().get("per_month");
+            series.addAll(histogram.getBuckets().stream().map(this::point).collect(toList()));
         }
         return series;
     }
@@ -146,7 +143,7 @@ public class Statistics {
             ));
         }
         SearchResponse response = elasticSearchClient
-                .prepareSearch(indexNames.stream().collect(joining(",")))
+                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(type)
                 .setQuery(timeRange(from, to))
@@ -171,6 +168,24 @@ public class Statistics {
             series.add(point(hit));
         }
         return series;
+    }
+
+    private List<String> measurementIds(List<String> indexNames, String type) {
+        Map<String, GetFieldMappingsResponse.FieldMappingMetaData> fieldMapping =
+                elasticSearchClient.admin().indices()
+                        .prepareGetFieldMappings(indexNames.toArray(new String[indexNames.size()]))
+                        .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
+                        .addTypes(type)
+                        .setFields("*")
+                        .get().mappings().entrySet().stream().findFirst().map(m -> m.getValue().get(type)).orElse(ImmutableMap.of());
+        return fieldMapping.keySet().stream().filter(f -> !f.equals("timestamp") && !f.startsWith("_")).collect(toList());
+    }
+
+    private DateHistogramBuilder dateHistogramBuilder(String name, DateHistogramInterval interval, List<String> measurementIds) {
+        DateHistogramBuilder builder = dateHistogram(name).field("timestamp").interval(interval);
+        for (String measurementId : measurementIds)
+            builder.subAggregation(sum(measurementId).field(measurementId));
+        return builder;
     }
 
     private RangeQueryBuilder timeRange(ZonedDateTime from, ZonedDateTime to) {

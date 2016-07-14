@@ -10,6 +10,7 @@ import no.difi.statistics.model.TimeSeriesPoint;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -27,10 +28,8 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.IntStream;
 
 import static io.restassured.RestAssured.get;
 import static io.restassured.RestAssured.given;
@@ -222,15 +221,36 @@ public class StatisticsIT {
 
     @Test
     public void givenMinuteSeriesWhenQueryingForMonthPointsThenSummarizedMinutesAreReturned() throws IOException {
-        int[] points = {13, 11, 546, 234, 3455, 547547, 574, 3, 3454, 5, 1244, 674, 566, 5667, 56, 777, 235, 9000};
-        indexMinutePointsFrom(now.truncatedTo(DAYS), points);
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        indexMinutePoints(points);
         List<TimeSeriesPoint> resultingPoints = months(
                 timeSeriesName,
-                now.truncatedTo(DAYS), now.truncatedTo(DAYS).plusDays(1).minusMinutes(1)
+                now.truncatedTo(DAYS),
+                now.truncatedTo(DAYS).plusMinutes(100)
         );
         assertEquals(1, size(resultingPoints));
-        assertEquals(IntStream.of(points).sum(), measurementValue(0, resultingPoints));
+        assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1).intValue());
+        assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1).intValue());
         assertEquals(truncate(now, ChronoUnit.MONTHS), timestamp(0, resultingPoints));
+    }
+
+    private int sum(String measurementId, List<TimeSeriesPoint> points) {
+        return points.stream().map(p -> p.getMeasurement(measurementId)).map(Optional::get).mapToInt(Measurement::getValue).sum();
+    }
+
+    private List<TimeSeriesPoint> createRandomTimeSeries(ZonedDateTime from, ChronoUnit unit, long size, String...measurementIds) {
+        List<TimeSeriesPoint> points = new ArrayList<>();
+        Random randomGenerator = new Random();
+        ZonedDateTime timestamp = from;
+        for (int i = 0; i < size; i++) {
+            TimeSeriesPoint.Builder pointBuilder = TimeSeriesPoint.builder().timestamp(timestamp);
+            for (int j = 0; j < measurementIds.length; j++) {
+                pointBuilder.measurement(measurementIds[j], randomGenerator.nextInt(1_000));
+            }
+            points.add(pointBuilder.build());
+            timestamp = timestamp.plus(1, unit);
+        }
+        return points;
     }
 
     private void assertPercentile(int percent, int[] points, List<TimeSeriesPoint> resultingPoints) {
@@ -279,6 +299,11 @@ public class StatisticsIT {
 
     private List<TimeSeriesPoint> parseJson(String json) throws IOException {
         return objectMapper.readValue(json, new TypeReference<List<TimeSeriesPoint>>(){});
+    }
+
+    private void indexMinutePoints(List<TimeSeriesPoint> minutePoints) throws IOException {
+        for (TimeSeriesPoint point : minutePoints)
+            indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, point.getTimestamp()), "total", point);
     }
 
     private void indexMinutePointsFrom(ZonedDateTime timestamp, int...values) throws IOException {
@@ -332,23 +357,25 @@ public class StatisticsIT {
         indexTimeSeriesPoint(indexNameForMonthSeries(timeSeriesName, timestamp), "total", timestamp, value);
     }
 
-    private void indexTimeSeriesPoint(String indexName, String type, ZonedDateTime timestamp, int value) throws IOException {
+    private void indexTimeSeriesPoint(String indexName, String type, TimeSeriesPoint point) throws IOException {
         logger.info(format(
-                "Executing indexing:\nIndex: %s\nType: %s\nTimestamp: %s\nValue: %d",
+                "Executing indexing:\nIndex: %s\nType: %s\nPoint: %s",
                 indexName,
                 type,
-                timestamp,
-                value
+                point
         ));
+        XContentBuilder sourceBuilder = jsonBuilder().startObject()
+                .field("timestamp", formatTimestamp(point.getTimestamp()));
+        for (Measurement measurement : point.getMeasurements())
+            sourceBuilder.field(measurement.getId(), measurement.getValue());
         elasticsearchClient.prepareIndex(indexName, type)
-                .setSource(
-                        jsonBuilder().startObject()
-                                .field("timestamp", formatTimestamp(timestamp))
-                                .field(measurementId, value)
-                                .endObject()
-                )
+                .setSource(sourceBuilder.endObject())
                 .setRefresh(true) // Make document immediately searchable for the purpose of this test
                 .get();
+    }
+
+    private void indexTimeSeriesPoint(String indexName, String type, ZonedDateTime timestamp, int value) throws IOException {
+        indexTimeSeriesPoint(indexName, type, TimeSeriesPoint.builder().timestamp(timestamp).measurement(measurementId, value).build());
     }
 
     private List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {

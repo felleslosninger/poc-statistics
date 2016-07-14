@@ -47,6 +47,11 @@ public class TimeSeriesPoint {
             return this;
         }
 
+        public Builder measurement(String measurementId, int measurement) {
+            instance.measurements.add(new Measurement(measurementId, measurement));
+            return this;
+        }
+
         public Builder measurement(Measurement measurement) {
             instance.measurements.add(measurement);
             return this;
