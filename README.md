@@ -16,7 +16,7 @@ Du må ha følgende installert:
 
 Du trenger også nettverkstilgang til Difi sin [artifakt-brønn](http://eid-artifactory.dmz.local:8080).
 
-### Lag Docker-bilder .
+### Lag Docker-bilder
 
 Dette bygger Docker-bilder for prosjektets artifakter.
 
