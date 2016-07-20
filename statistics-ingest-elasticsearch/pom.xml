@@ -59,7 +59,7 @@
                             </run>
                         </image>
                         <image>
-                            <name>elasticsearch</name>
+                            <name>elasticsearch:2.3</name>
                             <alias>elasticsearch</alias>
                             <run>
                                 <namingStrategy>alias</namingStrategy>

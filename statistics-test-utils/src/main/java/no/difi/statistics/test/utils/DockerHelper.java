@@ -1,4 +1,4 @@
-package no.difi.statistics.helper;
+package no.difi.statistics.test.utils;
 
 import io.fabric8.docker.api.model.Container;
 import io.fabric8.docker.api.model.Port;
@@ -9,7 +9,6 @@ import io.fabric8.docker.client.DockerClient;
 
 import java.net.URI;
 
-import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 
 public class DockerHelper {

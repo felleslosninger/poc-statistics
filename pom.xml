@@ -8,6 +8,7 @@
     <artifactId>statistics</artifactId>
     <packaging>pom</packaging>
     <version>DEV-SNAPSHOT</version>
+
     <modules>
         <module>statistics-query</module>
         <module>statistics-query-elasticsearch</module>
@@ -16,6 +17,8 @@
         <module>statistics-common-elasticsearch</module>
         <module>statistics-query-model</module>
         <module>statistics-ingest-elasticsearch</module>
+        <module>statistics-ingest-influxdb</module>
+        <module>statistics-test-utils</module>
     </modules>
 
     <properties>
@@ -75,13 +78,18 @@
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-client</artifactId>
                 <version>1.0.16</version>
-                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>io.rest-assured</groupId>
                 <artifactId>rest-assured</artifactId>
                 <version>3.0.0</version>
                 <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
         </dependencies>
     </dependencyManagement>

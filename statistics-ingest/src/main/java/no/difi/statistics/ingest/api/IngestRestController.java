@@ -1,0 +1,33 @@
+package no.difi.statistics.ingest.api;
+
+import no.difi.statistics.ingest.IngestService;
+import no.difi.statistics.model.TimeSeriesPoint;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+
+import static java.lang.String.format;
+
+@RestController
+public class IngestRestController {
+
+    private IngestService ingestService;
+
+    public IngestRestController(IngestService ingestService) {
+        this.ingestService = ingestService;
+    }
+
+    @GetMapping("/")
+    public String index() throws IOException {
+        return format(
+                "Statistics Ingest version %s",
+                System.getProperty("difi.version", "N/A")
+        );
+    }
+
+    @RequestMapping(method = RequestMethod.POST, path = "minutes/{timeSeriesName}")
+    public void minute(String timeSeriesName, @RequestBody TimeSeriesPoint dataPoint) {
+        ingestService.minute(timeSeriesName, dataPoint);
+    }
+
+}

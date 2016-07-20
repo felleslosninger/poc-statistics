@@ -9,41 +9,26 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>statistics-query-elasticsearch</artifactId>
+    <artifactId>statistics-ingest-influxdb</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>no.difi.statistics</groupId>
-            <artifactId>statistics-query</artifactId>
+            <artifactId>statistics-ingest</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>no.difi.statistics</groupId>
-            <artifactId>statistics-common-elasticsearch</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>no.difi.statistics</groupId>
-            <artifactId>statistics-query</artifactId>
-            <version>${project.version}</version>
-            <type>test-jar</type>
-            <scope>test</scope>
+            <groupId>org.influxdb</groupId>
+            <artifactId>influxdb-java</artifactId>
+            <version>2.2</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
         </dependency>
         <dependency>
             <groupId>no.difi.statistics</groupId>
@@ -52,8 +37,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>io.rest-assured</groupId>
-            <artifactId>rest-assured</artifactId>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>2.7.5</version>
         </dependency>
     </dependencies>
 
@@ -69,8 +55,8 @@
                     <systemPropertyVariables>
                         <no.difi.statistics.host>${docker.host.address}</no.difi.statistics.host>
                         <no.difi.statistics.port>${statistics.port}</no.difi.statistics.port>
-                        <no.difi.statistics.elasticsearch.host>${docker.host.address}</no.difi.statistics.elasticsearch.host>
-                        <no.difi.statistics.elasticsearch.port>${elasticsearch.port}</no.difi.statistics.elasticsearch.port>
+                        <no.difi.statistics.influxdb.host>${docker.host.address}</no.difi.statistics.influxdb.host>
+                        <no.difi.statistics.influxdb.port>${influxdb.port}</no.difi.statistics.influxdb.port>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -100,41 +86,36 @@
                             <run>
                                 <namingStrategy>alias</namingStrategy>
                                 <ports>
-                                    <port>statistics.port:8080</port>
+                                    <port>statistics.ingest.port:8080</port>
                                     <port>5005:5005</port>
                                 </ports>
                                 <wait>
                                     <http>
-                                        <url>http://${docker.host.address}:${statistics.port}</url>
+                                        <url>http://${docker.host.address}:${statistics.ingest.port}</url>
                                         <method>GET</method>
                                         <status>200</status>
                                     </http>
                                     <time>200000</time>
                                 </wait>
                                 <links>
-                                    <link>elasticsearch</link>
+                                    <link>influxdb</link>
                                 </links>
+                                <env>
+                                    <no.difi.statistics.influxdb.host>influxdb</no.difi.statistics.influxdb.host>
+                                    <no.difi.statistics.influxdb.port>8086</no.difi.statistics.influxdb.port>
+                                </env>
                                 <log/>
                             </run>
                         </image>
                         <image>
-                            <name>elasticsearch:2.3</name>
-                            <alias>elasticsearch</alias>
+                            <name>influxdb:0.13.0</name>
+                            <alias>influxdb</alias>
                             <run>
                                 <namingStrategy>alias</namingStrategy>
                                 <ports>
-                                    <!-- Need to make port available for integration test which ingests data directly -->
-                                    <port>elasticsearch.port:9300</port>
-                                    <port>elasticsearch.rest.port:9200</port>
+                                    <!-- TODO: Don't need to bind port, as it is reached through Docker's network -->
+                                    <port>influxdb.port:8086</port>
                                 </ports>
-                                <wait>
-                                    <http>
-                                        <url>http://${docker.host.address}:${elasticsearch.rest.port}</url>
-                                        <method>GET</method>
-                                        <status>200</status>
-                                    </http>
-                                    <time>200000</time>
-                                </wait>
                             </run>
                         </image>
                     </images>
