@@ -2,7 +2,12 @@ package no.difi.statistics.ingest.api;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.TimeSeriesPoint;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 
@@ -26,7 +31,7 @@ public class IngestRestController {
     }
 
     @RequestMapping(method = RequestMethod.POST, path = "minutes/{timeSeriesName}")
-    public void minute(String timeSeriesName, @RequestBody TimeSeriesPoint dataPoint) {
+    public void minute(@PathVariable String timeSeriesName, @RequestBody TimeSeriesPoint dataPoint) {
         ingestService.minute(timeSeriesName, dataPoint);
     }
 
