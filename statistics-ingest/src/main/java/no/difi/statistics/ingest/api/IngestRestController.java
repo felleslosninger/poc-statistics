@@ -30,9 +30,9 @@ public class IngestRestController {
         );
     }
 
-    @RequestMapping(method = RequestMethod.POST, path = "minutes/{timeSeriesName}")
-    public void minute(@PathVariable String timeSeriesName, @RequestBody TimeSeriesPoint dataPoint) {
-        ingestService.minute(timeSeriesName, dataPoint);
+    @RequestMapping(method = RequestMethod.POST, path = "minutes/{timeSeriesName}/{dataType}")
+    public void minute(@PathVariable String timeSeriesName, @PathVariable String dataType, @RequestBody TimeSeriesPoint dataPoint) {
+        ingestService.minute(timeSeriesName, dataType, dataPoint);
     }
 
 }

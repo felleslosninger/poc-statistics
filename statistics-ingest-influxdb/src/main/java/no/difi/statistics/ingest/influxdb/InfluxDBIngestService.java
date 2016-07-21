@@ -17,13 +17,13 @@ public class InfluxDBIngestService implements IngestService {
     }
 
     @Override
-    public void minute(String timeSeriesName, TimeSeriesPoint dataPoint) {
+    public void minute(String timeSeriesName, String dataType, TimeSeriesPoint dataPoint) {
         client.createDatabase(timeSeriesName);
-        Point.Builder influxPoint = Point.measurement("tom")
+        Point.Builder influxPoint = Point.measurement(dataType)
                 .time(dataPoint.getTimestamp().toInstant().toEpochMilli(), TimeUnit.MILLISECONDS);
         for (Measurement measurement : dataPoint.getMeasurements())
             influxPoint.addField(measurement.getId(), measurement.getValue());
-        client.write(timeSeriesName, "default", influxPoint.build());
+        client.write(timeSeriesName, null, influxPoint.build());
     }
 
 }
