@@ -2,8 +2,8 @@ package no.difi.statistics.ingest.elasticsearch.config;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.ingest.elasticsearch.ElasticsearchIngestService;
-import no.difi.statistics.ingest.elasticsearch.poc.DifiAdminIngester;
-import no.difi.statistics.ingest.elasticsearch.poc.RandomIngester;
+import no.difi.statistics.ingest.poc.DifiAdminIngester;
+import no.difi.statistics.ingest.poc.RandomIngester;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;

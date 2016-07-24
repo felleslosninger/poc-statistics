@@ -49,7 +49,7 @@ public class IngestIT {
                 .measurement("test", 103)
                 .build();
         given().contentType("application/json").body(objectMapper.writeValueAsString(point))
-                .when().post(apiBaseUrl + "/minutes/test")
+                .when().post(apiBaseUrl + "/minutes/test/default")
                 .then().assertThat().statusCode(200);
     }
 

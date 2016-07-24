@@ -1,4 +1,4 @@
-package no.difi.statistics.ingest.influxdb.poc;
+package no.difi.statistics.ingest.poc;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.Measurement;

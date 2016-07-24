@@ -26,11 +26,11 @@ public class ElasticsearchIngestService implements IngestService {
     }
 
     @Override
-    public void minute(String timeSeriesName, TimeSeriesPoint dataPoint) {
-        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, dataPoint.getTimestamp()), "", dataPoint);
+    public void minute(String timeSeriesName, String dataType, TimeSeriesPoint dataPoint) {
+        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, dataPoint.getTimestamp()), dataType, dataPoint);
     }
 
-    void indexTimeSeriesPoint(String indexName, String indexType, TimeSeriesPoint dataPoint) {
+    private void indexTimeSeriesPoint(String indexName, String indexType, TimeSeriesPoint dataPoint) {
         byte[] document = document(dataPoint);
         logger.info(format("Ingesting: Index=%s Type=%s Point=%s", indexName, indexType, new String(document, Charset.forName("UTF-8"))));
         if (indexType == null || indexType.trim().isEmpty()) {
@@ -40,7 +40,7 @@ public class ElasticsearchIngestService implements IngestService {
         client.prepareIndex(indexName, indexType).setSource(document).get();
     }
 
-    String indexNameForMinuteSeries(String baseName, ZonedDateTime timestamp) {
+    private String indexNameForMinuteSeries(String baseName, ZonedDateTime timestamp) {
         return format(
                 "%s:minute%s",
                 baseName,

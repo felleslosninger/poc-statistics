@@ -1,4 +1,4 @@
-package no.difi.statistics.ingest.elasticsearch.poc;
+package no.difi.statistics.ingest.poc;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.Measurement;
@@ -9,7 +9,7 @@ import org.springframework.boot.ApplicationRunner;
 import java.time.ZonedDateTime;
 import java.util.Random;
 
-public class RandomIngester implements ApplicationRunner{
+public class RandomIngester implements ApplicationRunner {
 
     private IngestService service;
 
@@ -19,12 +19,14 @@ public class RandomIngester implements ApplicationRunner{
 
     @Override
     public void run(ApplicationArguments applicationArguments) throws Exception {
+        if (!applicationArguments.containsOption("from")) return;
         ApplicationArgumentsReader argumentsReader = new ApplicationArgumentsReader(applicationArguments);
         Random random = new Random();
         for (ZonedDateTime t = argumentsReader.from(); t.isBefore(argumentsReader.to()); t = t.plusMinutes(1)) {
             int value = random.nextInt();
             service.minute(
                     "random",
+                    "default",
                     TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", value)).build()
             );
         }

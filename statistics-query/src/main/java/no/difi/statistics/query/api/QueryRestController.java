@@ -1,17 +1,15 @@
-package no.difi.statistics.api;
+package no.difi.statistics.query.api;
 
-import no.difi.statistics.QueryService;
+import no.difi.statistics.query.QueryService;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpRequest;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,12 +29,7 @@ public class QueryRestController {
         this.service = service;
     }
 
-    @ExceptionHandler
-    public void handleException(HttpRequest request, Exception exception) {
-        logger.error("Request " + request.getMethod() + " " + request.getURI() + " failed", exception);
-    }
-
-    @GetMapping("/")
+    @RequestMapping("/")
     public String index() throws IOException {
         return format(
                 "Statistics API version %s",
@@ -44,7 +37,7 @@ public class QueryRestController {
         );
     }
 
-    @GetMapping("minutes/{seriesName}/{type}")
+    @RequestMapping("minutes/{seriesName}/{type}")
     public List<TimeSeriesPoint> minutes(
             @PathVariable String seriesName,
             @PathVariable String type,
@@ -54,7 +47,7 @@ public class QueryRestController {
         return service.minutes(seriesName, type, from, to);
     }
 
-    @PostMapping("minutes/{seriesName}/{type}")
+    @RequestMapping(method = RequestMethod.POST, path = "minutes/{seriesName}/{type}")
     public List<TimeSeriesPoint> minutesAbovePercentile(
             @PathVariable String seriesName,
             @PathVariable String type,
@@ -65,7 +58,7 @@ public class QueryRestController {
         return service.minutes(seriesName, type, from, to, filter);
     }
 
-    @GetMapping("hours/{seriesName}/{type}")
+    @RequestMapping("hours/{seriesName}/{type}")
     public List<TimeSeriesPoint> hours(
             @PathVariable String seriesName,
             @PathVariable String type,
@@ -75,7 +68,7 @@ public class QueryRestController {
         return service.hours(seriesName, type, from, to);
     }
 
-    @GetMapping("days/{seriesName}/{type}")
+    @RequestMapping("days/{seriesName}/{type}")
     public List<TimeSeriesPoint> days(
             @PathVariable String seriesName,
             @PathVariable String type,
@@ -85,7 +78,7 @@ public class QueryRestController {
         return service.days(seriesName, type, from, to);
     }
 
-    @GetMapping("months/{seriesName}/{type}")
+    @RequestMapping("months/{seriesName}/{type}")
     public List<TimeSeriesPoint> months(
             @PathVariable String seriesName,
             @PathVariable String type,
@@ -95,7 +88,7 @@ public class QueryRestController {
         return service.months(seriesName, type, from, to);
     }
 
-    @GetMapping("years/{seriesName}/{type}")
+    @RequestMapping("years/{seriesName}/{type}")
     public List<TimeSeriesPoint> years(
             @PathVariable String seriesName,
             @PathVariable String type,

@@ -5,11 +5,13 @@ import no.difi.statistics.ingest.influxdb.config.AppConfig;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.test.utils.DockerHelper;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.boot.SpringApplication;
 
 import java.time.ZonedDateTime;
 
+@Ignore
 public class InfluxDBIngestServiceIT {
 
     private final static DockerHelper dockerHelper = new DockerHelper();

@@ -1,13 +1,12 @@
 package no.difi.statistics.query.elasticsearch.config;
 
-import no.difi.statistics.QueryService;
-import no.difi.statistics.api.QueryRestController;
+import no.difi.statistics.query.QueryService;
+import no.difi.statistics.query.config.BackendConfig;
 import no.difi.statistics.query.elasticsearch.ElasticsearchQueryService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -16,17 +15,12 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 @Configuration
-@EnableAutoConfiguration
-public class AppConfig {
+public class ElasticsearchConfig implements BackendConfig {
 
     @Autowired
     private Environment environment;
 
-    @Bean
-    public QueryRestController api() {
-        return new QueryRestController(queryService());
-    }
-
+    @Override
     @Bean
     public QueryService queryService() {
         return new ElasticsearchQueryService(elasticSearchClient());

@@ -1,4 +1,4 @@
-package no.difi.statistics.ingest.influxdb.poc;
+package no.difi.statistics.ingest.poc;
 
 import org.springframework.boot.ApplicationArguments;
 
