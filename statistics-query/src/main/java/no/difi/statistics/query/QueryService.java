@@ -1,4 +1,4 @@
-package no.difi.statistics;
+package no.difi.statistics.query;
 
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;

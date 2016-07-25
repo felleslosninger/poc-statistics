@@ -1,4 +1,4 @@
-package no.difi.statistics.ingest.elasticsearch.poc;
+package no.difi.statistics.ingest.poc;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.Measurement;
@@ -27,6 +27,7 @@ public class DifiAdminIngester implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments applicationArguments) throws Exception {
+        if (!applicationArguments.containsOption("from")) return;
         ApplicationArgumentsReader argumentsReader = new ApplicationArgumentsReader(applicationArguments);
         for (ZonedDateTime t = argumentsReader.from(); t.isBefore(argumentsReader.to()); t = t.plusMinutes(1)) {
             URL url = new URL(format(urlTemplate, dtFormatter.format(t), dtFormatter.format(t.plusMinutes(1))));
@@ -34,30 +35,38 @@ public class DifiAdminIngester implements ApplicationRunner {
                 JsonReader reader = Json.createReader(response);
                 for (JsonValue jsonValue : reader.readArray()) {
                     JsonArray fields = ((JsonObject)jsonValue).getJsonArray("fields");
-                    service.minute("idporten-login", dataPoint(t, fields));
+                    service.minute(timeSeriesName(), dataPoint(t, fields));
                 }
             }
         }
     }
 
+    private String timeSeriesName() {
+        return "idporten-login";
+    }
+
     private TimeSeriesPoint dataPoint(ZonedDateTime timestamp, JsonArray fields) {
-        String serviceProvider = fields.getJsonObject(0).getString("value");
         return TimeSeriesPoint.builder()
                 .timestamp(timestamp)
-                .measurement(new Measurement(measurementId(serviceProvider, "MinID"), fields.getJsonObject(4).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "MinID OTC"), fields.getJsonObject(5).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "MinID PIN"), fields.getJsonObject(6).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "BuyPass"), fields.getJsonObject(7).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "Commfides"), fields.getJsonObject(8).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "Federated"), fields.getJsonObject(9).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "BankID"), fields.getJsonObject(10).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "eIDAS"), fields.getJsonObject(11).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "BankID mobil"), fields.getJsonObject(12).getInt("value")))
-                .measurement(new Measurement(measurementId(serviceProvider, "Alle"), fields.getJsonObject(13).getInt("value")))
+                .measurement(measurement("MinID", 4, fields))
+                .measurement(measurement("MinID OTC", 5, fields))
+                .measurement(measurement("MinID PIN", 6, fields))
+                .measurement(measurement("BuyPass", 7, fields))
+                .measurement(measurement("Commfides", 8, fields))
+                .measurement(measurement("Federated", 9, fields))
+                .measurement(measurement("BankID", 10, fields))
+                .measurement(measurement("eIDAS", 11, fields))
+                .measurement(measurement("BankID mobil", 12, fields))
+                .measurement(measurement("Alle", 13, fields))
                 .build();
     }
 
-    private String measurementId(String serviceProvider, String authenticationMethod) {
-        return serviceProvider + " (" + authenticationMethod + ")";
+    private Measurement measurement(String authenticationMethod, int index, JsonArray fields) {
+        return new Measurement(authenticationMethod + "[" + value(0, fields) + "]", value(index, fields));
     }
+
+    private int value(int index, JsonArray fields) {
+        return fields.getJsonObject(index).getInt("value");
+    }
+
 }

@@ -1,13 +1,16 @@
-package no.difi.statistics.api;
+package no.difi.statistics.query.api;
 
-import no.difi.statistics.QueryService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import no.difi.statistics.model.query.TimeSeriesFilter;
+import no.difi.statistics.query.config.AppConfig;
+import no.difi.statistics.query.config.BackendConfig;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -19,10 +22,10 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -30,29 +33,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Tests the REST API in isolation with Spring Mock MVC as driver and a Mockito-stubbed service.
  */
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration
+@ContextConfiguration(classes = {AppConfig.class, MockBackendConfig.class})
 @WebAppConfiguration
 public class QueryRestControllerTest {
-
-    @Configuration
-    public static class Config {
-
-        @Bean
-        public QueryRestController api() {
-            return new QueryRestController(queryService());
-        }
-
-        @Bean
-        public QueryService queryService() {
-            return mock(QueryService.class);
-        }
-
-    }
 
     @Autowired
     private WebApplicationContext springContext;
     @Autowired
-    private QueryService statistics;
+    private BackendConfig backendConfig;
     private MockMvc mockMvc;
 
     @Before
@@ -61,8 +49,27 @@ public class QueryRestControllerTest {
     }
 
     @Test
-    public void test() {
-
+    public void whenSendingRequestWithFilterThenServiceReceivesCorrespondingRequest() throws Exception {
+        final String timeSeries = "a_series";
+        final String from = "2013-10-12T12:13:13.123+02:00";
+        final String to = "2013-10-12T13:13:13.123+02:00";
+        TimeSeriesFilter filter = new TimeSeriesFilter(3, "anId");
+        ResultActions result;
+        result = mockMvc.perform(
+                post("/minutes/{series}/total", timeSeries)
+                        .param("from", from)
+                        .param("to", to)
+                        .content(json(filter))
+                        .contentType(MediaType.APPLICATION_JSON_UTF8)
+        );
+        assertNormalResponse(result);
+        verify(backendConfig.queryService()).minutes(
+                timeSeries,
+                "total",
+                parseTimestamp(from),
+                parseTimestamp(to),
+                filter
+        );
     }
 
     @Test
@@ -71,7 +78,7 @@ public class QueryRestControllerTest {
         final String timeSeries = "test";
         ResultActions result = mockMvc.perform(get("/minutes/{series}/total", timeSeries));
         assertNormalResponse(result);
-        verify(statistics).minutes(
+        verify(backendConfig.queryService()).minutes(
                 timeSeries,
                 "total",
                 null,
@@ -86,11 +93,11 @@ public class QueryRestControllerTest {
         final String timeSeries = "test";
         ResultActions result = mockMvc.perform(get("/minutes/{series}/total", timeSeries).param("to", endTime));
         assertNormalResponse(result);
-        verify(statistics).minutes(
+        verify(backendConfig.queryService()).minutes(
                 timeSeries,
                 "total",
                 null,
-                ZonedDateTime.parse(endTime, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                parseTimestamp(endTime)
         );
     }
 
@@ -101,12 +108,20 @@ public class QueryRestControllerTest {
         final String timeSeries = "test";
         ResultActions result = mockMvc.perform(get("/minutes/{series}/total", timeSeries).param("from", startTime));
         assertNormalResponse(result);
-        verify(statistics).minutes(
+        verify(backendConfig.queryService()).minutes(
                 timeSeries,
                 "total",
-                ZonedDateTime.parse(startTime, DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                parseTimestamp(startTime),
                 null
         );
+    }
+
+    private ZonedDateTime parseTimestamp(String timestamp) {
+        return ZonedDateTime.parse(timestamp, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+    }
+
+    private byte[] json(Object o) throws JsonProcessingException {
+        return new ObjectMapper().writeValueAsBytes(o);
     }
 
     private void assertNormalResponse(ResultActions result) throws Exception {

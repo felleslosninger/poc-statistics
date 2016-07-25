@@ -1,4 +1,4 @@
-package no.difi.statistics.helper;
+package no.difi.statistics.test.utils;
 
 import io.fabric8.docker.api.model.Container;
 import io.fabric8.docker.api.model.Port;
@@ -9,7 +9,6 @@ import io.fabric8.docker.client.DockerClient;
 
 import java.net.URI;
 
-import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 
 public class DockerHelper {
@@ -20,7 +19,9 @@ public class DockerHelper {
     public DockerHelper() {
         Config config = new ConfigBuilder().build();
         if (config.getDockerUrl() == null) throw new IllegalStateException("Environment variable DOCKER_HOST not set");
-        address = URI.create(config.getDockerUrl().replace("///", "//")).getHost();
+        address = config.getDockerUrl().startsWith("unix:") ?
+                        "localhost" :
+                        URI.create(config.getDockerUrl().replace("///", "//")).getHost();
         if (address == null) throw new IllegalArgumentException("Environment variable DOCKER_HOST has invalid value: " + config.getDockerUrl());
         client = new DefaultDockerClient(config);
     }

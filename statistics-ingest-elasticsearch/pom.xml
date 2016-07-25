@@ -17,6 +17,10 @@
             <artifactId>statistics-ingest</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -59,7 +63,7 @@
                             </run>
                         </image>
                         <image>
-                            <name>elasticsearch</name>
+                            <name>elasticsearch:2.3</name>
                             <alias>elasticsearch</alias>
                             <run>
                                 <namingStrategy>alias</namingStrategy>

@@ -8,6 +8,7 @@
     <artifactId>statistics</artifactId>
     <packaging>pom</packaging>
     <version>DEV-SNAPSHOT</version>
+
     <modules>
         <module>statistics-query</module>
         <module>statistics-query-elasticsearch</module>
@@ -16,6 +17,8 @@
         <module>statistics-common-elasticsearch</module>
         <module>statistics-query-model</module>
         <module>statistics-ingest-elasticsearch</module>
+        <module>statistics-ingest-influxdb</module>
+        <module>statistics-test-utils</module>
     </modules>
 
     <properties>
@@ -75,13 +78,18 @@
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-client</artifactId>
                 <version>1.0.16</version>
-                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>io.rest-assured</groupId>
                 <artifactId>rest-assured</artifactId>
                 <version>3.0.0</version>
                 <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -172,7 +180,7 @@
                                 <build>
                                     <from>java:openjdk-8-jdk-alpine</from>
                                     <entryPoint>
-                                        ["java","-jar","-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005","-Ddifi.version=${difi.version}","/maven/${project.artifactId}.${project.packaging}"]
+                                        ["java","-jar","-Ddifi.version=${difi.version}","/maven/${project.artifactId}.${project.packaging}"]
                                     </entryPoint>
                                 </build>
                                 <name>docker-registry.dmz.local/${project.artifactId}:${project.version}</name>
@@ -249,25 +257,15 @@
 
     <repositories>
         <repository>
-            <id>central</id>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <name>libs-release</name>
-            <url>http://eid-artifactory.dmz.local:8080/artifactory/libs-release</url>
+            <id>spring-milestones</id>
+            <url>http://repo.spring.io/milestone</url>
         </repository>
     </repositories>
-
     <pluginRepositories>
         <pluginRepository>
-            <id>central</id>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <name>plugins-release</name>
-            <url>http://eid-artifactory.dmz.local:8080/artifactory/plugins-release</url>
+            <id>spring-milestones</id>
+            <url>http://repo.spring.io/milestone</url>
         </pluginRepository>
     </pluginRepositories>
-
 
 </project>

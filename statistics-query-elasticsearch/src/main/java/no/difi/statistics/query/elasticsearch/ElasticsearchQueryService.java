@@ -1,7 +1,7 @@
 package no.difi.statistics.query.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
-import no.difi.statistics.QueryService;
+import no.difi.statistics.query.QueryService;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;

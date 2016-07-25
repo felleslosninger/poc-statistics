@@ -40,4 +40,22 @@ public class TimeSeriesFilter {
 
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        TimeSeriesFilter that = (TimeSeriesFilter) o;
+
+        if (percentile != that.percentile) return false;
+        return measurementId != null ? measurementId.equals(that.measurementId) : that.measurementId == null;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = percentile;
+        result = 31 * result + (measurementId != null ? measurementId.hashCode() : 0);
+        return result;
+    }
 }
