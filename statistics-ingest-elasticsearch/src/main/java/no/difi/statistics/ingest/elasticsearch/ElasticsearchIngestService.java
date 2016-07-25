@@ -26,8 +26,8 @@ public class ElasticsearchIngestService implements IngestService {
     }
 
     @Override
-    public void minute(String timeSeriesName, String dataType, TimeSeriesPoint dataPoint) {
-        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, dataPoint.getTimestamp()), dataType, dataPoint);
+    public void minute(String timeSeriesName, TimeSeriesPoint dataPoint) {
+        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, dataPoint.getTimestamp()), "", dataPoint);
     }
 
     private void indexTimeSeriesPoint(String indexName, String indexType, TimeSeriesPoint dataPoint) {

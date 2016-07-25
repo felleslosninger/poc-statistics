@@ -41,6 +41,12 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
             <version>2.7.5</version>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>1.1.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -87,7 +93,6 @@
                                 <namingStrategy>alias</namingStrategy>
                                 <ports>
                                     <port>statistics.ingest.port:8080</port>
-                                    <port>5005:5005</port>
                                 </ports>
                                 <wait>
                                     <http>

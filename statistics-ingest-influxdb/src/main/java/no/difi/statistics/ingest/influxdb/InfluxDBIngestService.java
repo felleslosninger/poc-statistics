@@ -11,19 +11,20 @@ import java.util.concurrent.TimeUnit;
 public class InfluxDBIngestService implements IngestService {
 
     private InfluxDB client;
+    private static final String databaseName = "default";
 
     public InfluxDBIngestService(InfluxDB client) {
         this.client = client;
     }
 
     @Override
-    public void minute(String timeSeriesName, String dataType, TimeSeriesPoint dataPoint) {
-        client.createDatabase(timeSeriesName);
-        Point.Builder influxPoint = Point.measurement(dataType)
+    public void minute(String timeSeriesName, TimeSeriesPoint dataPoint) {
+        client.createDatabase(databaseName); // Does a CREATE DATABASE IF NOT EXISTS
+        Point.Builder influxPoint = Point.measurement(timeSeriesName)
                 .time(dataPoint.getTimestamp().toInstant().toEpochMilli(), TimeUnit.MILLISECONDS);
         for (Measurement measurement : dataPoint.getMeasurements())
             influxPoint.addField(measurement.getId(), measurement.getValue());
-        client.write(timeSeriesName, null, influxPoint.build());
+        client.write(databaseName, null, influxPoint.build());
     }
 
 }

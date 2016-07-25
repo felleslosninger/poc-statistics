@@ -35,7 +35,7 @@ public class DifiAdminIngester implements ApplicationRunner {
                 JsonReader reader = Json.createReader(response);
                 for (JsonValue jsonValue : reader.readArray()) {
                     JsonArray fields = ((JsonObject)jsonValue).getJsonArray("fields");
-                    service.minute(timeSeriesName(), dataType(fields), dataPoint(t, fields));
+                    service.minute(timeSeriesName(), dataPoint(t, fields));
                 }
             }
         }
@@ -45,28 +45,28 @@ public class DifiAdminIngester implements ApplicationRunner {
         return "idporten-login";
     }
 
-    private String dataType(JsonArray fields) {
-        return fields.getJsonObject(0).getString("value").replaceAll(",", "_");
-    }
-
-    private String measurementId(String authenticationMethod) {
-        return authenticationMethod;
-    }
-
     private TimeSeriesPoint dataPoint(ZonedDateTime timestamp, JsonArray fields) {
         return TimeSeriesPoint.builder()
                 .timestamp(timestamp)
-                .measurement(new Measurement(measurementId("MinID"), fields.getJsonObject(4).getInt("value")))
-                .measurement(new Measurement(measurementId("MinID OTC"), fields.getJsonObject(5).getInt("value")))
-                .measurement(new Measurement(measurementId("MinID PIN"), fields.getJsonObject(6).getInt("value")))
-                .measurement(new Measurement(measurementId("BuyPass"), fields.getJsonObject(7).getInt("value")))
-                .measurement(new Measurement(measurementId("Commfides"), fields.getJsonObject(8).getInt("value")))
-                .measurement(new Measurement(measurementId("Federated"), fields.getJsonObject(9).getInt("value")))
-                .measurement(new Measurement(measurementId("BankID"), fields.getJsonObject(10).getInt("value")))
-                .measurement(new Measurement(measurementId("eIDAS"), fields.getJsonObject(11).getInt("value")))
-                .measurement(new Measurement(measurementId("BankID mobil"), fields.getJsonObject(12).getInt("value")))
-                .measurement(new Measurement(measurementId("Alle"), fields.getJsonObject(13).getInt("value")))
+                .measurement(measurement("MinID", 4, fields))
+                .measurement(measurement("MinID OTC", 5, fields))
+                .measurement(measurement("MinID PIN", 6, fields))
+                .measurement(measurement("BuyPass", 7, fields))
+                .measurement(measurement("Commfides", 8, fields))
+                .measurement(measurement("Federated", 9, fields))
+                .measurement(measurement("BankID", 10, fields))
+                .measurement(measurement("eIDAS", 11, fields))
+                .measurement(measurement("BankID mobil", 12, fields))
+                .measurement(measurement("Alle", 13, fields))
                 .build();
+    }
+
+    private Measurement measurement(String authenticationMethod, int index, JsonArray fields) {
+        return new Measurement(authenticationMethod + "[" + value(0, fields) + "]", value(index, fields));
+    }
+
+    private int value(int index, JsonArray fields) {
+        return fields.getJsonObject(index).getInt("value");
     }
 
 }

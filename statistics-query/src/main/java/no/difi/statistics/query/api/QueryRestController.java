@@ -22,7 +22,6 @@ import static java.lang.String.format;
 @RestController
 public class QueryRestController {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
     private QueryService service;
 
     public QueryRestController(QueryService service) {

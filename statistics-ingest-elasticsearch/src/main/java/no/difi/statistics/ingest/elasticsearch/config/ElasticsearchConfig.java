@@ -1,9 +1,8 @@
 package no.difi.statistics.ingest.elasticsearch.config;
 
 import no.difi.statistics.ingest.IngestService;
+import no.difi.statistics.ingest.config.BackendConfig;
 import no.difi.statistics.ingest.elasticsearch.ElasticsearchIngestService;
-import no.difi.statistics.ingest.poc.DifiAdminIngester;
-import no.difi.statistics.ingest.poc.RandomIngester;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -13,38 +12,32 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 @Configuration
 @EnableAutoConfiguration
-public class AppConfig {
+public class ElasticsearchConfig implements BackendConfig {
 
     @Autowired
     private Environment environment;
 
     @Bean
-    public IngestService ingestService() throws UnknownHostException {
+    @Override
+    public IngestService ingestService() {
         return new ElasticsearchIngestService(elasticSearchClient());
     }
 
     @Bean(destroyMethod = "close")
-    public Client elasticSearchClient() throws UnknownHostException {
+    public Client elasticSearchClient() {
         String host = environment.getRequiredProperty("no.difi.statistics.elasticsearch.host");
         int port = environment.getRequiredProperty("no.difi.statistics.elasticsearch.port", Integer.class);
-        return TransportClient.builder().build()
-                .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host), port));
-    }
-
-    @Bean
-    public RandomIngester randomIngester() throws IOException {
-        return new RandomIngester(ingestService());
-    }
-
-    @Bean
-    public DifiAdminIngester difiAdminIngester() throws UnknownHostException {
-        return new DifiAdminIngester(ingestService());
+        try {
+            return TransportClient.builder().build()
+                    .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host), port));
+        } catch (UnknownHostException e) {
+            throw new RuntimeException("Failed to create Elasticsearch client", e);
+        }
     }
 
 }
