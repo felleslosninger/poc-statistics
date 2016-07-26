@@ -1,11 +1,18 @@
 package no.difi.statistics.model;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
 
 @XmlRootElement
 public class TimeSeriesPoint {
@@ -69,6 +76,18 @@ public class TimeSeriesPoint {
 
     }
 
+    /**
+     * Use custom deserializer to maintain immutability property
+     */
+    static class TimeSeriesPointJsonDeserializer extends JsonDeserializer<TimeSeriesPoint> {
+
+        @Override
+        public TimeSeriesPoint deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
+            JsonNode node = parser.getCodec().readTree(parser);
+            return TimeSeriesPoint.builder().timestamp(ZonedDateTime.parse(node.get("timestamp").asText())).measurement(node.get("measurement").get("id").asText(), node.get("measurement").get("value").asInt()).build();
+        }
+
+    }
     @Override
     public String toString() {
         return "TimeSeriesPoint{" +
