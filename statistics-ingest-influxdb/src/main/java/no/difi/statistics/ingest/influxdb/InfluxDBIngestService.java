@@ -24,7 +24,7 @@ public class InfluxDBIngestService implements IngestService {
                 .time(dataPoint.getTimestamp().toInstant().toEpochMilli(), TimeUnit.MILLISECONDS);
         for (Measurement measurement : dataPoint.getMeasurements())
             influxPoint.addField(measurement.getId(), measurement.getValue());
-        client.write(databaseName, null, influxPoint.build());
+        client.write(databaseName, null, InfluxDB.ConsistencyLevel.ALL, influxPoint.build().lineProtocol());
     }
 
 }

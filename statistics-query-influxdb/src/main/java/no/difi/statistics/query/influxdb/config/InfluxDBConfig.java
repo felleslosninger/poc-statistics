@@ -1,8 +1,8 @@
-package no.difi.statistics.ingest.influxdb.config;
+package no.difi.statistics.query.influxdb.config;
 
-import no.difi.statistics.ingest.IngestService;
-import no.difi.statistics.ingest.config.BackendConfig;
-import no.difi.statistics.ingest.influxdb.InfluxDBIngestService;
+import no.difi.statistics.query.QueryService;
+import no.difi.statistics.query.config.BackendConfig;
+import no.difi.statistics.query.influxdb.InfluxDBQueryService;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,16 +18,19 @@ public class InfluxDBConfig implements BackendConfig {
 
     @Override
     @Bean
-    public IngestService ingestService() {
-        return new InfluxDBIngestService(influxdbClient());
+    public QueryService queryService() {
+        return new InfluxDBQueryService(influxDBClient());
     }
 
     @Bean
-    public InfluxDB influxdbClient() {
+    public InfluxDB influxDBClient() {
         String host = environment.getRequiredProperty("no.difi.statistics.influxdb.host");
         int port = environment.getRequiredProperty("no.difi.statistics.influxdb.port", Integer.class);
-        return InfluxDBFactory.connect(format("http://%s:%d", host, port), "root", "root");
+        return InfluxDBFactory.connect(format(
+                "http://%s:%d",
+                host,
+                port
+        ), "root", "root");
     }
-
 
 }

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.restassured.response.Response;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
+import no.difi.statistics.test.utils.DataGenerator;
 import no.difi.statistics.test.utils.DockerHelper;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -13,23 +14,19 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.net.UnknownHostException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.List;
 
 import static io.restassured.RestAssured.get;
 import static io.restassured.RestAssured.given;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static no.difi.statistics.test.utils.DataOperations.*;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 
 public abstract class AbstractQueryIT {
 
@@ -61,8 +58,8 @@ public abstract class AbstractQueryIT {
     public void givenMinuteSeriesWhenQueryingForRangeInsideSeriesThenCorrespondingDataPointsAreReturned() throws IOException, InterruptedException {
         indexMinutePointsFrom(now.minusMinutes(1003), 1003, 1002, 1001, 1000);
         List<TimeSeriesPoint> timeSeries = minutes(timeSeriesName, now.minusMinutes(1002), now.minusMinutes(1001));
-        assertEquals(1002, measurementValue(0, timeSeries));
-        assertEquals(1001, measurementValue(1, timeSeries));
+        assertEquals(1002, measurementValue(measurementId, 0, timeSeries));
+        assertEquals(1001, measurementValue(measurementId, 1, timeSeries));
     }
 
     @Test
@@ -87,8 +84,8 @@ public abstract class AbstractQueryIT {
         indexHourPointsFrom(now.minusHours(1003), 1003, 1002, 1001, 1000);
         List<TimeSeriesPoint> timeSeries = hours(timeSeriesName, now.minusHours(1002), now.minusHours(1001));
         assertEquals(2, size(timeSeries));
-        assertEquals(1002, measurementValue(0, timeSeries));
-        assertEquals(1001, measurementValue(1, timeSeries));
+        assertEquals(1002, measurementValue(measurementId, 0, timeSeries));
+        assertEquals(1001, measurementValue(measurementId, 1, timeSeries));
     }
 
     @Test
@@ -113,8 +110,8 @@ public abstract class AbstractQueryIT {
         indexDayPointsFrom(now.minusDays(1003), 1003, 1002, 1001, 1000);
         List<TimeSeriesPoint> timeSeries = days(timeSeriesName, now.minusDays(1002), now.minusDays(1001));
         assertEquals(2, size(timeSeries));
-        assertEquals(1002, measurementValue(0, timeSeries));
-        assertEquals(1001, measurementValue(1, timeSeries));
+        assertEquals(1002, measurementValue(measurementId, 0, timeSeries));
+        assertEquals(1001, measurementValue(measurementId, 1, timeSeries));
     }
 
     @Test
@@ -139,8 +136,8 @@ public abstract class AbstractQueryIT {
         indexMonthPointsFrom(now.minusMonths(1003), 1003, 1002, 1001, 1000);
         List<TimeSeriesPoint> timeSeries = months(timeSeriesName, now.minusMonths(1002), now.minusMonths(1001));
         assertEquals(2, size(timeSeries));
-        assertEquals(1002, measurementValue(0, timeSeries));
-        assertEquals(1001, measurementValue(1, timeSeries));
+        assertEquals(1002, measurementValue(measurementId, 0, timeSeries));
+        assertEquals(1001, measurementValue(measurementId, 1, timeSeries));
     }
 
     @Test
@@ -165,8 +162,8 @@ public abstract class AbstractQueryIT {
         indexYearPointsFrom(now.minusYears(4), 4, 3, 2, 1);
         List<TimeSeriesPoint> timeSeries = years(timeSeriesName, now.minusYears(3), now.minusYears(2));
         assertEquals(2, size(timeSeries));
-        assertEquals(3, measurementValue(0, timeSeries));
-        assertEquals(2, measurementValue(1, timeSeries));
+        assertEquals(3, measurementValue(measurementId, 0, timeSeries));
+        assertEquals(2, measurementValue(measurementId, 1, timeSeries));
     }
 
     @Test
@@ -183,15 +180,15 @@ public abstract class AbstractQueryIT {
         assertEquals(4, size(timeSeries));
     }
 
-    @Test // 1, 2, 3, 4, 5, 8, 21, 44, 55, 89, 131, 700, 1000
+    @Test // 1, 2, 3, 4, 5, 8, 21, 44, 55, 89, 131, 200, 700, 1000
     public void givenMinuteSeriesWithSize14WhenQueryingForDataPointsWithMeasurementAbove92ndPercentileThenLargestMeasurementsFromPosition13AreReturned() throws IOException {
         int[] points = {1000, 4, 700, 1, 2, 3, 5, 44, 8, 21, 200, 131, 55, 89};
-        indexMinutePointsFrom(now.minusMinutes(14), points);
+        indexMinutePointsFrom(now.minusMinutes(50), points);
         List<TimeSeriesPoint> resultingPoints = minutesAbovePercentile(
                 92, measurementId, timeSeriesName,
                 now.minusMinutes(100), now.minusMinutes(0)
         );
-        assertPercentile(92, points, resultingPoints);
+        assertPercentile(92, points, measurementId, resultingPoints);
     }
 
     @Test // 3, 5, 11, 13, 56, 234, 235, 546, 566, 574, 674, 777, 1244, 3454, 3455, 5667, 9000, 547547
@@ -202,12 +199,12 @@ public abstract class AbstractQueryIT {
                 40, measurementId, timeSeriesName,
                 now.minusMinutes(301), now.minusMinutes(0)
         );
-        assertPercentile(40, points, resultingPoints);
+        assertPercentile(40, points, measurementId, resultingPoints);
     }
 
     @Test
     public void givenMinuteSeriesWhenQueryingForMonthPointsThenSummarizedMinutesAreReturned() throws IOException {
-        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        List<TimeSeriesPoint> points = DataGenerator.createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
         indexMinutePoints(points);
         List<TimeSeriesPoint> resultingPoints = months(
                 timeSeriesName,
@@ -218,69 +215,6 @@ public abstract class AbstractQueryIT {
         assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1).intValue());
         assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1).intValue());
         assertEquals(truncate(now, ChronoUnit.MONTHS).toInstant(), timestamp(0, resultingPoints).toInstant());
-    }
-
-    private int sum(String measurementId, List<TimeSeriesPoint> points) {
-        return points.stream().map(p -> p.getMeasurement(measurementId)).map(Optional::get).mapToInt(Measurement::getValue).sum();
-    }
-
-    private List<TimeSeriesPoint> createRandomTimeSeries(ZonedDateTime from, ChronoUnit unit, long size, String...measurementIds) {
-        List<TimeSeriesPoint> points = new ArrayList<>();
-        Random randomGenerator = new Random();
-        ZonedDateTime timestamp = from;
-        for (int i = 0; i < size; i++) {
-            TimeSeriesPoint.Builder pointBuilder = TimeSeriesPoint.builder().timestamp(timestamp);
-            for (int j = 0; j < measurementIds.length; j++) {
-                pointBuilder.measurement(measurementIds[j], randomGenerator.nextInt(1_000));
-            }
-            points.add(pointBuilder.build());
-            timestamp = timestamp.plus(1, unit);
-        }
-        return points;
-    }
-
-    private void assertPercentile(int percent, int[] points, List<TimeSeriesPoint> resultingPoints) {
-        int index = new BigDecimal(percent).multiply(new BigDecimal(points.length))
-                .divide(new BigDecimal(100)).round(new MathContext(0, RoundingMode.UP)).intValue();
-        int expectedPercentile = sort(points)[index-1];
-        assertEquals(points.length - index, resultingPoints.size());
-        for (TimeSeriesPoint point : resultingPoints) {
-            assertThat(measurementValue(point), greaterThanOrEqualTo(expectedPercentile));
-        }
-    }
-
-    private static ZonedDateTime truncate(ZonedDateTime timestamp, ChronoUnit toUnit) {
-        switch (toUnit) {
-            case YEARS:
-                return ZonedDateTime.of(timestamp.getYear(), 1, 1, 0, 0, 0, 0, timestamp.getZone());
-            case MONTHS:
-                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), 1, 0, 0, 0, 0, timestamp.getZone());
-            case DAYS:
-                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), timestamp.getDayOfMonth(), 0, 0, 0, 0, timestamp.getZone());
-        }
-        return timestamp.truncatedTo(toUnit);
-    }
-
-    private static int[] sort(int[] src) {
-        int[] dst = src.clone();
-        Arrays.sort(dst);
-        return dst;
-    }
-
-    private static ZonedDateTime timestamp(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
-        return timeSeries.get(i).getTimestamp();
-    }
-
-    private static int measurementValue(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
-        return measurementValue(timeSeries.get(i));
-    }
-
-    private static int measurementValue(TimeSeriesPoint point) {
-        return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
-    }
-
-    private static int size(List<TimeSeriesPoint> timeSeries) throws IOException {
-        return timeSeries.size();
     }
 
     private List<TimeSeriesPoint> parseJson(String json) throws IOException {
