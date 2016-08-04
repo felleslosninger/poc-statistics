@@ -1,4 +1,4 @@
-package no.difi.statistics.client.model;
+package no.difi.statistics.ingest.client.model;
 
 public class Measurement {
 

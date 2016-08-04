@@ -1,4 +1,4 @@
-package no.difi.statistics.client.model;
+package no.difi.statistics.ingest.client.model;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
