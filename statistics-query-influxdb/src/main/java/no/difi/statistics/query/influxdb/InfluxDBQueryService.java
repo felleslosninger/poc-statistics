@@ -68,6 +68,11 @@ public class InfluxDBQueryService implements QueryService {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public TimeSeriesPoint point(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
+        throw new UnsupportedOperationException();
+    }
+
     private List<TimeSeriesPoint> convert(QueryResult result) {
         return series(result).map(this::convert).orElse(emptyList());
     }

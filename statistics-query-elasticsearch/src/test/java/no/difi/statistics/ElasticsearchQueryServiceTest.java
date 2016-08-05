@@ -5,7 +5,6 @@ import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.elasticsearch.config.ElasticsearchConfig;
-import no.difi.statistics.test.utils.DataGenerator;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.junit.After;
@@ -35,9 +34,11 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import static java.time.temporal.ChronoUnit.DAYS;
+import static no.difi.statistics.test.utils.DataGenerator.createRandomTimeSeries;
 import static no.difi.statistics.test.utils.DataOperations.*;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(
@@ -51,7 +52,7 @@ public class ElasticsearchQueryServiceTest {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            GenericContainer backend = new GenericContainer("elasticsearch:2.3");
+            GenericContainer backend = new GenericContainer("elasticsearch:2.3.5");
             backend.start();
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),
@@ -235,7 +236,7 @@ public class ElasticsearchQueryServiceTest {
 
     @Test
     public void givenMinuteSeriesWhenQueryingForMonthPointsThenSummarizedMinutesAreReturned() throws IOException {
-        List<TimeSeriesPoint> points = DataGenerator.createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
         indexMinutePoints(points);
         List<TimeSeriesPoint> resultingPoints = months(
                 timeSeriesName,
@@ -248,13 +249,41 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(truncate(now, ChronoUnit.MONTHS).toInstant(), timestamp(0, resultingPoints).toInstant());
     }
 
-    private List<TimeSeriesPoint> minutes(String timeSeriesName, ZonedDateTime from, ZonedDateTime to) {
+    @Test
+    public void givenMinuteSeriesWhenQueryingForPeriodPointThenSingleSummarizedPointIsReturned() throws IOException {
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 78, "measurementA", "measurementB");
+        indexMinutePoints(points);
+        TimeSeriesPoint resultingPoint = point(
+                timeSeriesName,
+                now.truncatedTo(DAYS),
+                now.truncatedTo(DAYS).plusMinutes(100)
+        );
+        assertNotNull(resultingPoint);
+        assertEquals(sum("measurementA", points), measurementValue("measurementA", resultingPoint));
+        assertEquals(sum("measurementB", points), measurementValue("measurementB", resultingPoint));
+        assertEquals(now.truncatedTo(DAYS).toInstant(), resultingPoint.getTimestamp().toInstant());
+    }
+
+    private TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return restTemplate.exchange(
+                "/point/{seriesName}/{type}?from={from}&to={to}",
+                HttpMethod.GET,
+                null,
+                TimeSeriesPoint.class,
+                seriesName,
+                "total",
+                formatTimestamp(from),
+                formatTimestamp(to)
+        ).getBody();
+    }
+
+    private List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return restTemplate.exchange(
                 "/minutes/{seriesName}/{type}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
-                timeSeriesName,
+                seriesName,
                 "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -267,7 +296,7 @@ public class ElasticsearchQueryServiceTest {
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
-                timeSeriesName,
+                seriesName,
                 "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -280,7 +309,7 @@ public class ElasticsearchQueryServiceTest {
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
-                timeSeriesName,
+                seriesName,
                 "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -293,7 +322,7 @@ public class ElasticsearchQueryServiceTest {
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
-                timeSeriesName,
+                seriesName,
                 "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -306,7 +335,7 @@ public class ElasticsearchQueryServiceTest {
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
-                timeSeriesName,
+                seriesName,
                 "total",
                 formatTimestamp(from),
                 formatTimestamp(to)

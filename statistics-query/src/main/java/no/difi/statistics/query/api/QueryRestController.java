@@ -1,17 +1,10 @@
 package no.difi.statistics.query.api;
 
-import no.difi.statistics.query.QueryService;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import no.difi.statistics.query.QueryService;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.time.ZonedDateTime;
@@ -95,6 +88,16 @@ public class QueryRestController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
         return service.years(seriesName, type, from, to);
+    }
+
+    @RequestMapping("point/{seriesName}/{type}")
+    public TimeSeriesPoint point(
+            @PathVariable String seriesName,
+            @PathVariable String type,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+    ) {
+        return service.point(seriesName, type, from, to);
     }
 
 }
