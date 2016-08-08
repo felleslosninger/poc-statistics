@@ -9,12 +9,12 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>statistics-ingest-influxdb</artifactId>
+    <artifactId>statistics-query-influxdb</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>no.difi.statistics</groupId>
-            <artifactId>statistics-ingest</artifactId>
+            <artifactId>statistics-query</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -22,12 +22,18 @@
             <artifactId>influxdb-java</artifactId>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.rest-assured</groupId>
-            <artifactId>rest-assured</artifactId>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>no.difi.statistics</groupId>
@@ -36,12 +42,21 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>no.difi.statistics</groupId>
+            <artifactId>statistics-query</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -88,11 +103,11 @@
                             <run>
                                 <namingStrategy>alias</namingStrategy>
                                 <ports>
-                                    <port>statistics.ingest.port:8080</port>
+                                    <port>statistics.port:8080</port>
                                 </ports>
                                 <wait>
                                     <http>
-                                        <url>http://${docker.host.address}:${statistics.ingest.port}</url>
+                                        <url>http://${docker.host.address}:${statistics.port}</url>
                                         <method>GET</method>
                                         <status>200</status>
                                     </http>

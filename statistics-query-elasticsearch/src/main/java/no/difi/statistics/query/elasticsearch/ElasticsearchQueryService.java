@@ -151,18 +151,9 @@ public class ElasticsearchQueryService implements QueryService {
                     to
             ));
         }
-        SearchResponse response = elasticSearchClient
-                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
-                .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                .setTypes(type)
-                .setQuery(timeRange(from, to))
-                .addSort(timeFieldName, SortOrder.ASC)
-                .setSize(0) // We are after aggregation and not the search hits
-                .addAggregation(percentiles("idporten_login_percentiles").field(filter.getMeasurementId()).percentiles(filter.getPercentile()))
-                .execute().actionGet();
-        double percentileValue = ((Percentiles)response.getAggregations().get("idporten_login_percentiles")).percentile(filter.getPercentile());
+        double percentileValue = percentileValue(indexNames, type, filter.getMeasurementId(), filter.getPercentile(), from, to);
         logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
-        response = elasticSearchClient
+        SearchResponse response = elasticSearchClient
                 .prepareSearch(indexNames.stream().collect(joining(",")))
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(type)
@@ -177,6 +168,19 @@ public class ElasticsearchQueryService implements QueryService {
             series.add(point(hit));
         }
         return series;
+    }
+
+    private double percentileValue(List<String> indexNames, String type, String measurementId, int percentile, ZonedDateTime from, ZonedDateTime to) {
+        SearchResponse response = elasticSearchClient
+                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
+                .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
+                .setTypes(type)
+                .setQuery(timeRange(from, to))
+                .addSort(timeFieldName, SortOrder.ASC)
+                .setSize(0) // We are after aggregation and not the search hits
+                .addAggregation(percentiles("p").field(measurementId).percentiles(percentile).compression(10000))
+                .execute().actionGet();
+        return ((Percentiles)response.getAggregations().get("p")).percentile(percentile);
     }
 
     private List<String> measurementIds(List<String> indexNames, String type) {

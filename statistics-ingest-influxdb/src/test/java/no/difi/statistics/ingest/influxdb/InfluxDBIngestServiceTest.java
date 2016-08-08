@@ -1,41 +1,68 @@
 package no.difi.statistics.ingest.influxdb;
 
 import no.difi.statistics.ingest.IngestService;
+import no.difi.statistics.ingest.config.AppConfig;
+import no.difi.statistics.ingest.influxdb.config.InfluxDBConfig;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.influxdb.InfluxDB;
-import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
-import org.junit.Before;
-import org.junit.ClassRule;
+import org.junit.AfterClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.util.EnvironmentTestUtils;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringRunner;
 import org.testcontainers.containers.GenericContainer;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-import static java.lang.String.format;
 import static junit.framework.TestCase.assertFalse;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
+@SpringBootTest(
+        webEnvironment = RANDOM_PORT
+)
+@ContextConfiguration(classes = {AppConfig.class, InfluxDBConfig.class}, initializers = InfluxDBIngestServiceTest.Initializer.class)
+@RunWith(SpringRunner.class)
 public class InfluxDBIngestServiceTest {
 
-    @ClassRule
-    public static GenericContainer influxDB = new GenericContainer("influxdb:0.13.0");
+    // BeforeClass + "BeforeApplicationContext"
+    public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
-    private IngestService service;
-    private InfluxDB influxClient;
+        @Override
+        public void initialize(ConfigurableApplicationContext applicationContext) {
+            GenericContainer influxDB = new GenericContainer("influxdb:0.13.0");
+            influxDB.start();
+            EnvironmentTestUtils.addEnvironment(
+                    applicationContext.getEnvironment(),
+                    "no.difi.statistics.influxdb.host=" + influxDB.getContainerIpAddress(),
+                    "no.difi.statistics.influxdb.port=" + influxDB.getMappedPort(8086)
+            );
+            InfluxDBIngestServiceTest.influxDB = influxDB;
+        }
 
-    @Before
-    public void init() {
-        influxClient = InfluxDBFactory.connect(format(
-                "http://%s:%d",
-                influxDB.getContainerIpAddress(),
-                influxDB.getMappedPort(8086)
-        ), "root", "root");
-        service = new InfluxDBIngestService(influxClient);
     }
+
+    private static GenericContainer influxDB;
+
+    @AfterClass
+    public static void tearDown() {
+        influxDB.stop();
+    }
+
+    @Autowired
+    private IngestService service;
+    @Autowired
+    private InfluxDB influxClient;
 
     @Test
     public void givenADataPointWhenIngestingThenItCanBeFoundByQuery() {
@@ -49,6 +76,11 @@ public class InfluxDBIngestServiceTest {
                         .timestamp(timestamp)
                         .measurement(measurementId, measurementValue)
                         .build());
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         QueryResult result = influxClient.query(new Query("SELECT * from " + seriesName, "default"));
         assertDataPoint(seriesName, timestamp, measurementId, measurementValue, result);
     }
@@ -56,6 +88,7 @@ public class InfluxDBIngestServiceTest {
     private void assertDataPoint(String seriesName, ZonedDateTime timestamp, String measurementId, int measurementValue, QueryResult result) {
         assertFalse(result.hasError());
         assertEquals(1, result.getResults().size());
+        assertNotNull(result.getResults().get(0).getSeries());
         assertEquals(1, result.getResults().get(0).getSeries().size());
         QueryResult.Series series = result.getResults().get(0).getSeries().get(0);
         assertEquals(seriesName, series.getName());

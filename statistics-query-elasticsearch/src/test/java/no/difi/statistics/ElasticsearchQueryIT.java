@@ -8,6 +8,7 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.junit.After;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,6 +23,7 @@ import java.util.concurrent.ExecutionException;
 import static java.lang.String.format;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
+@Ignore
 public class ElasticsearchQueryIT extends AbstractQueryIT {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
