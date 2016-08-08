@@ -5,12 +5,13 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import no.difi.statistics.ingest.client.exception.DifiStatisticsException;
+import no.difi.statistics.ingest.client.exception.IngestException;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 
 public class IngestClient implements IngestService {
@@ -32,13 +33,21 @@ public class IngestClient implements IngestService {
         iso8601DateFormat = new ISO8601DateFormat();
     }
 
-    public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IOException, DifiStatisticsException {
-        URL url = new URL(SERVICE_BASE_URL + "/" + SERVICE_NAME + "/" + seriesName);
-        minute(url, timeSeriesPoint);
+    public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
+        URL url = null;
+        try {
+            url = new URL(SERVICE_BASE_URL + "/" + SERVICE_NAME + "/" + seriesName);
+        }catch(MalformedURLException e){
+            throw new IngestException("Could not create URL to IngestService", e);
+        }
+        try {
+            minute(url, timeSeriesPoint);
+        }catch(IOException e){
+            throw new IngestException("Could not call IngestService", e);
+        }
     }
 
-    protected void minute(URL url, TimeSeriesPoint timeSeriesPoint) throws IOException, DifiStatisticsException {
-
+    private void minute(URL url, TimeSeriesPoint timeSeriesPoint) throws IOException, IngestException {
         HttpURLConnection conn = getConnection(url);
         OutputStream outputStream = writeJsonToOutputStream(timeSeriesPoint, conn);
         outputStream.flush();
@@ -72,10 +81,10 @@ public class IngestClient implements IngestService {
                 .writerFor(TimeSeriesPoint.class);
     }
 
-    private void controlResponse(HttpURLConnection conn) throws IOException, DifiStatisticsException {
+    private void controlResponse(HttpURLConnection conn) throws IOException, IngestException {
         int responseCode = conn.getResponseCode();
         if (responseCode != HttpURLConnection.HTTP_OK) {
-            throw new DifiStatisticsException("Could not post to Ingest Service. Response code from service was" + responseCode);
+            throw new IngestException("Could not post to Ingest Service. Response code from service was" + responseCode);
         }
     }
 }
