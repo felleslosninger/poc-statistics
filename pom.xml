@@ -19,6 +19,7 @@
         <module>statistics-ingest-elasticsearch</module>
         <module>statistics-ingest-influxdb</module>
         <module>statistics-test-utils</module>
+        <module>statistics-client-ingest</module>
     </modules>
 
     <properties>
