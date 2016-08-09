@@ -148,21 +148,20 @@ public class InfluxDBQueryServiceTest {
     }
 
     private List<TimeSeriesPoint> minutes(String timeSeriesName, ZonedDateTime from, ZonedDateTime to) {
-        return getRequest("/minutes/{seriesName}/{type}?from={from}&to={to}", timeSeriesName, from, to);
+        return getRequest("/minutes/{seriesName}?from={from}&to={to}", timeSeriesName, from, to);
     }
 
     private List<TimeSeriesPoint> months(String timeSeriesName, ZonedDateTime from, ZonedDateTime to) {
-        return getRequest("/months/{seriesName}/{type}?from={from}&to={to}", timeSeriesName, from, to);
+        return getRequest("/months/{seriesName}?from={from}&to={to}", timeSeriesName, from, to);
     }
 
     private List<TimeSeriesPoint> minutesAbovePercentile(int percentile, String measurementId, String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/minutes/{seriesName}/{type}?from={from}&to={to}",
+                "/minutes/{seriesName}?from={from}&to={to}",
                 POST,
                 new HttpEntity<>(new TimeSeriesFilter(percentile, measurementId)),
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
                 seriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();
@@ -180,7 +179,6 @@ public class InfluxDBQueryServiceTest {
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
                 timeSeriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();

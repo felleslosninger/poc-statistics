@@ -266,12 +266,11 @@ public class ElasticsearchQueryServiceTest {
 
     private TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return restTemplate.exchange(
-                "/point/{seriesName}/{type}?from={from}&to={to}",
+                "/point/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 TimeSeriesPoint.class,
                 seriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();
@@ -279,12 +278,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return restTemplate.exchange(
-                "/minutes/{seriesName}/{type}?from={from}&to={to}",
+                "/minutes/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
                 seriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();
@@ -292,12 +290,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/hours/{seriesName}/{type}?from={from}&to={to}",
+                "/hours/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
                 seriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();
@@ -305,12 +302,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/days/{seriesName}/{type}?from={from}&to={to}",
+                "/days/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
                 seriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();
@@ -318,12 +314,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/months/{seriesName}/{type}?from={from}&to={to}",
+                "/months/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
                 seriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();
@@ -331,12 +326,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/years/{seriesName}/{type}?from={from}&to={to}",
+                "/years/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
                 seriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();
@@ -345,12 +339,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> minutesAbovePercentile(int percentile, String measurementId, String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/minutes/{seriesName}/{type}?from={from}&to={to}",
+                "/minutes/{seriesName}?from={from}&to={to}",
                 HttpMethod.POST,
                 new HttpEntity<>(new TimeSeriesFilter(percentile, measurementId)),
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
                 seriesName,
-                "total",
                 formatTimestamp(from),
                 formatTimestamp(to)
         ).getBody();
@@ -358,73 +351,73 @@ public class ElasticsearchQueryServiceTest {
 
     private void indexMinutePoints(List<TimeSeriesPoint> minutePoints) throws IOException {
         for (TimeSeriesPoint point : minutePoints)
-            indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, point.getTimestamp()), "total", point);
+            indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, point.getTimestamp()), point);
     }
 
     private void indexHourPoint(ZonedDateTime timestamp, int value) throws IOException {
-        indexTimeSeriesPoint(indexNameForHourSeries(timeSeriesName, timestamp), "total", timestamp, value);
+        indexTimeSeriesPoint(indexNameForHourSeries(timeSeriesName, timestamp), timestamp, value);
     }
 
     private void indexDayPoint(ZonedDateTime timestamp, int value) throws IOException {
-        indexTimeSeriesPoint(indexNameForDaySeries(timeSeriesName, timestamp), "total", timestamp, value);
+        indexTimeSeriesPoint(indexNameForDaySeries(timeSeriesName, timestamp), timestamp, value);
     }
 
     private void indexMonthPoint(ZonedDateTime timestamp, int value) throws IOException {
-        indexTimeSeriesPoint(indexNameForMonthSeries(timeSeriesName, timestamp), "total", timestamp, value);
+        indexTimeSeriesPoint(indexNameForMonthSeries(timeSeriesName, timestamp), timestamp, value);
     }
 
     private void indexMinutePointsFrom(ZonedDateTime timestamp, int... values) throws IOException {
         for (int value : values) {
-            indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, timestamp), "total", timestamp, value);
+            indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, timestamp), timestamp, value);
             timestamp = timestamp.plusMinutes(1);
         }
     }
 
     private void indexHourPointsFrom(ZonedDateTime timestamp, int... values) throws IOException {
         for (int value : values) {
-            indexTimeSeriesPoint(indexNameForHourSeries(timeSeriesName, timestamp), "total", timestamp, value);
+            indexTimeSeriesPoint(indexNameForHourSeries(timeSeriesName, timestamp), timestamp, value);
             timestamp = timestamp.plusHours(1);
         }
     }
 
     private void indexDayPointsFrom(ZonedDateTime timestamp, int... values) throws IOException {
         for (int value : values) {
-            indexTimeSeriesPoint(indexNameForDaySeries(timeSeriesName, timestamp), "total", timestamp, value);
+            indexTimeSeriesPoint(indexNameForDaySeries(timeSeriesName, timestamp), timestamp, value);
             timestamp = timestamp.plusDays(1);
         }
     }
 
     private void indexMonthPointsFrom(ZonedDateTime timestamp, int... values) throws IOException {
         for (int value : values) {
-            indexTimeSeriesPoint(indexNameForMonthSeries(timeSeriesName, timestamp), "total", timestamp, value);
+            indexTimeSeriesPoint(indexNameForMonthSeries(timeSeriesName, timestamp), timestamp, value);
             timestamp = timestamp.plusMonths(1);
         }
     }
 
     private void indexYearPointsFrom(ZonedDateTime timestamp, int... values) throws IOException {
         for (int value : values) {
-            indexTimeSeriesPoint(indexNameForYearSeries(timeSeriesName, timestamp), "total", timestamp, value);
+            indexTimeSeriesPoint(indexNameForYearSeries(timeSeriesName, timestamp), timestamp, value);
             timestamp = timestamp.plusYears(1);
         }
     }
 
     private void indexMinutePoint(ZonedDateTime timestamp, int value) throws IOException {
-        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, timestamp), "total", timestamp, value);
+        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, timestamp), timestamp, value);
     }
 
-    private void indexTimeSeriesPoint(String indexName, String type, TimeSeriesPoint point) throws IOException {
+    private void indexTimeSeriesPoint(String indexName, TimeSeriesPoint point) throws IOException {
         XContentBuilder sourceBuilder = jsonBuilder().startObject()
                 .field("timestamp", formatTimestamp(point.getTimestamp()));
         for (Measurement measurement : point.getMeasurements())
             sourceBuilder.field(measurement.getId(), measurement.getValue());
-        client.prepareIndex(indexName, type)
+        client.prepareIndex(indexName, "default")
                 .setSource(sourceBuilder.endObject())
                 .setRefresh(true) // Make document immediately searchable for the purpose of this test
                 .get();
     }
 
-    private void indexTimeSeriesPoint(String indexName, String type, ZonedDateTime timestamp, int value) throws IOException {
-        indexTimeSeriesPoint(indexName, type, TimeSeriesPoint.builder().timestamp(timestamp).measurement(measurementId, value).build());
+    private void indexTimeSeriesPoint(String indexName, ZonedDateTime timestamp, int value) throws IOException {
+        indexTimeSeriesPoint(indexName, TimeSeriesPoint.builder().timestamp(timestamp).measurement(measurementId, value).build());
     }
 
     private String indexNameForMinuteSeries(String baseName, ZonedDateTime timestamp) {

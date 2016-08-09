@@ -56,7 +56,7 @@ public class QueryRestControllerTest {
         TimeSeriesFilter filter = new TimeSeriesFilter(3, "anId");
         ResultActions result;
         result = mockMvc.perform(
-                post("/minutes/{series}/total", timeSeries)
+                post("/minutes/{series}", timeSeries)
                         .param("from", from)
                         .param("to", to)
                         .content(json(filter))
@@ -65,7 +65,6 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).minutes(
                 timeSeries,
-                "total",
                 parseTimestamp(from),
                 parseTimestamp(to),
                 filter
@@ -76,11 +75,10 @@ public class QueryRestControllerTest {
     @Ignore
     public void whenSendingRequestWithoutFromAndToThenExpectNormalResponseAndNoRangeInServiceCall() throws Exception {
         final String timeSeries = "test";
-        ResultActions result = mockMvc.perform(get("/minutes/{series}/total", timeSeries));
+        ResultActions result = mockMvc.perform(get("/minutes/{series}", timeSeries));
         assertNormalResponse(result);
         verify(backendConfig.queryService()).minutes(
                 timeSeries,
-                "total",
                 null,
                 null
         );
@@ -91,11 +89,10 @@ public class QueryRestControllerTest {
     public void whenSendingRequestWithoutFromThenExpectNormalResponseAndLeftOpenRangeInServiceCall() throws Exception {
         final String endTime = "2013-10-12T13:13:13.123+02:00";
         final String timeSeries = "test";
-        ResultActions result = mockMvc.perform(get("/minutes/{series}/total", timeSeries).param("to", endTime));
+        ResultActions result = mockMvc.perform(get("/minutes/{series}", timeSeries).param("to", endTime));
         assertNormalResponse(result);
         verify(backendConfig.queryService()).minutes(
                 timeSeries,
-                "total",
                 null,
                 parseTimestamp(endTime)
         );
@@ -106,11 +103,10 @@ public class QueryRestControllerTest {
     public void whenSendingRequestWithoutToThenExpectNormalResponseAndRightOpenRangeInServiceCall() throws Exception {
         final String startTime = "2013-10-12T13:13:13.123+02:00";
         final String timeSeries = "test";
-        ResultActions result = mockMvc.perform(get("/minutes/{series}/total", timeSeries).param("from", startTime));
+        ResultActions result = mockMvc.perform(get("/minutes/{series}", timeSeries).param("from", startTime));
         assertNormalResponse(result);
         verify(backendConfig.queryService()).minutes(
                 timeSeries,
-                "total",
                 parseTimestamp(startTime),
                 null
         );

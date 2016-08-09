@@ -25,13 +25,13 @@ public class InfluxDBQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         QueryResult result = query().from(seriesName).timeRange(from, to).execute();
         return convert(result);
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+    public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
         double percentileValue = percentileValue(seriesName, from, to, filter);
         QueryResult result = query().from(seriesName).timeRange(from, to).greaterThan(filter.getMeasurementId(), percentileValue).execute();
         return convert(result);
@@ -49,27 +49,27 @@ public class InfluxDBQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> hours(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TimeSeriesPoint> days(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TimeSeriesPoint> months(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TimeSeriesPoint> years(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public TimeSeriesPoint point(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
+    public TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 

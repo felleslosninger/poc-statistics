@@ -8,18 +8,18 @@ import java.util.List;
 
 public interface QueryService {
 
-    List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter);
+    List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter);
 
-    List<TimeSeriesPoint> hours(String seriesName, String type, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> days(String seriesName, String type, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> months(String seriesName, String type, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> years(String seriesName, String type, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to);
 
-    TimeSeriesPoint point(String seriesName, String type, ZonedDateTime from, ZonedDateTime to);
+    TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to);
 
 }

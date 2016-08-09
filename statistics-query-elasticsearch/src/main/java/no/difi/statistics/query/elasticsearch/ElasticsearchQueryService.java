@@ -44,6 +44,7 @@ public class ElasticsearchQueryService implements QueryService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private static final String timeFieldName = "timestamp";
+    private static final String defaultType = "default";
 
     private Client elasticSearchClient;
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
@@ -53,56 +54,56 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveMinuteIndexNames(seriesName, from, to), type, from, to);
+    public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return search(resolveMinuteIndexNames(seriesName, from, to), from, to);
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
-        return searchWithPercentileFilter(resolveMinuteIndexNames(seriesName, from, to), type, from, to, filter);
+    public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+        return searchWithPercentileFilter(resolveMinuteIndexNames(seriesName, from, to), from, to, filter);
     }
 
     @Override
-    public List<TimeSeriesPoint> hours(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveHourIndexNames(seriesName, from, to), type, from, to);
+    public List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return search(resolveHourIndexNames(seriesName, from, to), from, to);
     }
 
     @Override
-    public List<TimeSeriesPoint> days(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveDayIndexNames(seriesName, from, to), type, from, to);
+    public List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return search(resolveDayIndexNames(seriesName, from, to), from, to);
     }
 
     @Override
-    public List<TimeSeriesPoint> months(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
-        List<TimeSeriesPoint> result = search(resolveMonthIndexNames(seriesName, from, to), type, from, to);
+    public List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        List<TimeSeriesPoint> result = search(resolveMonthIndexNames(seriesName, from, to), from, to);
         if (result.isEmpty()) {
             logger.info("Empty result for month series search. Attempting to aggregate minute series...");
-            result = sumAggregatePerMonth(resolveMinuteIndexNames(seriesName, from, to), type, from, to);
+            result = sumAggregatePerMonth(resolveMinuteIndexNames(seriesName, from, to), from, to);
         }
         return result;
     }
 
     @Override
-    public List<TimeSeriesPoint> years(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveYearIndexNames(seriesName, from, to), type, from, to);
+    public List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return search(resolveYearIndexNames(seriesName, from, to), from, to);
     }
 
     @Override
-    public TimeSeriesPoint point(String seriesName, String type, ZonedDateTime from, ZonedDateTime to) {
-        return sumAggregate(resolveMinuteIndexNames(seriesName, from, to), type, from, to);
+    public TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+        return sumAggregate(resolveMinuteIndexNames(seriesName, from, to), from, to);
     }
 
-    private List<TimeSeriesPoint> search(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to) {
+    private List<TimeSeriesPoint> search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
                     "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
                     indexNames.stream().collect(joining(",\n  ")),
-                    type,
+                    defaultType,
                     from,
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames, type, from, to)
+        SearchResponse response = searchBuilder(indexNames, from, to)
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
         List<TimeSeriesPoint> series = new ArrayList<>();
@@ -115,9 +116,9 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
-    private TimeSeriesPoint sumAggregate(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to) {
-        SearchResponse response = searchBuilder(indexNames, type, from, to)
-                .addAggregation(dateRangeBuilder("a", from, to, measurementIds(indexNames, type)))
+    private TimeSeriesPoint sumAggregate(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+        SearchResponse response = searchBuilder(indexNames, from, to)
+                .addAggregation(dateRangeBuilder("a", from, to, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -129,18 +130,17 @@ public class ElasticsearchQueryService implements QueryService {
         return point(range.getBuckets().get(0));
     }
 
-    private List<TimeSeriesPoint> sumAggregatePerMonth(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to) {
+    private List<TimeSeriesPoint> sumAggregatePerMonth(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
-                    "Executing sum aggregate per month:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
+                    "Executing sum aggregate per month:\nIndexes: %s\nFrom: %s\nTo: %s\n",
                     indexNames.stream().collect(joining(",\n  ")),
-                    type,
                     from,
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames, type, from, to)
-                .addAggregation(dateHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames, type)))
+        SearchResponse response = searchBuilder(indexNames, from, to)
+                .addAggregation(dateHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -154,19 +154,19 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
-    private List<TimeSeriesPoint> searchWithPercentileFilter(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+    private List<TimeSeriesPoint> searchWithPercentileFilter(List<String> indexNames, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
                     "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
                     indexNames.stream().collect(joining(",\n  ")),
-                    type,
+                    defaultType,
                     from,
                     to
             ));
         }
-        double percentileValue = percentileValue(indexNames, type, filter.getMeasurementId(), filter.getPercentile(), from, to);
+        double percentileValue = percentileValue(indexNames, filter.getMeasurementId(), filter.getPercentile(), from, to);
         logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
-        SearchResponse response = searchBuilder(indexNames, type, from, to)
+        SearchResponse response = searchBuilder(indexNames, from, to)
                 .setPostFilter(QueryBuilders.rangeQuery(filter.getMeasurementId()).gt(percentileValue))
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
@@ -178,31 +178,31 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
-    private double percentileValue(List<String> indexNames, String type, String measurementId, int percentile, ZonedDateTime from, ZonedDateTime to) {
-        SearchResponse response = searchBuilder(indexNames, type, from, to)
+    private double percentileValue(List<String> indexNames, String measurementId, int percentile, ZonedDateTime from, ZonedDateTime to) {
+        SearchResponse response = searchBuilder(indexNames, from, to)
                 .setSize(0) // We are after aggregation and not the search hits
                 .addAggregation(percentiles("p").field(measurementId).percentiles(percentile).compression(10000))
                 .execute().actionGet();
         return ((Percentiles)response.getAggregations().get("p")).percentile(percentile);
     }
 
-    private SearchRequestBuilder searchBuilder(List<String> indexNames, String type, ZonedDateTime from, ZonedDateTime to) {
+    private SearchRequestBuilder searchBuilder(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         return elasticSearchClient
                 .prepareSearch(indexNames.stream().collect(joining(",")))
                 .setQuery(timeRange(from, to))
                 .addSort(timeFieldName, SortOrder.ASC)
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                .setTypes(type);
+                .setTypes(defaultType);
     }
 
-    private List<String> measurementIds(List<String> indexNames, String type) {
+    private List<String> measurementIds(List<String> indexNames) {
         Map<String, GetFieldMappingsResponse.FieldMappingMetaData> fieldMapping =
                 elasticSearchClient.admin().indices()
                         .prepareGetFieldMappings(indexNames.toArray(new String[indexNames.size()]))
                         .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                        .addTypes(type)
+                        .addTypes(defaultType)
                         .setFields("*")
-                        .get().mappings().entrySet().stream().findFirst().map(m -> m.getValue().get(type)).orElse(ImmutableMap.of());
+                        .get().mappings().entrySet().stream().findFirst().map(m -> m.getValue().get(defaultType)).orElse(ImmutableMap.of());
         return fieldMapping.keySet().stream().filter(f -> !f.equals("timestamp") && !f.startsWith("_")).collect(toList());
     }
 

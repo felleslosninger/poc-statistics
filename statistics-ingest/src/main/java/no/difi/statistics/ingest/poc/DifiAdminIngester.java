@@ -33,10 +33,13 @@ public class DifiAdminIngester implements ApplicationRunner {
             URL url = new URL(format(urlTemplate, dtFormatter.format(t), dtFormatter.format(t.plusMinutes(1))));
             try (InputStream response = url.openStream()) {
                 JsonReader reader = Json.createReader(response);
+                TimeSeriesPoint.Builder pointBuilder = TimeSeriesPoint.builder().timestamp(t);
                 for (JsonValue jsonValue : reader.readArray()) {
                     JsonArray fields = ((JsonObject)jsonValue).getJsonArray("fields");
-                    service.minute(timeSeriesName(), dataPoint(t, fields));
+                    measurements(pointBuilder, fields);
                 }
+                TimeSeriesPoint point = pointBuilder.build();
+                service.minute(timeSeriesName(), point);
             }
         }
     }
@@ -45,9 +48,8 @@ public class DifiAdminIngester implements ApplicationRunner {
         return "idporten-login";
     }
 
-    private TimeSeriesPoint dataPoint(ZonedDateTime timestamp, JsonArray fields) {
-        return TimeSeriesPoint.builder()
-                .timestamp(timestamp)
+    private void measurements(TimeSeriesPoint.Builder pointBuilder, JsonArray fields) {
+        pointBuilder
                 .measurement(measurement("MinID", 4, fields))
                 .measurement(measurement("MinID OTC", 5, fields))
                 .measurement(measurement("MinID PIN", 6, fields))
@@ -57,16 +59,22 @@ public class DifiAdminIngester implements ApplicationRunner {
                 .measurement(measurement("BankID", 10, fields))
                 .measurement(measurement("eIDAS", 11, fields))
                 .measurement(measurement("BankID mobil", 12, fields))
-                .measurement(measurement("Alle", 13, fields))
-                .build();
+                .measurement(measurement("Alle", 13, fields));
     }
 
     private Measurement measurement(String authenticationMethod, int index, JsonArray fields) {
-        return new Measurement(authenticationMethod + "[" + value(0, fields) + "]", value(index, fields));
+        return new Measurement(
+                format("%s/%s", authenticationMethod, stringValue(0, fields)),
+                intValue(index, fields)
+        );
     }
 
-    private int value(int index, JsonArray fields) {
+    private int intValue(int index, JsonArray fields) {
         return fields.getJsonObject(index).getInt("value");
+    }
+
+    private String stringValue(int index, JsonArray fields) {
+        return fields.getJsonObject(index).getString("value");
     }
 
 }
