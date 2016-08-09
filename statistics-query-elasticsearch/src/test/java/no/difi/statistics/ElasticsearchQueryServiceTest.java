@@ -95,6 +95,15 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
+    public void givenMinuteSeriesLastingTwoDaysWhenQueryingForRangeOverThoseDaysThenAllDataPointsAreReturned() throws IOException, InterruptedException {
+        indexMinutePoint(now.minusDays(1), 13);
+        indexMinutePoint(now, 117);
+        List<TimeSeriesPoint> timeSeries = minutes(timeSeriesName, now.minusDays(1).minusHours(1), now);
+        assertEquals(13, measurementValue(measurementId, 0, timeSeries));
+        assertEquals(117, measurementValue(measurementId, 1, timeSeries));
+    }
+
+    @Test
     public void givenMinuteSeriesWhenQueryingForRangeOutsideSeriesThenNoDataPointsAreReturned() throws IOException, InterruptedException {
         indexMinutePointsFrom(now.minusMinutes(20), 20, 19, 18, 17);
         List<TimeSeriesPoint> timeSeries = minutes(timeSeriesName, now.minusMinutes(9), now.minusMinutes(8));

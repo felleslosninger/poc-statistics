@@ -188,7 +188,7 @@ public class ElasticsearchQueryService implements QueryService {
 
     private SearchRequestBuilder searchBuilder(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         return elasticSearchClient
-                .prepareSearch(indexNames.stream().collect(joining(",")))
+                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
                 .setQuery(timeRange(from, to))
                 .addSort(timeFieldName, SortOrder.ASC)
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
