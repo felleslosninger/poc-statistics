@@ -34,11 +34,12 @@ $ mvn verify
 
 ### Start applikasjonen i ditt lokale Docker-miljø
 
-Slik startes applikasjonen på din lokale Docker-maskin:
+Slik startes en enkeltinstans av applikasjonen på din lokale Docker-maskin:
 
 ```
 $ docker run -d --name elasticsearch --restart=unless-stopped elasticsearch:2.3
-$ docker run -d --name statistics-api --restart=unless-stopped --link elasticsearch -p 80:8080 docker-registry.dmz.local/statistics-api:DEV-SNAPSHOT
+$ docker run -d --name statistics-query --restart=unless-stopped --link elasticsearch -p 8080:8080 docker-registry.dmz.local/statistics-query-elasticsearch:DEV-SNAPSHOT
+$ docker run -d --name statistics-ingest --restart=unless-stopped --link elasticsearch -p 8081:8080 docker-registry.dmz.local/statistics-ingest-elasticsearch:DEV-SNAPSHOT
 ```
 
 Endepunktet til applikasjonen vil da være tilgjengelig på http://$(docker-machine ip).
