@@ -37,7 +37,7 @@ $ mvn verify
 Slik startes en enkeltinstans av applikasjonen på din lokale Docker-maskin:
 
 ```
-$ docker run -d --name elasticsearch --restart=unless-stopped elasticsearch:2.3
+$ docker run -d --name elasticsearch --restart=unless-stopped elasticsearch:2.3.5
 $ docker run -d --name statistics-query --restart=unless-stopped --link elasticsearch -p 8080:8080 docker-registry.dmz.local/statistics-query-elasticsearch:DEV-SNAPSHOT
 $ docker run -d --name statistics-ingest --restart=unless-stopped --link elasticsearch -p 8081:8080 docker-registry.dmz.local/statistics-ingest-elasticsearch:DEV-SNAPSHOT
 ```
@@ -58,6 +58,24 @@ Merk at i dette tilfellet benyttes dynamisk port-assosiasjon, så du må inspise
 Konteinerne stoppes og fjernes tilsvarende på denne måten:
 ```
 $ mvn -pl statistics-api docker:stop
+```
+
+### Start applikasjonen på en Docker-sverm
+
+_Denne beskrivelsen forutsetter at det allerede er satt opp en [Docker-sverm](https://docs.docker.com/engine/swarm) og
+at Docker-klienten peker til en manager-node._
+
+Lag først et overlay-nettverk tjenestene kan kommunisere på:
+```
+$ docker network create -d overlay statistics
+```
+
+Start deretter tjenestene _statistics-query_, _statistics-ingest_ og _elasticsearch_. Her startes hver tjeneste med tre
+replikaer:
+```
+$ docker service create --network statistics --replicas 3 --name statistics-query -p 8080:8080 docker-registry.dmz.local/statistics-query-elasticsearch
+$ docker service create --network statistics --replicas 3 --name statistics-ingest -p 8081:8080 docker-registry.dmz.local/statistics-ingest-elasticsearch
+$ docker service create --network statistics --replicas 3 --name elasticsearch elasticsearch:2.3.5
 ```
 
 ### Lag en versjonert utgave av applikasjonen
