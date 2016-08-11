@@ -27,36 +27,45 @@ public class IngestClient implements IngestService {
     private final JavaTimeModule javaTimeModule;
     private final ISO8601DateFormat iso8601DateFormat;
 
-    public IngestClient(){
+    private URL url;
+
+    public IngestClient() throws MalformedURLException {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
+        url = new URL(SERVICE_BASE_URL + "/" + SERVICE_NAME + "/");
+    }
+
+    public IngestClient(URL baseURL) throws MalformedURLException {
+        objectMapper = new ObjectMapper();
+        javaTimeModule = new JavaTimeModule();
+        iso8601DateFormat = new ISO8601DateFormat();
+        url = baseURL;
     }
 
     public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
-        URL url = null;
         try {
-            url = new URL(SERVICE_BASE_URL + "/" + SERVICE_NAME + "/" + seriesName);
+            setURL(new URL(getURL().getProtocol(), getURL().getHost(), getURL().getPort(), getURL().getFile() + seriesName));
         }catch(MalformedURLException e){
             throw new IngestException("Could not create URL to IngestService", e);
         }
         try {
-            minute(url, timeSeriesPoint);
+            minute(timeSeriesPoint);
         }catch(IOException e){
             throw new IngestException("Could not call IngestService", e);
         }
     }
 
-    private void minute(URL url, TimeSeriesPoint timeSeriesPoint) throws IOException, IngestException {
-        HttpURLConnection conn = getConnection(url);
+    private void minute(TimeSeriesPoint timeSeriesPoint) throws IOException, IngestException {
+        HttpURLConnection conn = getConnection();
         OutputStream outputStream = writeJsonToOutputStream(timeSeriesPoint, conn);
         outputStream.flush();
         controlResponse(conn);
         conn.disconnect();
     }
 
-    private HttpURLConnection getConnection(URL url) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    private HttpURLConnection getConnection() throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) getURL().openConnection();
         conn.setDoOutput(true);
         conn.setRequestMethod(REQUEST_METHOD_POST);
         conn.setRequestProperty(CONTENT_TYPE_KEY, JSON_CONTENT_TYPE);
@@ -64,7 +73,7 @@ public class IngestClient implements IngestService {
         return conn;
     }
 
-    private OutputStream writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn)throws IOException {
+    private OutputStream writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn) throws IOException {
         ObjectWriter objectWriter = getObjectWriter();
         String jsonString = objectWriter.writeValueAsString(timeSeriesPoint);
         OutputStream outputStream = conn.getOutputStream();
@@ -86,5 +95,14 @@ public class IngestClient implements IngestService {
         if (responseCode != HttpURLConnection.HTTP_OK) {
             throw new IngestException("Could not post to Ingest Service. Response code from service was" + responseCode);
         }
+    }
+
+    public URL getURL(){
+        return url;
+    }
+
+    private void setURL(URL url){
+        this.url = url;
+
     }
 }
