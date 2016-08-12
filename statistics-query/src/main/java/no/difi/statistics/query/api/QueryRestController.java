@@ -24,7 +24,7 @@ public class QueryRestController {
     @RequestMapping("/")
     public String index() throws IOException {
         return format(
-                "Statistics API version %s",
+                "Statistics Query version %s",
                 System.getProperty("difi.version", "N/A")
         );
     }

@@ -20,7 +20,7 @@ public class IngestRestController {
     @RequestMapping(method=RequestMethod.GET, value="/")
     public String index() {
         return format(
-                "Statistics API version %s",
+                "Statistics Ingest version %s",
                 System.getProperty("difi.version", "N/A")
         );
     }
