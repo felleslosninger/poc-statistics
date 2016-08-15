@@ -19,7 +19,12 @@ public class RandomIngesterRestController {
         this.service = service;
     }
 
-    @RequestMapping(method = RequestMethod.POST, value = "minutes/{seriesName}", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
+    @RequestMapping(
+            method = RequestMethod.POST,
+            value = "minutes/{seriesName}",
+            params = {"from", "to"},
+            consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
+    )
     public void minutes(
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,

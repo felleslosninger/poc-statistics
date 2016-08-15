@@ -2,7 +2,7 @@ package no.difi.statistics.ingest.config;
 
 import no.difi.statistics.ingest.api.IngestRestController;
 import no.difi.statistics.ingest.poc.DifiAdminIngester;
-import no.difi.statistics.ingest.poc.RandomIngester;
+import no.difi.statistics.ingest.poc.RandomIngesterRestController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -21,8 +21,8 @@ public class AppConfig {
     }
 
     @Bean
-    public RandomIngester randomIngester() {
-        return new RandomIngester(backendConfig.ingestService());
+    public RandomIngesterRestController randomApi() {
+        return new RandomIngesterRestController(backendConfig.ingestService());
     }
 
     @Bean
