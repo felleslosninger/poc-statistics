@@ -6,11 +6,9 @@ import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.elasticsearch.config.ElasticsearchConfig;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -76,14 +74,22 @@ public class ElasticsearchQueryServiceTest {
     @Autowired
     private TestRestTemplate restTemplate;
 
-    @AfterClass
-    public static void tearDown() {
-        backend.stop();
+    @Before
+    public void prepare() throws InterruptedException {
+        for (int i = 0; i < 1000; i++) {
+            if (((TransportClient)client).connectedNodes().size() > 0) break;
+            Thread.sleep(10L);
+        }
     }
 
     @After
     public void cleanup() throws ExecutionException, InterruptedException {
         client.admin().indices().prepareDelete("_all").get();
+    }
+
+    @AfterClass
+    public static void cleanupAll() {
+        backend.stop();
     }
 
     @Test
