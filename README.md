@@ -73,9 +73,9 @@ $ docker network create -d overlay statistics
 Start deretter tjenestene _statistics-query_, _statistics-ingest_ og _elasticsearch_. Her startes hver tjeneste med tre
 replikaer:
 ```
-$ docker service create --network statistics --replicas 3 --name statistics-query -p 8080:8080 docker-registry.dmz.local/statistics-query-elasticsearch
-$ docker service create --network statistics --replicas 3 --name statistics-ingest -p 8081:8080 docker-registry.dmz.local/statistics-ingest-elasticsearch
-$ docker service create --network statistics --replicas 3 --name elasticsearch elasticsearch:2.3.5
+$ docker service create --network statistics --replicas 3 --name statistics-query -p 8080:8080 docker-registry.dmz.local/statistics-query-elasticsearch \
+  && docker service create --network statistics --replicas 3 --name statistics-ingest -p 8081:8080 docker-registry.dmz.local/statistics-ingest-elasticsearch \
+  && docker service create --network statistics --replicas 3 --name elasticsearch elasticsearch:2.3.5
 ```
 
 ### Lag en versjonert utgave av applikasjonen
