@@ -67,6 +67,8 @@ public class IngestClient implements IngestService {
     private HttpURLConnection getConnection() throws IOException {
         HttpURLConnection conn = (HttpURLConnection) getURL().openConnection();
         conn.setDoOutput(true);
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
         conn.setRequestMethod(REQUEST_METHOD_POST);
         conn.setRequestProperty(CONTENT_TYPE_KEY, JSON_CONTENT_TYPE);
 
@@ -74,9 +76,9 @@ public class IngestClient implements IngestService {
     }
 
     private OutputStream writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn) throws IOException {
+        OutputStream outputStream = conn.getOutputStream();
         ObjectWriter objectWriter = getObjectWriter();
         String jsonString = objectWriter.writeValueAsString(timeSeriesPoint);
-        OutputStream outputStream = conn.getOutputStream();
         outputStream.write(jsonString.getBytes());
 
         return outputStream;
@@ -93,7 +95,7 @@ public class IngestClient implements IngestService {
     private void controlResponse(HttpURLConnection conn) throws IOException, IngestException {
         int responseCode = conn.getResponseCode();
         if (responseCode != HttpURLConnection.HTTP_OK) {
-            throw new IngestException("Could not post to Ingest Service. Response code from service was" + responseCode);
+            throw new IngestException("Could not post to Ingest Service. Response code from service was " + responseCode);
         }
     }
 
