@@ -18,8 +18,6 @@ public class IngestClient implements IngestService {
 
     private static final String CONTENT_TYPE_KEY = "Content-Type";
     private static final String JSON_CONTENT_TYPE = "application/json";
-//    TODO: Need working base URL for service
-    private static final String SERVICE_BASE_URL = "http://localhost:8080";
     private static final String SERVICE_NAME = "minutes";
     private static final String REQUEST_METHOD_POST = "POST";
 
@@ -27,45 +25,39 @@ public class IngestClient implements IngestService {
     private final JavaTimeModule javaTimeModule;
     private final ISO8601DateFormat iso8601DateFormat;
 
-    private URL url;
+    private final String serviceURLTemplate;
 
-    public IngestClient() throws MalformedURLException {
+    public IngestClient(String baseURL) throws MalformedURLException {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
-        url = new URL(SERVICE_BASE_URL + "/" + SERVICE_NAME + "/");
-    }
-
-    public IngestClient(URL baseURL) throws MalformedURLException {
-        objectMapper = new ObjectMapper();
-        javaTimeModule = new JavaTimeModule();
-        iso8601DateFormat = new ISO8601DateFormat();
-        url = baseURL;
+        serviceURLTemplate = baseURL + "/" + SERVICE_NAME + "/%s";
     }
 
     public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
+        URL url;
         try {
-            setURL(new URL(getURL().getProtocol(), getURL().getHost(), getURL().getPort(), getURL().getFile() + seriesName));
+            url = new URL(String.format(serviceURLTemplate, seriesName));
         }catch(MalformedURLException e){
             throw new IngestException("Could not create URL to IngestService", e);
         }
         try {
-            minute(timeSeriesPoint);
+            minute(timeSeriesPoint, url);
         }catch(IOException e){
             throw new IngestException("Could not call IngestService", e);
         }
     }
 
-    private void minute(TimeSeriesPoint timeSeriesPoint) throws IOException, IngestException {
-        HttpURLConnection conn = getConnection();
+    private void minute(TimeSeriesPoint timeSeriesPoint, URL url) throws IOException, IngestException {
+        HttpURLConnection conn = getConnection(url);
         OutputStream outputStream = writeJsonToOutputStream(timeSeriesPoint, conn);
         outputStream.flush();
         controlResponse(conn);
         conn.disconnect();
     }
 
-    private HttpURLConnection getConnection() throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) getURL().openConnection();
+    private HttpURLConnection getConnection(URL url) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setDoOutput(true);
         conn.setConnectTimeout(5000);
         conn.setReadTimeout(5000);
@@ -97,14 +89,5 @@ public class IngestClient implements IngestService {
         if (responseCode != HttpURLConnection.HTTP_OK) {
             throw new IngestException("Could not post to Ingest Service. Response code from service was " + responseCode);
         }
-    }
-
-    public URL getURL(){
-        return url;
-    }
-
-    private void setURL(URL url){
-        this.url = url;
-
     }
 }

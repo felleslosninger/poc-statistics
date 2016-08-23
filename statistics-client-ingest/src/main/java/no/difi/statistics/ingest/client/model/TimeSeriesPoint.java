@@ -1,5 +1,11 @@
 package no.difi.statistics.ingest.client.model;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+
+import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +66,19 @@ public class TimeSeriesPoint {
         public TimeSeriesPoint build() {
             if (instance.timestamp == null) throw new IllegalArgumentException("timestamp");
             return instance;
+        }
+
+    }
+
+    /**
+     * Use custom deserializer to maintain immutability property
+     */
+    static class TimeSeriesPointJsonDeserializer extends JsonDeserializer<TimeSeriesPoint> {
+
+        @Override
+        public TimeSeriesPoint deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
+            JsonNode node = parser.getCodec().readTree(parser);
+            return TimeSeriesPoint.builder().timestamp(ZonedDateTime.parse(node.get("timestamp").asText())).measurement(node.get("measurement").get("id").asText(), node.get("measurement").get("value").asInt()).build();
         }
 
     }
