@@ -25,19 +25,19 @@ public class IngestClient implements IngestService {
     private final JavaTimeModule javaTimeModule;
     private final ISO8601DateFormat iso8601DateFormat;
 
-    private final URL serviceURL;
+    private final String serviceURLTemplate;
 
     public IngestClient(String baseURL) throws MalformedURLException {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
-        serviceURL = new URL(baseURL + "/" + SERVICE_NAME + "/");
+        serviceURLTemplate = baseURL + "/" + SERVICE_NAME + "/%s";
     }
 
     public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
-        URL url = null;
+        URL url;
         try {
-            url = new URL(serviceURL.getProtocol(), serviceURL.getHost(), serviceURL.getPort(), serviceURL.getFile() + seriesName);
+            url = new URL(String.format(serviceURLTemplate, seriesName));
         }catch(MalformedURLException e){
             throw new IngestException("Could not create URL to IngestService", e);
         }
