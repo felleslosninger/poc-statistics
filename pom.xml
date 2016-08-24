@@ -268,11 +268,11 @@
 
     <distributionManagement>
         <repository>
-            <id>difi</id>
+            <id>eid-releases</id>
             <url>${artifactory.url}/libs-release-local</url>
         </repository>
         <snapshotRepository>
-            <id>difi-snapshots</id>
+            <id>eid-snapshots</id>
             <url>${artifactory.url}/libs-snapshot-local</url>
         </snapshotRepository>
     </distributionManagement>
