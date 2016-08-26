@@ -1,6 +1,8 @@
-package no.difi.statistics.ingest.client.demo;
+package no.difi.statistics.ingest.client.demo.api;
 
 import no.difi.statistics.ingest.client.IngestService;
+import no.difi.statistics.ingest.client.demo.config.AppConfig;
+import no.difi.statistics.ingest.client.demo.config.BackendConfigURL;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 import org.springframework.boot.SpringApplication;
 import org.springframework.web.bind.annotation.*;
@@ -10,10 +12,10 @@ import static java.lang.String.format;
 @RestController
 public class IngestRestController {
 
-    private IngestService service;
+    private IngestService ingestService;
 
     public IngestRestController(IngestService service) {
-        this.service = service;
+        ingestService = service;
     }
 
     @RequestMapping(method= RequestMethod.GET, value="/")
@@ -29,10 +31,11 @@ public class IngestRestController {
             @PathVariable String seriesName,
             @RequestBody TimeSeriesPoint dataPoint
     ) {
-        service.minute(seriesName, dataPoint);
+        ingestService.minute(seriesName, dataPoint);
     }
 
     public static void main(String[] args) throws Exception {
-        SpringApplication.run(AppConfig.class, args);
+        Object[] sources = {AppConfig.class, BackendConfigURL.class};
+        SpringApplication.run(sources, args);
     }
 }
