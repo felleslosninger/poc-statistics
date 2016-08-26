@@ -130,5 +130,8 @@ Det kan skrives kode mot denne direkte, eller den kan testes ved hjelp av et RES
 
 http://eid-artifactory.dmz.local:8080/artifactory/webapp/#/artifacts/browse/tree/General/libs-snapshot-local/no/difi/statistics/statistics-demo-for-client-ingest/DEV-SNAPSHOT/statistics-demo-for-client-ingest-DEV-*dato*.*versjonsnummer*.jar
 
-Dette kan kjøres opp ved hjelp av java -jar statistics-demo-for-client-ingest-DEV-*dato*.*versjonsnummer*.jar [-DserviceURL=URL-til-tjenesten (statistics-ingest)]
+Dette kan kjøres opp ved hjelp av 
+```
+$ java -jar statistics-demo-for-client-ingest-DEV-*dato*.*versjonsnummer*.jar [-DserviceURL=URL-til-tjenesten (statistics-ingest)]
+```
 Hvis ikke URL defineres går den mot URL'en http://eid-test-docker01.dmz.local:10009, hvor tjenesten skal være deployet i test.
