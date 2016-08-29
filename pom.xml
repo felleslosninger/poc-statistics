@@ -30,6 +30,7 @@
         <springboot.version>1.4.0.RC1</springboot.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <docker.registry>docker.io/difi</docker.registry>
         <artifactory.url>http://eid-artifactory.dmz.local:8080/artifactory</artifactory.url>
     </properties>
 
@@ -186,6 +187,7 @@
                     <artifactId>docker-maven-plugin</artifactId>
                     <version>0.15.9</version>
                     <configuration>
+                        <registry>${docker.registry}</registry>
                         <images>
                             <image>
                                 <build>
@@ -194,7 +196,7 @@
                                         ["java","-jar","-Ddifi.version=${difi.version}","/maven/${project.artifactId}.${project.packaging}"]
                                     </entryPoint>
                                 </build>
-                                <name>docker-registry.dmz.local/${project.artifactId}:${project.version}</name>
+                                <name>${project.artifactId}:${project.version}</name>
                             </image>
                         </images>
                     </configuration>
@@ -226,7 +228,7 @@
                             <configuration>
                                 <images>
                                     <image>
-                                        <name>docker-registry.dmz.local/${project.artifactId}:${difi.version}</name>
+                                        <name>${project.artifactId}:${difi.version}</name>
                                         <build>
                                             <labels>
                                                 <label>ScmId=${buildNumber}</label>
@@ -276,4 +278,5 @@
             <url>${artifactory.url}/libs-snapshot-local</url>
         </snapshotRepository>
     </distributionManagement>
+
 </project>
