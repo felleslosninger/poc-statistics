@@ -8,9 +8,7 @@
         <groupId>no.difi.statistics</groupId>
         <version>DEV-SNAPSHOT</version>
     </parent>
-    <groupId>statistics-demo-for-client-ingest</groupId>
     <artifactId>statistics-demo-for-client-ingest</artifactId>
-    <version>1.0-SNAPSHOT</version>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
