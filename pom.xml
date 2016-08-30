@@ -22,6 +22,7 @@
         <module>statistics-query-influxdb</module>
         <module>statistics-client-ingest</module>
         <module>statistics-demo-for-client-ingest</module>
+        <module>statistics-elasticsearch</module>
     </modules>
 
     <properties>
@@ -185,7 +186,7 @@
                 <plugin>
                     <groupId>io.fabric8</groupId>
                     <artifactId>docker-maven-plugin</artifactId>
-                    <version>0.15.9</version>
+                    <version>0.15.16</version>
                     <configuration>
                         <registry>${docker.registry}</registry>
                         <images>
