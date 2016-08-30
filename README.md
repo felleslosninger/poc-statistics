@@ -124,11 +124,11 @@ Det er laget en javaklient som skal kunne benyttes av applikasjoner for å legge
 
 * JDK 1.8 eller nyere.
 
-Klienten kan lastes ned herfra: http://eid-artifactory.dmz.local:8080/artifactory/webapp/#/artifacts/browse/tree/General/libs-snapshot-local/no/difi/statistics/statistics-client-ingest/DEV-SNAPSHOT/statistics-client-ingest-DEV-*dato*.*versjonsnummer*.jar
+Klienten kan lastes ned herfra: http://eid-artifactory.dmz.local:8080/artifactory/libs-snapshot-local/no/difi/statistics/statistics-client-ingest/DEV-SNAPSHOT/statistics-client-ingest-DEV-*dato*.*versjonsnummer*.jar
 
 Det kan skrives kode mot denne direkte, eller den kan testes ved hjelp av et REST-grensesnitt i front, som kan lastes ned herfra:
 
-http://eid-artifactory.dmz.local:8080/artifactory/webapp/#/artifacts/browse/tree/General/libs-snapshot-local/no/difi/statistics/statistics-demo-for-client-ingest/DEV-SNAPSHOT/statistics-demo-for-client-ingest-DEV-*dato*.*versjonsnummer*.jar
+http://eid-artifactory.dmz.local:8080/artifactory/libs-snapshot-local/no/difi/statistics/statistics-demo-for-client-ingest/DEV-SNAPSHOT/statistics-demo-for-client-ingest-DEV-*dato*.*versjonsnummer*.jar
 
 Dette kan kjøres opp ved hjelp av 
 ```
