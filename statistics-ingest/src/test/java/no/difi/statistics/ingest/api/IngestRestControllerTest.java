@@ -6,6 +6,7 @@ import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.ingest.config.AppConfig;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
+import org.apache.tomcat.util.codec.binary.Base64;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import javax.servlet.Filter;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -39,19 +41,29 @@ public class IngestRestControllerTest {
     private WebApplicationContext springContext;
     @Autowired
     private IngestService service;
+    @Autowired
+    private Filter springSecurityFilterChain;
+
+    private static final String VALIDUSERNAME = "astrid";
+    private static final String VALIDPASSWORD = "123456";
+
     private MockMvc mockMvc;
+
 
     @Before
     public void before(){
-        mockMvc = MockMvcBuilders.webAppContextSetup(springContext).build();
+        mockMvc = MockMvcBuilders
+                .webAppContextSetup(springContext)
+                .addFilters(springSecurityFilterChain)
+                .build();
     }
 
     @Test
-    public void whenSendingRequestWithValidTimeSeriesPointThenExpectValuesSentToServiceMethodToBeTheSameAsSentToService() throws Exception {
+    public void whenSendingRequestWithValidTimeSeriesPointAndValidLoginThenExpectValuesSentToServiceMethodToBeTheSameAsSentToService() throws Exception {
         ArgumentCaptor<TimeSeriesPoint> argumentCaptor = ArgumentCaptor.forClass(TimeSeriesPoint.class);
-        String timeSeries = "test";
+        String timeSeries = "test123";
         TimeSeriesPoint timeSeriesPoint = createValidTimeSeriesPoint(createValidMeasurements(), ZonedDateTime.now());
-        postMinutes(timeSeries, createValidJsonString(timeSeriesPoint));
+        postMinutes(timeSeries, createValidJsonString(timeSeriesPoint), VALIDUSERNAME, VALIDPASSWORD);
 
         verify(service).minute(
                 eq(timeSeries),
@@ -62,15 +74,27 @@ public class IngestRestControllerTest {
     }
 
     @Test
-    public void whenSendingRequestWithValidTimeSeriesPointThenExpectNormalResponse() throws Exception {
-        ResultActions result = postMinutes("test", createValidJsonString(createValidTimeSeriesPoint(createValidMeasurements(), ZonedDateTime.now())));
+    public void whenSendingRequestWithValidTimeSeriesPointAndValidLoginThenExpectNormalResponse() throws Exception {
+        String jsonString = createValidJsonString(createValidTimeSeriesPoint(createValidMeasurements(), ZonedDateTime.now()));
+        ResultActions result = postMinutes("test", jsonString, VALIDUSERNAME, VALIDPASSWORD);
         assertNormalResponse(result);
     }
 
     @Test
-    public void whenSendingRequestWithInvalidJsonThenExpect400Response() throws Exception {
-        ResultActions result = postMinutes("test", "invalidJson");
+    public void whenSendingRequestWithInvalidJsonAndValidLoginThenExpect400Response() throws Exception {
+        ResultActions result = postMinutes("test", "invalidJson", VALIDUSERNAME, VALIDPASSWORD);
         assert400Response(result);
+    }
+
+    @Test
+    public void whenSendingRequestWithInvalidLoginThenExpect401Response() throws Exception {
+        String jsonString = createValidJsonString(createValidTimeSeriesPoint(createValidMeasurements(), ZonedDateTime.now()));
+        ResultActions result = postMinutes("test", jsonString, VALIDUSERNAME, "123");
+        assert401Response(result);
+    }
+
+    private void assert401Response(ResultActions result)  throws Exception {
+        result.andExpect(status().is(401));
     }
 
     private void assert400Response(ResultActions result) throws Exception{
@@ -103,11 +127,17 @@ public class IngestRestControllerTest {
         return measurements;
     }
 
-    private ResultActions postMinutes(String seriesName, String jsonString) throws Exception{
+    private String createBasicAuthHeaderValue(String username, String password){
+        return "Basic " + new String(Base64.encodeBase64((username + ":" + password).getBytes()));
+    }
+
+    private ResultActions postMinutes(String seriesName, String jsonString, String username, String password) throws Exception{
+        String basicDigestHeaderValue = createBasicAuthHeaderValue(username, password);
         String typeJson = "application/json";
         return mockMvc.perform(post("/minutes/{seriesName}", seriesName)
                 .contentType(typeJson)
                 .accept(typeJson)
+                .header("Authorization", basicDigestHeaderValue)
                 .content(jsonString));
     }
 
