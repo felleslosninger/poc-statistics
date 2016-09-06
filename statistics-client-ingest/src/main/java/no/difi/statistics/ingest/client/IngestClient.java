@@ -5,14 +5,18 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.sun.org.apache.xml.internal.security.utils.Base64;
 import no.difi.statistics.ingest.client.exception.IngestException;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Properties;
 
 public class IngestClient implements IngestService {
 
@@ -20,18 +24,35 @@ public class IngestClient implements IngestService {
     private static final String JSON_CONTENT_TYPE = "application/json";
     private static final String SERVICE_NAME = "minutes";
     private static final String REQUEST_METHOD_POST = "POST";
+    private static final String AUTHORIZATION_KEY = "Authorization";
+    private static final String AUTH_METHOD = "Basic";
 
     private final ObjectMapper objectMapper;
     private final JavaTimeModule javaTimeModule;
     private final ISO8601DateFormat iso8601DateFormat;
 
     private final String serviceURLTemplate;
+    private final Properties properties;
 
-    public IngestClient(String baseURL) throws MalformedURLException {
+    public IngestClient(String baseURL) throws MalformedURLException, IOException {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
         serviceURLTemplate = baseURL + "/" + SERVICE_NAME + "/%s";
+        properties = loadProperties();
+    }
+
+    private Properties loadProperties() throws IOException {
+        Properties properties = new Properties();
+        String filename = "application.properties";
+        InputStream inputStream = getClass().getClassLoader().getResourceAsStream(filename);
+        if(inputStream!=null){
+            properties.load(inputStream);
+        } else {
+            throw new FileNotFoundException("The property file " + filename + "was not found in classpath");
+        }
+
+        return properties;
     }
 
     public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
@@ -63,8 +84,15 @@ public class IngestClient implements IngestService {
         conn.setReadTimeout(5000);
         conn.setRequestMethod(REQUEST_METHOD_POST);
         conn.setRequestProperty(CONTENT_TYPE_KEY, JSON_CONTENT_TYPE);
+        conn.setRequestProperty(AUTHORIZATION_KEY, AUTH_METHOD + " " + createBase64EncodedCredentials());
 
         return conn;
+    }
+
+    private String createBase64EncodedCredentials(){
+        String username = properties.getProperty("username");
+        String password = properties.getProperty("password");
+        return Base64.encode((username + ":" + password).getBytes());
     }
 
     private OutputStream writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn) throws IOException {
@@ -72,7 +100,6 @@ public class IngestClient implements IngestService {
         ObjectWriter objectWriter = getObjectWriter();
         String jsonString = objectWriter.writeValueAsString(timeSeriesPoint);
         outputStream.write(jsonString.getBytes());
-
         return outputStream;
     }
 
