@@ -5,7 +5,8 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.sun.org.apache.xml.internal.security.utils.Base64;
+
+import java.util.Base64;
 import no.difi.statistics.ingest.client.exception.IngestException;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
@@ -92,7 +93,7 @@ public class IngestClient implements IngestService {
     private String createBase64EncodedCredentials(){
         String username = properties.getProperty("username");
         String password = properties.getProperty("password");
-        return Base64.encode((username + ":" + password).getBytes());
+        return Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
     private OutputStream writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn) throws IOException {
