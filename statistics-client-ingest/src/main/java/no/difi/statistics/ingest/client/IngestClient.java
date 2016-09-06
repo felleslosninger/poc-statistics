@@ -35,12 +35,16 @@ public class IngestClient implements IngestService {
     private final String serviceURLTemplate;
     private final Properties properties;
 
-    public IngestClient(String baseURL) throws MalformedURLException, IOException {
+    public IngestClient(String baseURL) throws IngestException {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
         serviceURLTemplate = baseURL + "/" + SERVICE_NAME + "/%s";
-        properties = loadProperties();
+        try {
+            properties = loadProperties();
+        } catch (IOException e) {
+            throw new IngestException("Could not call IngestService", e);
+        }
     }
 
     private Properties loadProperties() throws IOException {

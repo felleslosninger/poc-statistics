@@ -80,14 +80,6 @@ public class IngestRestControllerTest {
                 .build();
     }
 
-    private void assertCorrectValues(TimeSeriesPoint timeSeriesPoint, ArgumentCaptor<TimeSeriesPoint> argumentCaptor){
-        assertEquals(timeSeriesPoint.getTimestamp().withZoneSameInstant(ZoneId.of("UTC")),
-                argumentCaptor.getValue().getTimestamp());
-        assertEquals(timeSeriesPoint.getMeasurements().get(0).getId(),
-                argumentCaptor.getValue().getMeasurements().get(0).getId());
-        assertEquals(timeSeriesPoint.getMeasurements().get(0).getValue(),
-                argumentCaptor.getValue().getMeasurements().get(0).getValue());
-    }
     private List<Measurement> createValidMeasurements(){
         List<Measurement> measurements = new ArrayList<>();
         measurements.add(new Measurement("antall", 2));
