@@ -1,14 +1,12 @@
 package no.difi.statistics.ingest.client;
 
-import com.github.tomakehurst.wiremock.http.Response;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import com.sun.org.apache.xml.internal.security.utils.Base64;
+import java.util.Base64;
 import no.difi.statistics.ingest.client.exception.IngestException;
 import no.difi.statistics.ingest.client.model.Measurement;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -105,7 +103,7 @@ public class IngestClientTest {
     }
 
     private String validAuthHeader(String username, String password){
-        return "Basic " + Base64.encode((username + ":" + password).getBytes());
+        return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
     private TimeSeriesPoint buildValidTimeSeriesPoint() {
