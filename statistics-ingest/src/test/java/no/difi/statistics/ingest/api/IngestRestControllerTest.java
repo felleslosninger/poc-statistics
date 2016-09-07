@@ -42,7 +42,7 @@ public class IngestRestControllerTest {
     @Autowired
     private Filter springSecurityFilterChain;
 
-    private static final String VALIDUSERNAME = "astrid";
+    private static final String VALIDUSERNAME = "984661185";
     private static final String VALIDPASSWORD = "123456";
 
     @Autowired
