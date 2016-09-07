@@ -35,8 +35,8 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
         return new DifiAdminIngester(backendConfig.ingestService());
     }
 
-    @Autowired
-    public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
+    @Override
+    public void configure(AuthenticationManagerBuilder auth) throws Exception {
         auth.inMemoryAuthentication().withUser("astrid").password("123456").roles("USER");
         auth.inMemoryAuthentication().withUser("thomas").password("654321").roles("USER");
     }

@@ -27,7 +27,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
-            <version>1.4.0.RC1</version>
         </dependency>
         <dependency>
             <groupId>no.difi.statistics</groupId>
@@ -45,7 +44,6 @@
         <dependency>
             <groupId>org.glassfish</groupId>
             <artifactId>javax.json</artifactId>
-            <version>1.0.4</version>
         </dependency>
     </dependencies>
 
