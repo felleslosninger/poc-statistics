@@ -265,6 +265,21 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
+    public void givenMinuteSeriesWhenQueryingForDayPointsThenSummarizedMinutesAreReturned() throws IOException {
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        indexMinutePoints(points);
+        List<TimeSeriesPoint> resultingPoints = days(
+                timeSeriesName,
+                now.truncatedTo(DAYS),
+                now.truncatedTo(DAYS).plusMinutes(100)
+        );
+        assertEquals(1, size(resultingPoints));
+        assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).intValue());
+        assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).intValue());
+        assertEquals(truncate(now, ChronoUnit.DAYS).toInstant(), timestamp(0, resultingPoints).toInstant());
+    }
+
+    @Test
     public void givenMinuteSeriesWhenQueryingForPeriodPointThenSingleSummarizedPointIsReturned() throws IOException {
         List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 78, "measurementA", "measurementB");
         indexMinutePoints(points);
