@@ -300,6 +300,7 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(sum("measurementA", points), sum("measurementA", resultingPoints));
         assertEquals(sum("measurementB", points), sum("measurementB", resultingPoints));
         assertEquals(truncate(now, ChronoUnit.DAYS).toInstant(), timestamp(0, resultingPoints).toInstant());
+        assertEquals(truncate(now.plusDays(1), ChronoUnit.DAYS).toInstant(), timestamp(1, resultingPoints).toInstant());
     }
 
     @Test
