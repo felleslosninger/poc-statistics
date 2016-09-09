@@ -25,20 +25,20 @@ public class InfluxDBQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        QueryResult result = query().from(seriesName).timeRange(from, to).execute();
+    public List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+        QueryResult result = query(owner).from(seriesName).timeRange(from, to).execute();
         return convert(result);
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
-        double percentileValue = percentileValue(seriesName, from, to, filter);
-        QueryResult result = query().from(seriesName).timeRange(from, to).greaterThan(filter.getMeasurementId(), percentileValue).execute();
+    public List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+        double percentileValue = percentileValue(seriesName, owner, from, to, filter);
+        QueryResult result = query(owner).from(seriesName).timeRange(from, to).greaterThan(filter.getMeasurementId(), percentileValue).execute();
         return convert(result);
     }
 
-    private double percentileValue(String seriesName, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
-        QueryResult result = query()
+    private double percentileValue(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+        QueryResult result = query(owner)
                         .selectPercentileValue(filter.getMeasurementId(), filter.getPercentile())
                         .from(seriesName)
                         .timeRange(from, to)
@@ -49,17 +49,17 @@ public class InfluxDBQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> hours(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> days(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> months(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
@@ -67,14 +67,14 @@ public class InfluxDBQueryService implements QueryService {
     public List<TimeSeriesPoint> monthsSnapshot(String seriesName, ZonedDateTime from, ZonedDateTime to){
         throw new UnsupportedOperationException();
     }
-    
+
     @Override
-    public List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> years(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
+    public TimeSeriesPoint point(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
@@ -106,8 +106,8 @@ public class InfluxDBQueryService implements QueryService {
         return Optional.of(result.getResults().get(0).getSeries().get(0));
     }
 
-    private InfluxQuery query() {
-        return new InfluxQuery(client);
+    private InfluxQuery query(String database) {
+        return new InfluxQuery(client, database);
     }
 
     private static class InfluxQuery {
@@ -117,10 +117,12 @@ public class InfluxDBQueryService implements QueryService {
         private List<String> filters = new ArrayList<>();
         private String groupByClause = "";
         private InfluxDB client;
+        private String database;
         private final static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
-        InfluxQuery(InfluxDB client) {
+        InfluxQuery(InfluxDB client, String database) {
             this.client = client;
+            this.database = database;
         }
 
         InfluxQuery selectPercentileValue(String measurementId, int percentile) {
@@ -160,7 +162,7 @@ public class InfluxDBQueryService implements QueryService {
         }
 
         QueryResult execute() {
-            return client.query(new Query(selectClause + " " + fromClause + " " + whereClause(filters) + " " + groupByClause, "default"));
+            return client.query(new Query(selectClause + " " + fromClause + " " + whereClause(filters) + " " + groupByClause, database));
         }
 
     }

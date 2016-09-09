@@ -21,11 +21,12 @@ public class RandomIngesterRestController {
 
     @RequestMapping(
             method = RequestMethod.POST,
-            value = "minutes/{seriesName}",
+            value = "minutes/{owner}/{seriesName}",
             params = {"from", "to"},
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
     public void minutes(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
@@ -34,6 +35,7 @@ public class RandomIngesterRestController {
         for (ZonedDateTime t = from; t.isBefore(to); t = t.plusMinutes(1)) {
             service.minute(
                     seriesName,
+                    owner,
                     TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", random.nextLong())).build()
             );
         }

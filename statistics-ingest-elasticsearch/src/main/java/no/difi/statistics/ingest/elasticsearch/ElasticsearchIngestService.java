@@ -26,8 +26,8 @@ public class ElasticsearchIngestService implements IngestService {
     }
 
     @Override
-    public void minute(String timeSeriesName, TimeSeriesPoint dataPoint) {
-        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, dataPoint.getTimestamp()), "default", dataPoint);
+    public void minute(String timeSeriesName, String owner, TimeSeriesPoint dataPoint) {
+        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, owner, dataPoint.getTimestamp()), "default", dataPoint);
     }
 
     private void indexTimeSeriesPoint(String indexName, String indexType, TimeSeriesPoint dataPoint) {
@@ -40,9 +40,10 @@ public class ElasticsearchIngestService implements IngestService {
         client.prepareIndex(indexName, indexType).setSource(document).get();
     }
 
-    private String indexNameForMinuteSeries(String baseName, ZonedDateTime timestamp) {
+    private String indexNameForMinuteSeries(String baseName, String organizationNumber, ZonedDateTime timestamp) {
         return format(
-                "%s:minute%s",
+                "%s/%s:minute%s",
+                organizationNumber,
                 baseName,
                 DateTimeFormatter.ofPattern("yyyy.MM.dd").format(timestamp)
         );

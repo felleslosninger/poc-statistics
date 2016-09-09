@@ -21,7 +21,7 @@ public class QueryRestController {
         this.service = service;
     }
 
-    @RequestMapping("/")
+    @GetMapping("/")
     public String index() throws IOException {
         return format(
                 "Statistics Query version %s",
@@ -29,77 +29,85 @@ public class QueryRestController {
         );
     }
 
-    @RequestMapping("minutes/{seriesName}")
+    @GetMapping("minutes/{owner}/{seriesName}")
     public List<TimeSeriesPoint> minutes(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.minutes(seriesName, from, to);
+        return service.minutes(seriesName, owner, from, to);
     }
 
-    @RequestMapping(method = RequestMethod.POST, path = "minutes/{seriesName}")
+    @PostMapping("minutes/{owner}/{seriesName}")
     public List<TimeSeriesPoint> minutesAbovePercentile(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
             @RequestBody TimeSeriesFilter filter
     ) {
-        return service.minutes(seriesName, from, to, filter);
+        return service.minutes(seriesName, owner, from, to, filter);
     }
 
-    @RequestMapping("hours/{seriesName}")
+    @GetMapping("hours/{owner}/{seriesName}")
     public List<TimeSeriesPoint> hours(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.hours(seriesName, from, to);
+        return service.hours(seriesName, owner, from, to);
     }
 
-    @RequestMapping("days/{seriesName}")
+    @GetMapping("days/{owner}/{seriesName}")
     public List<TimeSeriesPoint> days(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.days(seriesName, from, to);
+        return service.days(seriesName, owner, from, to);
     }
 
-    @RequestMapping("months/{seriesName}")
+    @GetMapping("months/{owner}/{seriesName}")
     public List<TimeSeriesPoint> months(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.months(seriesName, from, to);
+        return service.months(seriesName, owner, from, to);
     }
 
-    @RequestMapping("monthsSnapshot/{seriesName}")
+    @GetMapping("monthsSnapshot/{owner}/{seriesName}")
     public List<TimeSeriesPoint> monthsSnapshot(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.monthsSnapshot(seriesName, from, to);
+        return service.monthsSnapshot(seriesName, owner, from, to);
     }
 
     @RequestMapping("years/{seriesName}")
     public List<TimeSeriesPoint> years(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.years(seriesName, from, to);
+        return service.years(seriesName, owner, from, to);
     }
 
-    @RequestMapping("point/{seriesName}")
+    @GetMapping("point/{owner}/{seriesName}")
     public TimeSeriesPoint point(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.point(seriesName, from, to);
+        return service.point(seriesName, owner, from, to);
     }
 
 }

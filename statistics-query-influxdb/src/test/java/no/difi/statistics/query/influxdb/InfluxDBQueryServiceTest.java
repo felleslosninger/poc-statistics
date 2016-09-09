@@ -65,8 +65,8 @@ public class InfluxDBQueryServiceTest {
 
     private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 13, 30, 31, 123, ZoneId.of("UTC"));
     private final static String measurementId = "count";
-    private static final String databaseName = "default";
     private final static String timeSeriesName = "test";
+    private final static String owner = "owner";
 
     private static GenericContainer backend;
 
@@ -77,7 +77,7 @@ public class InfluxDBQueryServiceTest {
 
     @After
     public void after() {
-        client.deleteDatabase(databaseName);
+        client.deleteDatabase(owner);
     }
 
     @AfterClass
@@ -148,19 +148,20 @@ public class InfluxDBQueryServiceTest {
     }
 
     private List<TimeSeriesPoint> minutes(String timeSeriesName, ZonedDateTime from, ZonedDateTime to) {
-        return getRequest("/minutes/{seriesName}?from={from}&to={to}", timeSeriesName, from, to);
+        return getRequest("/minutes/{owner}/{seriesName}?from={from}&to={to}", owner, timeSeriesName, from, to);
     }
 
     private List<TimeSeriesPoint> months(String timeSeriesName, ZonedDateTime from, ZonedDateTime to) {
-        return getRequest("/months/{seriesName}?from={from}&to={to}", timeSeriesName, from, to);
+        return getRequest("/months/{owner}/{seriesName}?from={from}&to={to}", owner, timeSeriesName, from, to);
     }
 
     private List<TimeSeriesPoint> minutesAbovePercentile(int percentile, String measurementId, String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/minutes/{seriesName}?from={from}&to={to}",
+                "/minutes/{owner}/{seriesName}?from={from}&to={to}",
                 POST,
                 new HttpEntity<>(new TimeSeriesFilter(percentile, measurementId)),
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -169,6 +170,7 @@ public class InfluxDBQueryServiceTest {
 
     private List<TimeSeriesPoint> getRequest(
             String url,
+            String owner,
             String timeSeriesName,
             ZonedDateTime from,
             ZonedDateTime to
@@ -178,6 +180,7 @@ public class InfluxDBQueryServiceTest {
                 GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 timeSeriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -200,12 +203,12 @@ public class InfluxDBQueryServiceTest {
     }
 
     private void ingestTimeSeriesPoint(String timeSeriesName, TimeSeriesPoint dataPoint) {
-        client.createDatabase(databaseName); // Does a CREATE DATABASE IF NOT EXISTS
+        client.createDatabase(owner); // Does a CREATE DATABASE IF NOT EXISTS
         Point.Builder influxPoint = Point.measurement(timeSeriesName)
                 .time(dataPoint.getTimestamp().toInstant().toEpochMilli(), TimeUnit.MILLISECONDS);
         for (Measurement measurement : dataPoint.getMeasurements())
             influxPoint.addField(measurement.getId(), measurement.getValue());
-        client.write(databaseName, null, influxPoint.build());
+        client.write(owner, null, influxPoint.build());
     }
 
     private String formatTimestamp(ZonedDateTime timestamp) {

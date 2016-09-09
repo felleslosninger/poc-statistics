@@ -8,23 +8,24 @@ import org.influxdb.dto.Point;
 
 import java.util.concurrent.TimeUnit;
 
+import static java.lang.String.format;
+
 public class InfluxDBIngestService implements IngestService {
 
     private InfluxDB client;
-    private static final String databaseName = "default";
 
     public InfluxDBIngestService(InfluxDB client) {
         this.client = client;
     }
 
     @Override
-    public void minute(String timeSeriesName, TimeSeriesPoint dataPoint) {
-        client.createDatabase(databaseName); // Does a CREATE DATABASE IF NOT EXISTS
-        Point.Builder influxPoint = Point.measurement(timeSeriesName)
+    public void minute(String timeSeriesName, String owner, TimeSeriesPoint dataPoint) {
+        client.createDatabase(owner); // Does a CREATE DATABASE IF NOT EXISTS
+        Point.Builder influxPoint = Point.measurement(format("%s", timeSeriesName))
                 .time(dataPoint.getTimestamp().toInstant().toEpochMilli(), TimeUnit.MILLISECONDS);
         for (Measurement measurement : dataPoint.getMeasurements())
             influxPoint.addField(measurement.getId(), measurement.getValue());
-        client.write(databaseName, null, InfluxDB.ConsistencyLevel.ALL, influxPoint.build().lineProtocol());
+        client.write(owner, null, InfluxDB.ConsistencyLevel.ALL, influxPoint.build().lineProtocol());
     }
 
 }

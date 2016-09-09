@@ -95,4 +95,23 @@ public class TimeSeriesPoint {
                 ", measurements=" + measurements +
                 '}';
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        TimeSeriesPoint that = (TimeSeriesPoint) o;
+
+        if (!timestamp.equals(that.timestamp)) return false;
+        return measurements.equals(that.measurements);
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = timestamp.hashCode();
+        result = 31 * result + measurements.hashCode();
+        return result;
+    }
 }

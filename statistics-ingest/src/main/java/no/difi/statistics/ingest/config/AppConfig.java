@@ -44,10 +44,13 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
+                .antMatchers("/").permitAll()
+                .antMatchers("/minutes/{owner}/**").access("#owner == authentication.name")
                 .anyRequest().authenticated()
                 .and()
                 .httpBasic()
                 .and()
                 .csrf().disable();
     }
+
 }

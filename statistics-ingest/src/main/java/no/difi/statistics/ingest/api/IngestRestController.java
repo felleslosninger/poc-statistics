@@ -17,7 +17,7 @@ public class IngestRestController {
         this.ingestService = ingestService;
     }
 
-    @RequestMapping(method=RequestMethod.GET, value="/")
+    @GetMapping(value="/")
     public String index() {
         return format(
                 "Statistics Ingest version %s",
@@ -25,11 +25,15 @@ public class IngestRestController {
         );
     }
 
-    @RequestMapping(method = RequestMethod.POST, value = "minutes/{seriesName}", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
-    public void addMinutes(
+    @PostMapping(
+            value = "minutes/{owner}/{seriesName}",
+            consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
+    )
+    public void minute(
+            @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestBody TimeSeriesPoint dataPoint
     ) {
-        ingestService.minute(seriesName, dataPoint);
+        ingestService.minute(seriesName, owner, dataPoint);
     }
 }

@@ -19,6 +19,7 @@ public class DifiAdminIngester implements ApplicationRunner {
     private final static String urlTemplate =
             "https://admin.difi.eon.no/idporten-admin/statistics/statistics/json/r1/%s/to/%s";
     private final static DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd/HH/mm");
+    private final static String difiOrganizationNumber = "991825827";
     private IngestService service;
 
     public DifiAdminIngester(IngestService service) {
@@ -39,7 +40,7 @@ public class DifiAdminIngester implements ApplicationRunner {
                     measurements(pointBuilder, fields);
                 }
                 TimeSeriesPoint point = pointBuilder.build();
-                service.minute(timeSeriesName(), point);
+                service.minute(timeSeriesName(), difiOrganizationNumber, point);
             }
         }
     }

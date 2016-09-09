@@ -40,7 +40,7 @@ import java.util.Map;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static no.difi.statistics.elasticsearch.IndexNameResolver.*;
+import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
 
 public class ElasticsearchQueryService implements QueryService {
@@ -57,36 +57,54 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveMinuteIndexNames(seriesName, from, to), from, to);
+    public List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+        return search(resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(), from, to);
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
-        return searchWithPercentileFilter(resolveMinuteIndexNames(seriesName, from, to), from, to, filter);
+    public List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+        return searchWithPercentileFilter(
+                resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                from, to, filter
+        );
     }
 
     @Override
-    public List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveHourIndexNames(seriesName, from, to), from, to);
+    public List<TimeSeriesPoint> hours(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+        return search(
+                resolveIndexName().seriesName(seriesName).owner(owner).hours().from(from).to(to).list(),
+                from, to
+        );
     }
 
     @Override
-    public List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        List<TimeSeriesPoint> result = search(resolveDayIndexNames(seriesName, from, to), from, to);
+    public List<TimeSeriesPoint> days(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+        List<TimeSeriesPoint> result = search(
+                resolveIndexName().seriesName(seriesName).owner(owner).days().from(from).to(to).list(),
+                from, to
+        );
         if (result.isEmpty()) {
             logger.info("Empty result for day series search. Attempting to aggregate minute series...");
-            result = sumAggregatePerDay(resolveMinuteIndexNames(seriesName, from, to), from, to);
+            result = sumAggregatePerDay(
+                    resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                    from, to
+            );
         }
         return result;
     }
 
     @Override
-    public List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        List<TimeSeriesPoint> result = search(resolveMonthIndexNames(seriesName, from, to), from, to);
+    public List<TimeSeriesPoint> months(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+        List<TimeSeriesPoint> result = search(
+                resolveIndexName().seriesName(seriesName).owner(owner).months().from(from).to(to).list(),
+                from, to
+        );
         if (result.isEmpty()) {
             logger.info("Empty result for month series search. Attempting to aggregate minute series...");
-            result = sumAggregatePerMonth(resolveMinuteIndexNames(seriesName, from, to), from, to);
+            result = sumAggregatePerMonth(
+                    resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                    from, to
+            );
         }
         return result;
     }
@@ -102,13 +120,19 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveYearIndexNames(seriesName, from, to), from, to);
+    public List<TimeSeriesPoint> years(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+        return search(
+                resolveIndexName().seriesName(seriesName).owner(owner).years().from(from).to(to).list(),
+                from, to
+        );
     }
 
     @Override
-    public TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return sumAggregate(resolveMinuteIndexNames(seriesName, from, to), from, to);
+    public TimeSeriesPoint point(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+        return sumAggregate(
+                resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                from, to
+        );
     }
 
     private List<TimeSeriesPoint> search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {

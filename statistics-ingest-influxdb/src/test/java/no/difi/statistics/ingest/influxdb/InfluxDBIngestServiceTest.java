@@ -68,10 +68,12 @@ public class InfluxDBIngestServiceTest {
     public void givenADataPointWhenIngestingThenItCanBeFoundByQuery() {
         ZonedDateTime timestamp = ZonedDateTime.now();
         String seriesName = "testSeries";
+        String owner = "owner";
         String measurementId = "testMeasurementId";
         long measurementValue = 321;
         service.minute(
                 seriesName,
+                owner,
                 TimeSeriesPoint.builder()
                         .timestamp(timestamp)
                         .measurement(measurementId, measurementValue)
@@ -81,7 +83,7 @@ public class InfluxDBIngestServiceTest {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        QueryResult result = influxClient.query(new Query("SELECT * from " + seriesName, "default"));
+        QueryResult result = influxClient.query(new Query("SELECT * from " + seriesName, owner));
         assertDataPoint(seriesName, timestamp, measurementId, measurementValue, result);
     }
 

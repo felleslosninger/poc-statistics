@@ -1,5 +1,6 @@
 package no.difi.statistics;
 
+import no.difi.statistics.elasticsearch.IndexNameResolver;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
@@ -65,8 +66,8 @@ public class ElasticsearchQueryServiceTest {
 
     private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
     private final static String measurementId = "count";
-    private static final String databaseName = "default";
     private final static String timeSeriesName = "test";
+    private final static String owner = "test_owner"; // Index names must be lower case in Elasticsearch
 
     private static GenericContainer backend;
 
@@ -381,10 +382,11 @@ public class ElasticsearchQueryServiceTest {
 
     private TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return restTemplate.exchange(
-                "/point/{seriesName}?from={from}&to={to}",
+                "/point/{owner}/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 TimeSeriesPoint.class,
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -393,10 +395,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return restTemplate.exchange(
-                "/minutes/{seriesName}?from={from}&to={to}",
+                "/minutes/{owner}/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -405,10 +408,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/hours/{seriesName}?from={from}&to={to}",
+                "/hours/{owner}/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -417,10 +421,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/days/{seriesName}?from={from}&to={to}",
+                "/days/{owner}/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -429,10 +434,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/months/{seriesName}?from={from}&to={to}",
+                "/months/{owner}/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -453,10 +459,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/years/{seriesName}?from={from}&to={to}",
+                "/years/{owner}/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -466,10 +473,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> minutesAbovePercentile(int percentile, String measurementId, String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/minutes/{seriesName}?from={from}&to={to}",
+                "/minutes/{owner}/{seriesName}?from={from}&to={to}",
                 HttpMethod.POST,
                 new HttpEntity<>(new TimeSeriesFilter(percentile, measurementId)),
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
@@ -560,42 +568,23 @@ public class ElasticsearchQueryServiceTest {
     }
 
     private String indexNameForMinuteSeries(String baseName, ZonedDateTime timestamp) {
-        return String.format(
-                "%s:minute%s",
-                baseName,
-                DateTimeFormatter.ofPattern("yyyy.MM.dd").format(timestamp)
-        );
+        return IndexNameResolver.resolveIndexName().seriesName(baseName).owner(owner).minutes().at(timestamp).single();
     }
 
     private String indexNameForHourSeries(String baseName, ZonedDateTime timestamp) {
-        return String.format(
-                "%s:hour%s",
-                baseName,
-                DateTimeFormatter.ofPattern("yyyy.MM.dd").format(timestamp)
-        );
+        return IndexNameResolver.resolveIndexName().seriesName(baseName).owner(owner).hours().at(timestamp).single();
     }
 
     private String indexNameForDaySeries(String baseName, ZonedDateTime timestamp) {
-        return String.format(
-                "%s:day%s",
-                baseName,
-                DateTimeFormatter.ofPattern("yyyy").format(timestamp)
-        );
+        return IndexNameResolver.resolveIndexName().seriesName(baseName).owner(owner).days().at(timestamp).single();
     }
 
     private String indexNameForMonthSeries(String baseName, ZonedDateTime timestamp) {
-        return String.format(
-                "%s:month%s",
-                baseName,
-                DateTimeFormatter.ofPattern("yyyy").format(timestamp)
-        );
+        return IndexNameResolver.resolveIndexName().seriesName(baseName).owner(owner).months().at(timestamp).single();
     }
 
     private String indexNameForYearSeries(String baseName, ZonedDateTime timestamp) {
-        return String.format(
-                "%s:year",
-                baseName
-        );
+        return IndexNameResolver.resolveIndexName().seriesName(baseName).owner(owner).years().at(timestamp).single();
     }
 
     private String formatTimestamp(ZonedDateTime timestamp) {

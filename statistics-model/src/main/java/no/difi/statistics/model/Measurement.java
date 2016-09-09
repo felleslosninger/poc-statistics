@@ -53,4 +53,22 @@ public class Measurement {
                 '}';
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Measurement that = (Measurement) o;
+
+        if (value != that.value) return false;
+        return id.equals(that.id);
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id.hashCode();
+        result = 31 * result + (int) (value ^ (value >>> 32));
+        return result;
+    }
 }

@@ -7,60 +7,168 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static java.lang.String.format;
-import static java.time.temporal.ChronoUnit.DAYS;
-import static java.time.temporal.ChronoUnit.HOURS;
-import static java.time.temporal.ChronoUnit.MINUTES;
-import static java.time.temporal.ChronoUnit.MONTHS;
-import static java.time.temporal.ChronoUnit.YEARS;
+import static java.time.temporal.ChronoUnit.*;
 import static java.util.Collections.singletonList;
 
 public class IndexNameResolver {
 
-    public static List<String> resolveMinuteIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return indexNamesForSeriesPerDay(seriesName, MINUTES, from, to);
+    private String seriesName;
+    private String owner;
+    private ChronoUnit measurementDistance;
+    private ChronoUnit baseTimeUnit;
+    private ZonedDateTime from;
+    private ZonedDateTime to;
+    private ZonedDateTime at;
+
+    public static SeriesName resolveIndexName() {
+        return new Fluent();
     }
 
-    public static List<String> resolveHourIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return indexNamesForSeriesPerDay(seriesName, HOURS, from, to);
+    public interface From {
+        To from(ZonedDateTime from);
     }
 
-    public static List<String> resolveDayIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return indexNamesForSeriesPerYear(seriesName, DAYS, from, to);
+    public interface To {
+        ResolveList to(ZonedDateTime to);
     }
 
-    public static List<String> resolveMonthIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return indexNamesForSeriesPerYear(seriesName, MONTHS, from, to);
+    public interface FromOrAt extends From, At {
     }
 
-    public static List<String> resolveYearIndexNames(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return singletonList(format("%s:%s", seriesName, toIndexPart(YEARS)));
+    public interface At {
+        ResolveSingle at(ZonedDateTime at);
     }
 
-    private static List<String> indexNamesForSeriesPerDay(String seriesName, ChronoUnit seriesTimeUnit, ZonedDateTime from, ZonedDateTime to) {
-        return indexNamesForSeries(seriesName, seriesTimeUnit, DAYS, "yyyy.MM.dd", from, to);
+    public interface ResolveList {
+        List<String> list();
     }
 
-    private static List<String> indexNamesForSeriesPerYear(String seriesName, ChronoUnit seriesTimeUnit, ZonedDateTime from, ZonedDateTime to) {
-        return indexNamesForSeries(seriesName, seriesTimeUnit, YEARS, "yyyy", from, to);
+    public interface ResolveSingle {
+        String single();
     }
 
-    private static List<String> indexNamesForSeries(String seriesName, ChronoUnit seriesTimeUnit, ChronoUnit indexTimeUnit, String indexTimeFormat, ZonedDateTime from, ZonedDateTime to) {
-        List<String> indices = new ArrayList<>();
-        from = truncate(from, indexTimeUnit);
-        to = truncate(to, indexTimeUnit);
-        for (ZonedDateTime time = from; time.isBefore(to) || time.isEqual(to); time = time.plus(1, indexTimeUnit)) {
-            indices.add(indexNameForSeries(seriesName, seriesTimeUnit, indexTimeFormat, time));
+    public interface SeriesName {
+        Owner seriesName(String seriesName);
+    }
+
+    public interface Owner {
+        Distance owner(String owner);
+    }
+
+    public interface Distance {
+        FromOrAt minutes();
+        FromOrAt hours();
+        FromOrAt days();
+        FromOrAt months();
+        FromOrAt years();
+    }
+
+    private static class Fluent implements
+            From,
+            To,
+            FromOrAt,
+            At,
+            ResolveList,
+            ResolveSingle,
+            Owner,
+            SeriesName,
+            Distance {
+
+        private IndexNameResolver instance = new IndexNameResolver();
+
+        @Override
+        public To from(ZonedDateTime from) {
+            instance.from = from;
+            return this;
         }
-        return indices;
-    }
 
-    private static String indexNameForSeries(String seriesName, ChronoUnit seriesTimeUnit, String indexTimeFormat, ZonedDateTime time) {
-        return format(
-                "%s:%s%s",
-                seriesName,
-                toIndexPart(seriesTimeUnit),
-                DateTimeFormatter.ofPattern(indexTimeFormat).format(time)
-        );
+        @Override
+        public ResolveList to(ZonedDateTime to) {
+            instance.to = to;
+            return this;
+        }
+
+        @Override
+        public ResolveSingle at(ZonedDateTime at) {
+            instance.at = at;
+            return this;
+        }
+
+        @Override
+        public Owner seriesName(String seriesName) {
+            instance.seriesName = seriesName;
+            return this;
+        }
+
+        @Override
+        public Distance owner(String organizationNumber) {
+            instance.owner = organizationNumber;
+            return this;
+        }
+
+        @Override
+        public FromOrAt minutes() {
+            instance.measurementDistance = MINUTES;
+            instance.baseTimeUnit = DAYS;
+            return this;
+        }
+
+        @Override
+        public FromOrAt hours() {
+            instance.measurementDistance = HOURS;
+            instance.baseTimeUnit = DAYS;
+            return this;
+        }
+
+        @Override
+        public FromOrAt days() {
+            instance.measurementDistance = DAYS;
+            instance.baseTimeUnit = YEARS;
+            return this;
+        }
+
+        @Override
+        public FromOrAt months() {
+            instance.measurementDistance = MONTHS;
+            instance.baseTimeUnit = YEARS;
+            return this;
+        }
+
+        @Override
+        public FromOrAt years() {
+            instance.measurementDistance = YEARS;
+            instance.baseTimeUnit = FOREVER;
+            return this;
+        }
+
+        @Override
+        public List<String> list() {
+            if (instance.baseTimeUnit == FOREVER)
+                return singletonList(formatName(dateTimeFormatter(instance.baseTimeUnit), instance.from));
+            List<String> indices = new ArrayList<>();
+            instance.from = truncate(instance.from, instance.baseTimeUnit);
+            instance.to = truncate(instance.to, instance.baseTimeUnit);
+            for (ZonedDateTime timestamp = instance.from; timestamp.isBefore(instance.to) || timestamp.isEqual(instance.to); timestamp = timestamp.plus(1, instance.baseTimeUnit)) {
+                indices.add(formatName(dateTimeFormatter(instance.baseTimeUnit), timestamp));
+            }
+            return indices;
+        }
+
+        @Override
+        public String single() {
+            return formatName(dateTimeFormatter(instance.baseTimeUnit), instance.at);
+        }
+
+        private String formatName(DateTimeFormatter dateTimeFormatter, ZonedDateTime timestamp) {
+            return format(
+                    "%s:%s:%s%s",
+                    instance.owner,
+                    instance.seriesName,
+                    measurementDistanceName(instance.measurementDistance),
+                    dateTimeFormatter.format(timestamp)
+            );
+        }
+
     }
 
     private static ZonedDateTime truncate(ZonedDateTime timestamp, ChronoUnit toUnit) {
@@ -75,15 +183,34 @@ public class IndexNameResolver {
         return timestamp.truncatedTo(toUnit);
     }
 
-    private static String toIndexPart(ChronoUnit chronoUnit) {
+    private static String measurementDistanceName(ChronoUnit chronoUnit) {
         switch (chronoUnit) {
-            case MINUTES: return "minute";
-            case HOURS: return "hour";
-            case DAYS: return "day";
-            case MONTHS: return "month";
-            case YEARS: return "year";
+            case MINUTES:
+                return "minute";
+            case HOURS:
+                return "hour";
+            case DAYS:
+                return "day";
+            case MONTHS:
+                return "month";
+            case YEARS:
+                return "year";
         }
         throw new IllegalArgumentException(chronoUnit.toString());
     }
-    
+
+    private static DateTimeFormatter dateTimeFormatter(ChronoUnit baseTimeUnit) {
+        switch (baseTimeUnit) {
+            case YEARS:
+                return DateTimeFormatter.ofPattern("yyyy");
+            case DAYS:
+                return DateTimeFormatter.ofPattern("yyyy.MM.dd");
+            case FOREVER:
+                return DateTimeFormatter.ofPattern("");
+            default:
+                throw new RuntimeException("Unsupported period unit for series: " + baseTimeUnit);
+        }
+    }
+
+
 }

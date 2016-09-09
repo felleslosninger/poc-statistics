@@ -26,6 +26,7 @@ public class RandomIngester implements ApplicationRunner {
             long value = random.nextLong();
             service.minute(
                     "random",
+                    "randomOrganizationNumber",
                     TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", value)).build()
             );
         }
