@@ -6,7 +6,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class DataGenerator {
 
@@ -16,12 +16,12 @@ public class DataGenerator {
 
     public static List<TimeSeriesPoint> createRandomTimeSeries(ZonedDateTime from, ChronoUnit unit, long size, String...measurementIds) {
         List<TimeSeriesPoint> points = new ArrayList<>();
-        Random randomGenerator = new Random();
+        ThreadLocalRandom randomGenerator = ThreadLocalRandom.current();
         ZonedDateTime timestamp = from;
         for (int i = 0; i < size; i++) {
             TimeSeriesPoint.Builder pointBuilder = TimeSeriesPoint.builder().timestamp(timestamp);
             for (int j = 0; j < measurementIds.length; j++) {
-                pointBuilder.measurement(measurementIds[j], randomGenerator.nextInt(1_000));
+                pointBuilder.measurement(measurementIds[j], randomGenerator.nextLong(Long.MAX_VALUE/(size * 1000)));
             }
             points.add(pointBuilder.build());
             timestamp = timestamp.plus(1, unit);

@@ -40,7 +40,7 @@ public class Measurement {
         @Override
         public Measurement deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
             JsonNode node = parser.getCodec().readTree(parser);
-            return new Measurement(node.get("id").asText(), node.get("value").asLong());
+            return new Measurement(node.get("id").asText(), node.get("value").longValue());
         }
 
     }
