@@ -72,7 +72,7 @@ public class ElasticsearchQueryService implements QueryService {
     public List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         List<TimeSeriesPoint> result = search(resolveDayIndexNames(seriesName, from, to), from, to);
         if (result.isEmpty()) {
-            logger.info("Empty result for days series search. Attempting to aggregate minute series...");
+            logger.info("Empty result for day series search. Attempting to aggregate minute series...");
             result = sumAggregatePerDay(resolveMinuteIndexNames(seriesName, from, to), from, to);
         }
         return result;
