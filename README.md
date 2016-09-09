@@ -96,6 +96,20 @@ gjenspeiler byggetidspunktet.
 $ mvn deploy
 ```
 
+### Utrulling av ny versjon
+
+Gitt at applikasjonen kjører som et sett tjenester på Docker i sverm-modus, så kan funksjonaliteten for
+[rullerende oppdatering](https://docs.docker.com/engine/swarm/swarm-tutorial/rolling-update) av tjenester benyttes:
+
+```
+$ docker service update --image difi/statistics-query-elasticsearch:$VERSION statistics-query
+$ docker service update --image difi/statistics-ingest-elasticsearch:$VERSION statistics-ingest
+$ docker service update --image difi/statistics-elasticsearch:$VERSION elasticsearch
+$ docker service update --image difi/statistics-elasticsearch:$VERSION elasticsearch_gossip
+```
+
+>Merk at Docker-klienten her må peke til en av _manager_-nodene i svermen.
+
 ## Sporbarhet
 
 Versjonsnummeret kan hentes ved å gjøre en HTTP GET på '/'.
