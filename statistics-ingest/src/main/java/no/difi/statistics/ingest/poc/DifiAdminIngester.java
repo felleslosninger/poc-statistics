@@ -65,12 +65,12 @@ public class DifiAdminIngester implements ApplicationRunner {
     private Measurement measurement(String authenticationMethod, int index, JsonArray fields) {
         return new Measurement(
                 format("%s/%s", authenticationMethod, stringValue(0, fields)),
-                intValue(index, fields)
+                longValue(index, fields)
         );
     }
 
-    private int intValue(int index, JsonArray fields) {
-        return fields.getJsonObject(index).getInt("value");
+    private long longValue(int index, JsonArray fields) {
+        return fields.getJsonObject(index).getJsonNumber("value").longValueExact();
     }
 
     private String stringValue(int index, JsonArray fields) {

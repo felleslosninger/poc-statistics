@@ -34,7 +34,7 @@ public class RandomIngesterRestController {
         for (ZonedDateTime t = from; t.isBefore(to); t = t.plusMinutes(1)) {
             service.minute(
                     seriesName,
-                    TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", random.nextInt())).build()
+                    TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", random.nextLong())).build()
             );
         }
 
