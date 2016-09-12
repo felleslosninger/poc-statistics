@@ -23,7 +23,7 @@ public class RandomIngester implements ApplicationRunner {
         ApplicationArgumentsReader argumentsReader = new ApplicationArgumentsReader(applicationArguments);
         Random random = new Random();
         for (ZonedDateTime t = argumentsReader.from(); t.isBefore(argumentsReader.to()); t = t.plusMinutes(1)) {
-            int value = random.nextInt();
+            long value = random.nextLong();
             service.minute(
                     "random",
                     TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", value)).build()

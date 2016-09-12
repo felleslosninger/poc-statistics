@@ -74,9 +74,9 @@ public class DataOperations {
         resultingPoints.forEach(point -> assertThat(measurementValue(measurementId, point), greaterThanOrEqualTo(expectedPercentileValue)));
     }
 
-    public static void assertPercentileTDigest(int percent, int[] points, String measurementId, List<TimeSeriesPoint> resultingPoints) {
+    public static void assertPercentileTDigest(int percent, long[] points, String measurementId, List<TimeSeriesPoint> resultingPoints) {
         TDigest tdigest = TDigest.createTreeDigest(100.0);
-        for (int point : points)
+        for (long point : points)
             tdigest.add(point);
         double expectedPercentileValue = tdigest.quantile(new BigDecimal(percent).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP).doubleValue());
         resultingPoints.forEach(point ->

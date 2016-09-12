@@ -280,7 +280,7 @@ public class ElasticsearchQueryService implements QueryService {
     private List<Measurement> measurements(SearchHit hit) {
         List<Measurement> measurements = new ArrayList<>();
         hit.getSource().keySet().stream().filter(field -> !field.equals(timeFieldName)).forEach(field -> {
-            int value = Integer.valueOf(hit.getSource().get(field).toString());
+            long value = Long.valueOf(hit.getSource().get(field).toString());
             measurements.add(new Measurement(field, value));
         });
         return measurements;
@@ -289,7 +289,7 @@ public class ElasticsearchQueryService implements QueryService {
     private List<Measurement> measurements(Aggregations sumAggregations) {
         List<Measurement> measurements = new ArrayList<>();
         for (Aggregation sum : sumAggregations) {
-            measurements.add(new Measurement(sum.getName(), (int)((Sum)sum).getValue()));
+            measurements.add(new Measurement(sum.getName(), (long)((Sum)sum).getValue()));
         }
         return measurements;
     }

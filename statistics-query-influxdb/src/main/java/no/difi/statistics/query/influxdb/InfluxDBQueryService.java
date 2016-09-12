@@ -82,7 +82,7 @@ public class InfluxDBQueryService implements QueryService {
         for (int i = 0; i < series.getValues().size(); i++) {
             TimeSeriesPoint.Builder pointBuilder = TimeSeriesPoint.builder().timestamp(ZonedDateTime.parse(series.getValues().get(i).get(0).toString()));
             for (int j = 1; j < series.getValues().get(i).size(); j++) {
-                pointBuilder.measurement(series.getColumns().get(j), ((Double) series.getValues().get(i).get(j)).intValue());
+                pointBuilder.measurement(series.getColumns().get(j), ((Double) series.getValues().get(i).get(j)).longValue());
             }
             points.add(pointBuilder.build());
         }
