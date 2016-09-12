@@ -112,7 +112,7 @@ public class InfluxDBQueryServiceTest {
 
     @Test // 1, 2, 3, 4, 5, 8, 21, 44, 55, 89, 131, 200, 700, 1000
     public void givenMinuteSeriesWithSize14WhenQueryingForDataPointsWithMeasurementAbove92ndPercentileThenLargestMeasurementsFromPosition13AreReturned() throws IOException {
-        int[] points = {1000, 4, 700, 1, 2, 3, 5, 44, 8, 21, 200, 131, 55, 89};
+        long[] points = {1000, 4, 700, 1, 2, 3, 5, 44, 8, 21, 200, 131, 55, 89};
         indexMinutePointsFrom(now.minusMinutes(50), points);
         List<TimeSeriesPoint> resultingPoints = minutesAbovePercentile(
                 92, measurementId, timeSeriesName,
@@ -123,7 +123,7 @@ public class InfluxDBQueryServiceTest {
 
     @Test // 3, 5, 11, 13, 56, 234, 235, 546, 566, 574, 674, 777, 1244, 3454, 3455, 5667, 9000, 547547
     public void givenMinuteSeriesWithSize18WhenQueryingForDataPointsWithMeasurementAbove35thPercentileThenLargestMeasurementsFromPosition6AreReturned() throws IOException {
-        int[] points = {13, 11, 546, 234, 3455, 547547, 574, 3, 3454, 5, 1244, 674, 566, 5667, 56, 777, 235, 9000};
+        long[] points = {13, 11, 546, 234, 3455, 547547, 574, 3, 3454, 5, 1244, 674, 566, 5667, 56, 777, 235, 9000};
         indexMinutePointsFrom(now.minusMinutes(300), points);
         List<TimeSeriesPoint> resultingPoints = minutesAbovePercentile(
                 40, measurementId, timeSeriesName,
@@ -142,8 +142,8 @@ public class InfluxDBQueryServiceTest {
                 now.truncatedTo(DAYS).plusMinutes(100)
         );
         assertEquals(1, size(resultingPoints));
-        assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1).intValue());
-        assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1).intValue());
+        assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).intValue());
+        assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).intValue());
         assertEquals(truncate(now, ChronoUnit.MONTHS).toInstant(), timestamp(0, resultingPoints).toInstant());
     }
 
@@ -184,7 +184,7 @@ public class InfluxDBQueryServiceTest {
         ).getBody();
     }
 
-    private void indexMinutePoint(ZonedDateTime timestamp, int value) {
+    private void indexMinutePoint(ZonedDateTime timestamp, long value) {
         ingestTimeSeriesPoint(timeSeriesName, TimeSeriesPoint.builder().timestamp(timestamp).measurement(measurementId, value).build());
     }
 
@@ -192,8 +192,8 @@ public class InfluxDBQueryServiceTest {
         points.forEach(point -> ingestTimeSeriesPoint(timeSeriesName, point));
     }
 
-    private void indexMinutePointsFrom(ZonedDateTime timestamp, int...values) throws IOException {
-        for (int value : values) {
+    private void indexMinutePointsFrom(ZonedDateTime timestamp, long...values) throws IOException {
+        for (long value : values) {
             ingestTimeSeriesPoint(timeSeriesName, TimeSeriesPoint.builder().timestamp(timestamp).measurement(measurementId, value).build());
             timestamp = timestamp.plusMinutes(1);
         }

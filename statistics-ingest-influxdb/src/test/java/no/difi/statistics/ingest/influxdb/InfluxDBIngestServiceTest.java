@@ -69,7 +69,7 @@ public class InfluxDBIngestServiceTest {
         ZonedDateTime timestamp = ZonedDateTime.now();
         String seriesName = "testSeries";
         String measurementId = "testMeasurementId";
-        int measurementValue = 321;
+        long measurementValue = 321;
         service.minute(
                 seriesName,
                 TimeSeriesPoint.builder()
@@ -85,7 +85,7 @@ public class InfluxDBIngestServiceTest {
         assertDataPoint(seriesName, timestamp, measurementId, measurementValue, result);
     }
 
-    private void assertDataPoint(String seriesName, ZonedDateTime timestamp, String measurementId, int measurementValue, QueryResult result) {
+    private void assertDataPoint(String seriesName, ZonedDateTime timestamp, String measurementId, long measurementValue, QueryResult result) {
         assertFalse(result.hasError());
         assertEquals(1, result.getResults().size());
         assertNotNull(result.getResults().get(0).getSeries());

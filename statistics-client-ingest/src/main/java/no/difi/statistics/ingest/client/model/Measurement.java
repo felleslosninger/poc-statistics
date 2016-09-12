@@ -15,9 +15,9 @@ import java.io.IOException;
 public class Measurement {
 
     private final String id;
-    private final int value;
+    private final long value;
 
-    public Measurement(String id, int value) {
+    public Measurement(String id, long value) {
         this.id = id;
         this.value = value;
     }
@@ -28,7 +28,7 @@ public class Measurement {
     }
 
     @XmlElement
-    public int getValue() {
+    public long getValue() {
         return value;
     }
 
@@ -40,7 +40,7 @@ public class Measurement {
         @Override
         public Measurement deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
             JsonNode node = parser.getCodec().readTree(parser);
-            return new Measurement(node.get("id").asText(), node.get("value").asInt());
+            return new Measurement(node.get("id").asText(), node.get("value").asLong());
         }
     }
 

@@ -70,7 +70,12 @@ public class ElasticsearchQueryService implements QueryService {
 
     @Override
     public List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveDayIndexNames(seriesName, from, to), from, to);
+        List<TimeSeriesPoint> result = search(resolveDayIndexNames(seriesName, from, to), from, to);
+        if (result.isEmpty()) {
+            logger.info("Empty result for day series search. Attempting to aggregate minute series...");
+            result = sumAggregatePerDay(resolveMinuteIndexNames(seriesName, from, to), from, to);
+        }
+        return result;
     }
 
     @Override
@@ -149,6 +154,30 @@ public class ElasticsearchQueryService implements QueryService {
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
             Histogram histogram = response.getAggregations().get("per_month");
+            series.addAll(histogram.getBuckets().stream().map(this::point).collect(toList()));
+        }
+        return series;
+    }
+
+    private List<TimeSeriesPoint> sumAggregatePerDay(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+        if (logger.isDebugEnabled()) {
+            logger.debug(format(
+                    "Executing sum aggregate per day:\nIndexes: %s\nFrom: %s\nTo: %s\n",
+                    indexNames.stream().collect(joining(",\n  ")),
+                    from,
+                    to
+            ));
+        }
+        SearchResponse response = searchBuilder(indexNames, from, to)
+                .addAggregation(dateHistogramBuilder("per_day", DateHistogramInterval.DAY, measurementIds(indexNames)))
+                .setSize(0) // We are after aggregation and not the search hits
+                .execute().actionGet();
+        if (logger.isDebugEnabled()) {
+            logger.debug("Search result:\n" + response);
+        }
+        List<TimeSeriesPoint> series = new ArrayList<>();
+        if (response.getAggregations() != null) {
+            Histogram histogram = response.getAggregations().get("per_day");
             series.addAll(histogram.getBuckets().stream().map(this::point).collect(toList()));
         }
         return series;
@@ -251,7 +280,7 @@ public class ElasticsearchQueryService implements QueryService {
     private List<Measurement> measurements(SearchHit hit) {
         List<Measurement> measurements = new ArrayList<>();
         hit.getSource().keySet().stream().filter(field -> !field.equals(timeFieldName)).forEach(field -> {
-            int value = Integer.valueOf(hit.getSource().get(field).toString());
+            long value = Long.valueOf(hit.getSource().get(field).toString());
             measurements.add(new Measurement(field, value));
         });
         return measurements;
@@ -260,7 +289,7 @@ public class ElasticsearchQueryService implements QueryService {
     private List<Measurement> measurements(Aggregations sumAggregations) {
         List<Measurement> measurements = new ArrayList<>();
         for (Aggregation sum : sumAggregations) {
-            measurements.add(new Measurement(sum.getName(), (int)((Sum)sum).getValue()));
+            measurements.add(new Measurement(sum.getName(), (long)((Sum)sum).getValue()));
         }
         return measurements;
     }

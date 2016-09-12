@@ -1,0 +1,4 @@
+network.host: 0.0.0.0
+network.publish_host: ${HOSTNAME}
+# Ref. https://www.elastic.co/guide/en/elasticsearch/guide/current/heap-sizing.html#_swapping_is_the_death_of_performance
+bootstrap.mlockall: true

@@ -48,7 +48,7 @@ public class TimeSeriesPoint {
             return this;
         }
 
-        public Builder measurement(String measurementId, int measurement) {
+        public Builder measurement(String measurementId, long measurement) {
             instance.measurements.add(new Measurement(measurementId, measurement));
             return this;
         }
@@ -78,7 +78,7 @@ public class TimeSeriesPoint {
         @Override
         public TimeSeriesPoint deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
             JsonNode node = parser.getCodec().readTree(parser);
-            return TimeSeriesPoint.builder().timestamp(ZonedDateTime.parse(node.get("timestamp").asText())).measurement(node.get("measurement").get("id").asText(), node.get("measurement").get("value").asInt()).build();
+            return TimeSeriesPoint.builder().timestamp(ZonedDateTime.parse(node.get("timestamp").asText())).measurement(node.get("measurement").get("id").asText(), node.get("measurement").get("value").asLong()).build();
         }
 
     }

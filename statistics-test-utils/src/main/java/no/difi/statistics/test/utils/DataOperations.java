@@ -23,8 +23,8 @@ public class DataOperations {
         throw new UnsupportedOperationException(getClass() + " does not support instantiation");
     }
 
-    public static int sum(String measurementId, List<TimeSeriesPoint> points) {
-        return points.stream().map(p -> p.getMeasurement(measurementId)).map(Optional::get).mapToInt(Measurement::getValue).sum();
+    public static long sum(String measurementId, List<TimeSeriesPoint> points) {
+        return points.stream().map(p -> p.getMeasurement(measurementId)).map(Optional::get).mapToLong(Measurement::getValue).sum();
     }
 
     public static ZonedDateTime timestamp(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
@@ -49,8 +49,8 @@ public class DataOperations {
         return index - 1; // Index is zero based
     }
 
-    public static int[] sort(int[] src) {
-        int[] dst = src.clone();
+    public static long[] sort(long[] src) {
+        long[] dst = src.clone();
         Arrays.sort(dst);
         return dst;
     }
@@ -59,28 +59,28 @@ public class DataOperations {
         return timeSeries.size();
     }
 
-    public static int measurementValue(String measurementId, int i, List<TimeSeriesPoint> timeSeries) {
+    public static long measurementValue(String measurementId, int i, List<TimeSeriesPoint> timeSeries) {
         return measurementValue(measurementId, timeSeries.get(i));
     }
 
-    public static int measurementValue(String measurementId, TimeSeriesPoint point) {
+    public static long measurementValue(String measurementId, TimeSeriesPoint point) {
         return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
-    public static void assertPercentile(int percent, int[] points, String measurementId, List<TimeSeriesPoint> resultingPoints) {
+    public static void assertPercentile(int percent, long[] points, String measurementId, List<TimeSeriesPoint> resultingPoints) {
         int percentileIndex = percentileIndex(percent, points.length);
-        int expectedPercentileValue = sort(points)[percentileIndex];
+        long expectedPercentileValue = sort(points)[percentileIndex];
         assertEquals(points.length - (percentileIndex + 1), size(resultingPoints));
         resultingPoints.forEach(point -> assertThat(measurementValue(measurementId, point), greaterThanOrEqualTo(expectedPercentileValue)));
     }
 
-    public static void assertPercentileTDigest(int percent, int[] points, String measurementId, List<TimeSeriesPoint> resultingPoints) {
+    public static void assertPercentileTDigest(int percent, long[] points, String measurementId, List<TimeSeriesPoint> resultingPoints) {
         TDigest tdigest = TDigest.createTreeDigest(100.0);
-        for (int point : points)
+        for (long point : points)
             tdigest.add(point);
         double expectedPercentileValue = tdigest.quantile(new BigDecimal(percent).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP).doubleValue());
         resultingPoints.forEach(point ->
-                assertThat(Integer.valueOf(measurementValue(measurementId, point)).doubleValue(), greaterThanOrEqualTo(expectedPercentileValue))
+                assertThat(Long.valueOf(measurementValue(measurementId, point)).doubleValue(), greaterThanOrEqualTo(expectedPercentileValue))
         );
     }
 
