@@ -275,8 +275,8 @@ public class ElasticsearchQueryServiceTest {
                 now.truncatedTo(DAYS).plusMinutes(100)
         );
         assertEquals(1, size(resultingPoints));
-        assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).intValue());
-        assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).intValue());
+        assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
         assertEquals(truncate(now, ChronoUnit.DAYS).toInstant(), timestamp(0, resultingPoints).toInstant());
     }
 
@@ -293,10 +293,10 @@ public class ElasticsearchQueryServiceTest {
         List<TimeSeriesPoint> pointsDayOne = points.subList(0,1440);
         List<TimeSeriesPoint> pointsDayTwo = points.subList(1440, points.size());
         assertEquals(2, size(resultingPoints));
-        assertEquals(sum("measurementA", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).intValue());
-        assertEquals(sum("measurementA", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).intValue());
-        assertEquals(sum("measurementB", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).intValue());
-        assertEquals(sum("measurementB", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).intValue());
+        assertEquals(sum("measurementA", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(sum("measurementA", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(sum("measurementB", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(sum("measurementB", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
 
         assertEquals(sum("measurementA", points), sum("measurementA", resultingPoints));
         assertEquals(sum("measurementB", points), sum("measurementB", resultingPoints));
