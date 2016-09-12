@@ -63,7 +63,7 @@ public class ElasticsearchQueryServiceTest {
 
     }
 
-    private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 13, 30, 31, 123, ZoneId.of("UTC"));
+    private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
     private final static String measurementId = "count";
     private static final String databaseName = "default";
     private final static String timeSeriesName = "test";
@@ -263,6 +263,45 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
         assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
         assertEquals(truncate(now, ChronoUnit.MONTHS).toInstant(), timestamp(0, resultingPoints).toInstant());
+    }
+
+    @Test
+    public void givenMinuteSeriesWhenQueryingForDayPointsThenSummarizedMinutesAreReturned() throws IOException {
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        indexMinutePoints(points);
+        List<TimeSeriesPoint> resultingPoints = days(
+                timeSeriesName,
+                now.truncatedTo(DAYS),
+                now.truncatedTo(DAYS).plusMinutes(100)
+        );
+        assertEquals(1, size(resultingPoints));
+        assertEquals(sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(truncate(now, ChronoUnit.DAYS).toInstant(), timestamp(0, resultingPoints).toInstant());
+    }
+
+    @Test
+    public void givenMinuteSeriesWhenQueryingForDayPointsForSeveralDaysThenSummarizedMinutesForEachDayAreReturned() throws IOException {
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 2000, "measurementA", "measurementB");
+        indexMinutePoints(points);
+        List<TimeSeriesPoint> resultingPoints = days(
+                timeSeriesName,
+                now.truncatedTo(DAYS),
+                now.truncatedTo(DAYS).plusMinutes(2000)
+        );
+
+        List<TimeSeriesPoint> pointsDayOne = points.subList(0,1440);
+        List<TimeSeriesPoint> pointsDayTwo = points.subList(1440, points.size());
+        assertEquals(2, size(resultingPoints));
+        assertEquals(sum("measurementA", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(sum("measurementA", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(sum("measurementB", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(sum("measurementB", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
+
+        assertEquals(sum("measurementA", points), sum("measurementA", resultingPoints));
+        assertEquals(sum("measurementB", points), sum("measurementB", resultingPoints));
+        assertEquals(truncate(now, ChronoUnit.DAYS).toInstant(), timestamp(0, resultingPoints).toInstant());
+        assertEquals(truncate(now.plusDays(1), ChronoUnit.DAYS).toInstant(), timestamp(1, resultingPoints).toInstant());
     }
 
     @Test
