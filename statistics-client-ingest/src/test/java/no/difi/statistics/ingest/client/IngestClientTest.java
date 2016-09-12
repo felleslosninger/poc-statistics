@@ -32,7 +32,7 @@ public class IngestClientTest {
     private static final String PROTOCOL = "http://";
     private static final String EXPECTED_JSON_STRING = "{\"timestamp\":\"2016-08-03T15:40:04+02:00\",\"measurements\":[{\"id\":\"id1\",\"value\":1},{\"id\":\"id2\",\"value\":2}]}";
 
-    private static final String VALID_USERNAME = "astrid";
+    private static final String VALID_USERNAME = "984661185";
     private static final String VALID_PASSWORD = "123456";
     private static final String INVALID_PASSWORD = "123";
 
@@ -45,7 +45,7 @@ public class IngestClientTest {
     public IngestClientTest() throws IOException {
         wireMockRule.start();
 
-        ingestClient = new IngestClient(PROTOCOL + HOSTNAME + ":" + wireMockRule.port());
+        ingestClient = new IngestClient(PROTOCOL + HOSTNAME + ":" + wireMockRule.port(), VALID_USERNAME, VALID_PASSWORD);
 
         timeSeriesPoint = buildValidTimeSeriesPoint();
     }

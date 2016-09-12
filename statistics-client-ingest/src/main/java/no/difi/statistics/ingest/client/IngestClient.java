@@ -5,19 +5,15 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
-import java.util.Base64;
 import no.difi.statistics.ingest.client.exception.IngestException;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Properties;
+import java.util.Base64;
 
 public class IngestClient implements IngestService {
 
@@ -33,31 +29,16 @@ public class IngestClient implements IngestService {
     private final ISO8601DateFormat iso8601DateFormat;
 
     private final String serviceURLTemplate;
-    private final Properties properties;
+    private final String username;
+    private final String password;
 
-    public IngestClient(String baseURL) throws IngestException {
+    public IngestClient(String baseURL, String username, String password) throws IngestException {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
         serviceURLTemplate = baseURL + "/" + SERVICE_NAME + "/%s";
-        try {
-            properties = loadProperties();
-        } catch (IOException e) {
-            throw new IngestException("Could not call IngestService", e);
-        }
-    }
-
-    private Properties loadProperties() throws IOException {
-        Properties properties = new Properties();
-        String filename = "application.properties";
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream(filename);
-        if(inputStream!=null){
-            properties.load(inputStream);
-        } else {
-            throw new FileNotFoundException("The property file " + filename + "was not found in classpath");
-        }
-
-        return properties;
+        this.username = username;
+        this.password = password;
     }
 
     public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
@@ -95,8 +76,6 @@ public class IngestClient implements IngestService {
     }
 
     private String createBase64EncodedCredentials(){
-        String username = properties.getProperty("username");
-        String password = properties.getProperty("password");
         return Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 

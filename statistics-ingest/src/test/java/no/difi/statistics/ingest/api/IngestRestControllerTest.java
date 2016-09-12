@@ -39,8 +39,6 @@ public class IngestRestControllerTest {
     private WebApplicationContext springContext;
     @Autowired
     private IngestService service;
-    @Autowired
-    private Filter springSecurityFilterChain;
 
     private static final String VALIDUSERNAME = "984661185";
     private static final String VALIDPASSWORD = "123456";
