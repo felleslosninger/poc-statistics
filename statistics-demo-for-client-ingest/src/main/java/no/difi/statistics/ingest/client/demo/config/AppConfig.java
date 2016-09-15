@@ -7,8 +7,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.io.IOException;
-
 @Configuration
 @EnableAutoConfiguration
 public class AppConfig {
@@ -20,5 +18,4 @@ public class AppConfig {
     public IngestRestController api() throws IngestException {
         return new IngestRestController(backendConfig.ingestService());
     }
-
 }
