@@ -2,8 +2,8 @@ package no.difi.statistics.ingest.api;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.TimeSeriesPoint;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import static java.lang.String.format;

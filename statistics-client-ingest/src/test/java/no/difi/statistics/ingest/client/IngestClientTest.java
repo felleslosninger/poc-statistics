@@ -1,17 +1,18 @@
 package no.difi.statistics.ingest.client;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import java.util.Base64;
 import no.difi.statistics.ingest.client.exception.IngestException;
 import no.difi.statistics.ingest.client.model.Measurement;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
-import java.net.MalformedURLException;
+import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -20,68 +21,89 @@ import java.util.List;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
-@Ignore
 public class IngestClientTest {
 
     private static final String JSON = "application/json";
     private static final String CONTENTTYPE = "Content-Type";
+    private static final String AUTHORIZATION = "Authorization";
     private static final String HOSTNAME = "localhost";
     private static final String SERVICE = "/minutes";
+    private static final String SERVICE_REGEX = SERVICE + "/.+";
+    private static final String PROTOCOL = "http://";
+    private static final String EXPECTED_JSON_STRING = "{\"timestamp\":\"2016-08-03T15:40:04+02:00\",\"measurements\":[{\"id\":\"id1\",\"value\":1},{\"id\":\"id2\",\"value\":2}]}";
+
+    private static final String VALID_USERNAME = "984661185";
+    private static final String VALID_PASSWORD = "123456";
+    private static final String INVALID_PASSWORD = "123";
+
     private static final String EXCEPTIONMESSAGE = "Could not call IngestService";
-    private static final String WRONGHTTPCODEMESSAGE = "Could not post to Ingest Service. Response code from service was";
-    private static final String ERRORMESSAGE500 = "Should give 500 error";
-    private static final String ERRORMESSAGE400 = "Should give 400 error";
 
     private final IngestClient ingestClient;
 
     private final TimeSeriesPoint timeSeriesPoint;
-    private final TimeSeriesPoint timeSeriesPointError;
-    private final TimeSeriesPoint timeSeriesPoint400Error;
 
-    public IngestClientTest() throws MalformedURLException {
+    public IngestClientTest() throws IOException {
         wireMockRule.start();
 
-        ingestClient = new IngestClient("http://" + HOSTNAME + ":" + wireMockRule.port());
+        ingestClient = new IngestClient(PROTOCOL + HOSTNAME + ":" + wireMockRule.port(), VALID_USERNAME, VALID_PASSWORD);
 
         timeSeriesPoint = buildValidTimeSeriesPoint();
-        timeSeriesPointError = buildTimeSeriesPointWith500ErrorMessage();
-        timeSeriesPoint400Error = buildTimeSeriesPointWith400ErrorMessage();
     }
 
     @Before
     public void before() throws Exception{
-        setupStubs();
+        setup400Stub(VALID_USERNAME, VALID_PASSWORD);
+        setup415Stub(VALID_USERNAME, VALID_PASSWORD);
+        setupMissingAuthorizationHeaderStub();
+        setup200Stub(VALID_USERNAME, VALID_PASSWORD);
+        setupWrongPasswordStub(VALID_USERNAME, INVALID_PASSWORD);
     }
 
-    private void setupStubs() {
-        setup200Stub();
-        setup500Stub();
-        setup400Stub();
+    private void setup415Stub(String username, String password) {
+        stubFor(post(urlPathMatching(SERVICE_REGEX))
+                .withHeader(CONTENTTYPE, notMatching(JSON))
+                .withHeader(AUTHORIZATION, equalTo(validAuthHeader(username, password)))
+                .willReturn(aResponse()
+                        .withStatus(415)));
     }
 
-    private void setup400Stub() {
-        stubFor(post(urlPathMatching(SERVICE+"/.+"))
+    private void setup400Stub(String username, String password) {
+        stubFor(post(urlPathMatching(SERVICE_REGEX))
                 .withHeader(CONTENTTYPE,equalTo(JSON))
-                .withRequestBody(containing(ERRORMESSAGE400))
+                .withHeader(AUTHORIZATION, equalTo(validAuthHeader(username, password)))
+                .withRequestBody(notMatching("\\{\"timestamp\":.*\"measurements\":.*\\}"))
                 .willReturn(aResponse()
                         .withStatus(400)));
     }
 
-    private void setup500Stub() {
-        stubFor(post(urlPathMatching(SERVICE+"/.+"))
-                .withHeader(CONTENTTYPE,equalTo(JSON))
-                .withRequestBody(containing(ERRORMESSAGE500))
-                .willReturn(aResponse()
-                        .withStatus(500)));
-    }
-
-    private void setup200Stub() {
-        String expectedJsonString = "{\"timestamp\":\"2016-08-03T15:40:04+02:00\",\"measurements\":[{\"id\":\"id1\",\"value\":1},{\"id\":\"id2\",\"value\":2}]}";
-        stubFor(post(urlPathMatching(SERVICE+"/.+"))
-                .withHeader(CONTENTTYPE,equalTo(JSON))
-                .withRequestBody(equalTo(expectedJsonString))
+    private void setup200Stub(String username, String password) {
+        stubFor(post(urlPathMatching(SERVICE_REGEX))
+                .withHeader(CONTENTTYPE, equalTo(JSON))
+                .withHeader(AUTHORIZATION, equalTo(validAuthHeader(username, password)))
+                .withRequestBody(equalToJson(EXPECTED_JSON_STRING, JSONCompareMode.NON_EXTENSIBLE))
                 .willReturn(aResponse()
                         .withStatus(200)));
+    }
+
+    private void setupMissingAuthorizationHeaderStub() {
+        stubFor(post(urlPathMatching(SERVICE_REGEX))
+                .withHeader(CONTENTTYPE, equalTo(JSON))
+                .withRequestBody(equalToJson(EXPECTED_JSON_STRING))
+                .willReturn(aResponse()
+                        .withStatus(401)));
+    }
+
+    private void setupWrongPasswordStub(String username, String password) {
+        stubFor(post(urlPathMatching(SERVICE_REGEX))
+                .withHeader(CONTENTTYPE, equalTo(JSON))
+                .withHeader(AUTHORIZATION, equalTo(validAuthHeader(username, password)))
+                .withRequestBody(equalToJson(EXPECTED_JSON_STRING))
+                .willReturn(aResponse()
+                        .withStatus(401)));
+    }
+
+    private String validAuthHeader(String username, String password){
+        return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
     private TimeSeriesPoint buildValidTimeSeriesPoint() {
@@ -93,25 +115,6 @@ public class IngestClientTest {
         return TimeSeriesPoint.builder().measurements(measurement).timestamp(timestamp).build();
     }
 
-    private TimeSeriesPoint buildTimeSeriesPointWith500ErrorMessage() {
-        List<Measurement> measurement = new ArrayList<>();
-        measurement.add(new Measurement(ERRORMESSAGE500, 1));
-        measurement.add(new Measurement("id2", 2));
-
-        ZonedDateTime timestamp = ZonedDateTime.parse("2016-08-03T15:40:04.000+02:00");
-        return TimeSeriesPoint.builder().measurements(measurement).timestamp(timestamp).build();
-    }
-
-    private TimeSeriesPoint buildTimeSeriesPointWith400ErrorMessage() {
-        List<Measurement> measurement = new ArrayList<>();
-        measurement.add(new Measurement(ERRORMESSAGE400, 1));
-        measurement.add(new Measurement("id2", 2));
-
-        ZonedDateTime timestamp = ZonedDateTime.parse("2016-08-03T15:40:04.000+02:00");
-        return TimeSeriesPoint.builder().measurements(measurement).timestamp(timestamp).build();
-    }
-
-
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(wireMockConfig()
             .bindAddress(HOSTNAME)
@@ -121,25 +124,34 @@ public class IngestClientTest {
     public ExpectedException expectedEx = ExpectedException.none();
 
     @Test
-    public void whenCallingMinutesCorrectURLIsRequested() throws Exception {
+    public void whenCallingMinutesContentTypeJsonIsSpecified() throws Exception {
         String seriesName = "seriesName3";
         ingestClient.minute(seriesName, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo(SERVICE + "/" + seriesName))
-                .withHeader(CONTENTTYPE, equalTo(JSON)));
+        .withHeader(CONTENTTYPE, equalTo(JSON)));
     }
 
     @Test
-    public void whenServerReturns500ErrorClientThrowsException(){
-        expectedEx.expect(IngestException.class);
-        expectedEx.expectMessage(WRONGHTTPCODEMESSAGE + " 500");
-        ingestClient.minute("testError", timeSeriesPointError);
+    public void whenCallingAuthorizationHeaderIsSpecifiedWithValidUsernameAndPassword(){
+        String seriesName = "seriesName3";
+        ingestClient.minute(seriesName, timeSeriesPoint);
+        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + seriesName))
+        .withHeader(AUTHORIZATION, equalTo(validAuthHeader(VALID_USERNAME, VALID_PASSWORD))));
     }
 
     @Test
-    public void whenServerReturnsMalformedRequestClientThrowsException(){
-        expectedEx.expect(IngestException.class);
-        expectedEx.expectMessage(WRONGHTTPCODEMESSAGE + " 400");
-        ingestClient.minute("test400Error", timeSeriesPoint400Error);
+    public void whenCallingMinutesCorrectURLIsRequested() throws Exception {
+        String seriesName = "seriesName3";
+        ingestClient.minute(seriesName, timeSeriesPoint);
+        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + seriesName)));
+    }
+
+    @Test
+    public void whenCallingMinutesRequestBodyIsAsExpected() throws Exception {
+        String seriesName = "seriesName3";
+        ingestClient.minute(seriesName, timeSeriesPoint);
+        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + seriesName))
+                .withRequestBody(equalToJson(EXPECTED_JSON_STRING)));
     }
 
     @Test

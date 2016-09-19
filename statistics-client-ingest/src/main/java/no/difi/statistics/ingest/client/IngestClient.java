@@ -13,6 +13,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Base64;
 
 public class IngestClient implements IngestService {
 
@@ -20,18 +21,24 @@ public class IngestClient implements IngestService {
     private static final String JSON_CONTENT_TYPE = "application/json";
     private static final String SERVICE_NAME = "minutes";
     private static final String REQUEST_METHOD_POST = "POST";
+    private static final String AUTHORIZATION_KEY = "Authorization";
+    private static final String AUTH_METHOD = "Basic";
 
     private final ObjectMapper objectMapper;
     private final JavaTimeModule javaTimeModule;
     private final ISO8601DateFormat iso8601DateFormat;
 
     private final String serviceURLTemplate;
+    private final String username;
+    private final String password;
 
-    public IngestClient(String baseURL) throws MalformedURLException {
+    public IngestClient(String baseURL, String username, String password) throws IngestException {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
         serviceURLTemplate = baseURL + "/" + SERVICE_NAME + "/%s";
+        this.username = username;
+        this.password = password;
     }
 
     public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
@@ -63,8 +70,13 @@ public class IngestClient implements IngestService {
         conn.setReadTimeout(5000);
         conn.setRequestMethod(REQUEST_METHOD_POST);
         conn.setRequestProperty(CONTENT_TYPE_KEY, JSON_CONTENT_TYPE);
+        conn.setRequestProperty(AUTHORIZATION_KEY, AUTH_METHOD + " " + createBase64EncodedCredentials());
 
         return conn;
+    }
+
+    private String createBase64EncodedCredentials(){
+        return Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
     private OutputStream writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn) throws IOException {
@@ -72,7 +84,6 @@ public class IngestClient implements IngestService {
         ObjectWriter objectWriter = getObjectWriter();
         String jsonString = objectWriter.writeValueAsString(timeSeriesPoint);
         outputStream.write(jsonString.getBytes());
-
         return outputStream;
     }
 

@@ -5,41 +5,34 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import no.difi.statistics.ingest.client.demo.config.AppConfig;
 import no.difi.statistics.ingest.client.model.Measurement;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = {AppConfig.class, MockBackendConfig.class})
 @WebAppConfiguration
+@AutoConfigureMockMvc
 public class IngestRestControllerTest {
 
     @Autowired
     private WebApplicationContext springContext;
+    @Autowired
     private MockMvc mockMvc;
-
-    @Before
-    public void before(){
-        mockMvc = MockMvcBuilders.webAppContextSetup(springContext).build();
-    }
 
     @Test
     public void whenSendingRequestWithValidTimeSeriesPointThenExpectNormalResponse() throws Exception {
@@ -55,7 +48,8 @@ public class IngestRestControllerTest {
 
     @Test
     public void whenSendingRequestWithInvalidContentTypeThenExpect415Response() throws Exception {
-        ResultActions result = postMinutesWithoutContentType("test", createValidJsonString(createValidTimeSeriesPoint(createValidMeasurements(), ZonedDateTime.now())));
+        String jsonString = createValidJsonString(createValidTimeSeriesPoint(createValidMeasurements(), ZonedDateTime.now()));
+        ResultActions result = postMinutesWithoutContentType("test", jsonString);
 
         assert415Response(result);
     }
@@ -80,27 +74,20 @@ public class IngestRestControllerTest {
                 .build();
     }
 
-    private void assertCorrectValues(TimeSeriesPoint timeSeriesPoint, ArgumentCaptor<TimeSeriesPoint> argumentCaptor){
-        assertEquals(timeSeriesPoint.getTimestamp().withZoneSameInstant(ZoneId.of("UTC")),
-                argumentCaptor.getValue().getTimestamp());
-        assertEquals(timeSeriesPoint.getMeasurements().get(0).getId(),
-                argumentCaptor.getValue().getMeasurements().get(0).getId());
-        assertEquals(timeSeriesPoint.getMeasurements().get(0).getValue(),
-                argumentCaptor.getValue().getMeasurements().get(0).getValue());
-    }
     private List<Measurement> createValidMeasurements(){
         List<Measurement> measurements = new ArrayList<>();
         measurements.add(new Measurement("antall", 2));
         return measurements;
     }
 
-    private ResultActions postMinutes(String seriesName, String jsonString) throws Exception{
+    private ResultActions postMinutes(String seriesName, String jsonString) throws Exception {
         String typeJson = "application/json";
         return mockMvc.perform(post("/minutes/{seriesName}", seriesName)
                 .contentType(typeJson)
                 .accept(typeJson)
                 .content(jsonString));
     }
+
 
     private ResultActions postMinutesWithoutContentType(String seriesName, String jsonString) throws Exception{
         String typeJson = "application/json";
