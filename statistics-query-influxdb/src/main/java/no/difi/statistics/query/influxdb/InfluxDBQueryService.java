@@ -64,6 +64,11 @@ public class InfluxDBQueryService implements QueryService {
     }
 
     @Override
+    public List<TimeSeriesPoint> monthsSnapshot(String seriesName, ZonedDateTime from, ZonedDateTime to){
+        throw new UnsupportedOperationException();
+    }
+    
+    @Override
     public List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }

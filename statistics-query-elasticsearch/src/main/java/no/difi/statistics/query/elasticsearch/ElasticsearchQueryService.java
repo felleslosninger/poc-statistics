@@ -13,6 +13,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -24,6 +25,8 @@ import org.elasticsearch.search.aggregations.bucket.range.Range;
 import org.elasticsearch.search.aggregations.bucket.range.date.DateRangeBuilder;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
 import org.elasticsearch.search.aggregations.metrics.sum.Sum;
+import org.elasticsearch.search.aggregations.metrics.tophits.InternalTopHits;
+import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,6 +87,16 @@ public class ElasticsearchQueryService implements QueryService {
         if (result.isEmpty()) {
             logger.info("Empty result for month series search. Attempting to aggregate minute series...");
             result = sumAggregatePerMonth(resolveMinuteIndexNames(seriesName, from, to), from, to);
+        }
+        return result;
+    }
+
+    @Override
+    public List<TimeSeriesPoint> monthsSnapshot(String seriesName, ZonedDateTime from , ZonedDateTime to){
+        List<TimeSeriesPoint> result = search(resolveMonthIndexNames(seriesName, from, to), from, to);
+        if (result.isEmpty()) {
+            logger.info("Empty result for month series search. Attempting to aggregate minute series...");
+            result = getLastPointPerMonth(resolveMinuteIndexNames(seriesName, from, to), from, to);
         }
         return result;
     }
@@ -183,6 +196,30 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
+    private List<TimeSeriesPoint> getLastPointPerMonth(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+        if (logger.isDebugEnabled()) {
+            logger.debug(format(
+                    "Executing last point per month:\nIndexes: %s\nFrom: %s\nTo: %s\n",
+                    indexNames.stream().collect(joining(",\n  ")),
+                    from,
+                    to
+            ));
+        }
+        SearchResponse response = searchBuilder(indexNames, from, to)
+                .addAggregation(dateSnapshotHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
+                .setSize(0) // We are after aggregation and not the search hits
+                .execute().actionGet();
+        if (logger.isDebugEnabled()) {
+            logger.debug("Search result:\n" + response);
+        }
+        List<TimeSeriesPoint> series = new ArrayList<>();
+        if (response.getAggregations() != null) {
+            Histogram histogram = response.getAggregations().get("per_month");
+            series.addAll(histogram.getBuckets().stream().map(this::point).collect(toList()));
+        }
+        return series;
+    }
+
     private List<TimeSeriesPoint> searchWithPercentileFilter(List<String> indexNames, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
@@ -242,6 +279,14 @@ public class ElasticsearchQueryService implements QueryService {
         return builder;
     }
 
+    private DateHistogramBuilder dateSnapshotHistogramBuilder(String name, DateHistogramInterval interval, List<String> measurementIds) {
+        DateHistogramBuilder builder = AggregationBuilders.dateHistogram(name).field("timestamp").interval(interval);
+        TopHitsBuilder topHitsBuilder = AggregationBuilders.topHits(name).setSize(1).addSort("timestamp", SortOrder.DESC);
+        for (String measurementId : measurementIds)
+            topHitsBuilder.addField(measurementId);
+        return builder.subAggregation(topHitsBuilder);
+    }
+
     private DateRangeBuilder dateRangeBuilder(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
         DateRangeBuilder builder = AggregationBuilders.dateRange(name).field(timeFieldName).addRange(formatTimestamp(from), formatTimestamp(to));
         for (String measurementId : measurementIds)
@@ -286,10 +331,18 @@ public class ElasticsearchQueryService implements QueryService {
         return measurements;
     }
 
-    private List<Measurement> measurements(Aggregations sumAggregations) {
+    private List<Measurement> measurements(Aggregations aggregations) {
         List<Measurement> measurements = new ArrayList<>();
-        for (Aggregation sum : sumAggregations) {
-            measurements.add(new Measurement(sum.getName(), (long)((Sum)sum).getValue()));
+        for (Aggregation agg : aggregations) {
+            if(agg instanceof Sum) {
+                measurements.add(new Measurement(agg.getName(), (long) ((Sum) agg).getValue()));
+            }else if(agg instanceof InternalTopHits){
+                Map<String, SearchHitField> fieldsMap = ((InternalTopHits) agg).getHits().getAt(0).fields();
+                for (String s : fieldsMap.keySet()) {
+                    Long value = (long) fieldsMap.get(s).getValues().get(0);
+                    measurements.add(new Measurement(s, value));
+                }
+            }
         }
         return measurements;
     }

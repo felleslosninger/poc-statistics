@@ -18,6 +18,8 @@ public interface QueryService {
 
     List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to);
 
+    List<TimeSeriesPoint> monthsSnapshot(String seriesName, ZonedDateTime from, ZonedDateTime to);
+
     List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to);
 
     TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to);

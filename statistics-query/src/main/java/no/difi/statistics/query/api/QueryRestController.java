@@ -75,6 +75,15 @@ public class QueryRestController {
         return service.months(seriesName, from, to);
     }
 
+    @RequestMapping("monthsSnapshot/{seriesName}")
+    public List<TimeSeriesPoint> monthsSnapshot(
+            @PathVariable String seriesName,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+    ) {
+        return service.monthsSnapshot(seriesName, from, to);
+    }
+
     @RequestMapping("years/{seriesName}")
     public List<TimeSeriesPoint> years(
             @PathVariable String seriesName,

@@ -266,6 +266,51 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
+    public void givenMinuteSeriesWhenQueryingForMonthSnapshotsThenLastPointInMonthAreReturned() throws IOException {
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        indexMinutePoints(points);
+        List<TimeSeriesPoint> resultingPoints = monthsSnapshot(
+                timeSeriesName,
+                now.truncatedTo(DAYS),
+                now.truncatedTo(DAYS).plusMinutes(100)
+        );
+        assertEquals(1, size(resultingPoints));
+
+        assertEquals(getValueFromTimeSeriesPointList(points, 99, "measurementA"), getValueFromTimeSeriesPointList(resultingPoints, 0, "measurementA"));
+        assertEquals(getValueFromTimeSeriesPointList(points, 99, "measurementB"), getValueFromTimeSeriesPointList(resultingPoints, 0, "measurementB"));
+
+        assertEquals(truncate(now, ChronoUnit.MONTHS).toInstant(), timestamp(0, resultingPoints).toInstant());
+    }
+
+    private long getValueFromTimeSeriesPointList(List<TimeSeriesPoint> timeSeriesPoints, int index, String measurementId){
+        return timeSeriesPoints.get(index).getMeasurement(measurementId).map(Measurement::getValue).get();
+    }
+
+    @Test
+    public void givenMinuteSeriesOverMoreThanOneMonthWhenQueryingForMonthSnapshotsThenLastPointInEveryMonthAreReturned() throws IOException {
+        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        indexMinutePoints(points);
+        List<TimeSeriesPoint> pointsMonth2 = createRandomTimeSeries(now.truncatedTo(DAYS).plusMonths(1), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
+        indexMinutePoints(pointsMonth2);
+
+        List<TimeSeriesPoint> resultingPoints = monthsSnapshot(
+                timeSeriesName,
+                now.truncatedTo(DAYS),
+                now.truncatedTo(DAYS).plusMonths(1).plusMinutes(100)
+        );
+
+        assertEquals(2, size(resultingPoints));
+
+        assertEquals(getValueFromTimeSeriesPointList(points, 99, "measurementA"), getValueFromTimeSeriesPointList(resultingPoints, 0, "measurementA"));
+        assertEquals(getValueFromTimeSeriesPointList(points, 99, "measurementB"), getValueFromTimeSeriesPointList(resultingPoints, 0, "measurementB"));
+        assertEquals(getValueFromTimeSeriesPointList(pointsMonth2, 99, "measurementA"), getValueFromTimeSeriesPointList(resultingPoints, 1, "measurementA"));
+        assertEquals(getValueFromTimeSeriesPointList(pointsMonth2, 99, "measurementB"), getValueFromTimeSeriesPointList(resultingPoints, 1, "measurementB"));
+
+        assertEquals(truncate(now, ChronoUnit.MONTHS).toInstant(), timestamp(0, resultingPoints).toInstant());
+        assertEquals(truncate(now.plusMonths(1), ChronoUnit.MONTHS).toInstant(), timestamp(1, resultingPoints).toInstant());
+    }
+
+    @Test
     public void givenMinuteSeriesWhenQueryingForDayPointsThenSummarizedMinutesAreReturned() throws IOException {
         List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
         indexMinutePoints(points);
@@ -385,6 +430,18 @@ public class ElasticsearchQueryServiceTest {
     private List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
                 "/months/{seriesName}?from={from}&to={to}",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                seriesName,
+                formatTimestamp(from),
+                formatTimestamp(to)
+        ).getBody();
+    }
+
+    private List<TimeSeriesPoint> monthsSnapshot(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
+        return restTemplate.exchange(
+                "/monthsSnapshot/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
