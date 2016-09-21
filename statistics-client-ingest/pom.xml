@@ -10,6 +10,24 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>statistics-client-ingest</artifactId>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-install-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
     <dependency>
         <groupId>com.fasterxml.jackson.datatype</groupId>
