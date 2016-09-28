@@ -49,6 +49,11 @@ public class InfluxDBQueryService implements QueryService {
     }
 
     @Override
+    public List<String> availableTimeSeries(String owner) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<TimeSeriesPoint> hours(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }

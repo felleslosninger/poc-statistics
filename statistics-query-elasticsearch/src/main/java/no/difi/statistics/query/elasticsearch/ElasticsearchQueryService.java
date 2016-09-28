@@ -33,9 +33,9 @@ import org.slf4j.LoggerFactory;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -54,6 +54,29 @@ public class ElasticsearchQueryService implements QueryService {
 
     public ElasticsearchQueryService(Client elasticSearchClient) {
         this.elasticSearchClient = elasticSearchClient;
+    }
+
+    public List<String> availableTimeSeries(String owner) {
+
+        final String pattern = owner + ":(.*):minute.*";
+        String[] timeseries = elasticSearchClient.admin().cluster()
+                .prepareState().execute()
+                .actionGet().getState()
+                .getMetaData().concreteAllIndices();
+
+        Set<String> seriesNames = new HashSet<>();
+        Pattern p = Pattern.compile(pattern);
+        for (String serie : timeseries) {
+            Matcher m = p.matcher(serie);
+            if(m.find())
+            seriesNames.add(m.group(1));
+        }
+
+        List<String> availableTimeSeries = new ArrayList<>();
+        availableTimeSeries.addAll(seriesNames);
+        Collections.sort(availableTimeSeries);
+
+        return availableTimeSeries;
     }
 
     @Override

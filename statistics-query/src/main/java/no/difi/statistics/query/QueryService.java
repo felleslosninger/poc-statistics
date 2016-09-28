@@ -5,8 +5,11 @@ import no.difi.statistics.model.query.TimeSeriesFilter;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Set;
 
 public interface QueryService {
+
+    List<String> availableTimeSeries(String owner);
 
     List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 

@@ -31,6 +31,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import static java.time.temporal.ChronoUnit.DAYS;
@@ -39,6 +40,7 @@ import static no.difi.statistics.test.utils.DataOperations.*;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(
@@ -67,6 +69,7 @@ public class ElasticsearchQueryServiceTest {
     private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
     private final static String measurementId = "count";
     private final static String timeSeriesName = "test";
+    private final static String anotherTimeSeriesName = "anothertimeseriesname";
     private final static String owner = "test_owner"; // Index names must be lower case in Elasticsearch
 
     private static GenericContainer backend;
@@ -92,6 +95,31 @@ public class ElasticsearchQueryServiceTest {
     @AfterClass
     public static void cleanupAll() {
         backend.stop();
+    }
+
+    private void indexMinutePoints() throws IOException{
+        indexMinutePoint(timeSeriesName, now.minusMinutes(2), 1002);
+        indexMinutePoint(timeSeriesName, now, 1003);
+        indexMinutePoint(anotherTimeSeriesName, now, 42);
+    }
+    @Test
+    public void givenTimeSeriesWhenQueringForAvailableTimeSeriesThenAvailableTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
+        indexMinutePoints();
+
+        List<String> availableTimeSeries = availableTimeSeries(owner);
+
+        assertEquals(2, availableTimeSeries.size());
+        assertTrue(availableTimeSeries.contains(timeSeriesName));
+        assertTrue(availableTimeSeries.contains(anotherTimeSeriesName));
+    }
+
+    @Test
+    public void givenTimeSeriesWhenQueringForAvailableTimeSeriesWithAnotherOwnerThenNoTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
+        indexMinutePoints();
+
+        List<String> availableTimeSeries = availableTimeSeries("anotherOwner");
+
+        assertEquals(0, availableTimeSeries.size());
     }
 
     @Test
@@ -380,6 +408,15 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(now.truncatedTo(DAYS).toInstant(), resultingPoint.getTimestamp().toInstant());
     }
 
+    private List<String> availableTimeSeries(String owner){
+        return restTemplate.exchange(
+                "/minutes/{owner}",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<String>>(){},
+                owner
+        ).getBody();
+    }
     private TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return restTemplate.exchange(
                 "/point/{owner}/{seriesName}?from={from}&to={to}",
@@ -538,6 +575,7 @@ public class ElasticsearchQueryServiceTest {
         return points;
     }
 
+
     private List<TimeSeriesPoint> indexYearPointsFrom(ZonedDateTime timestamp, long... values) throws IOException {
         List<TimeSeriesPoint> points = new ArrayList<>(values.length);
         for (long value : values) {
@@ -547,8 +585,12 @@ public class ElasticsearchQueryServiceTest {
         return points;
     }
 
+    private TimeSeriesPoint indexMinutePoint(String seriesName, ZonedDateTime timestamp, long value) throws IOException {
+        return indexTimeSeriesPoint(indexNameForMinuteSeries(seriesName, timestamp), timestamp, value);
+    }
+
     private TimeSeriesPoint indexMinutePoint(ZonedDateTime timestamp, long value) throws IOException {
-        return indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, timestamp), timestamp, value);
+        return indexMinutePoint(timeSeriesName, timestamp, value);
     }
 
     private void indexTimeSeriesPoint(String indexName, TimeSeriesPoint point) throws IOException {
