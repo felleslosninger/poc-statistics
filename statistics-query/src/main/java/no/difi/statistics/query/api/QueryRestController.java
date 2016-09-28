@@ -90,7 +90,7 @@ public class QueryRestController {
         return service.monthsSnapshot(seriesName, owner, from, to);
     }
 
-    @RequestMapping("years/{seriesName}")
+    @RequestMapping("years/{owner}/{seriesName}")
     public List<TimeSeriesPoint> years(
             @PathVariable String owner,
             @PathVariable String seriesName,

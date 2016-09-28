@@ -110,11 +110,17 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> monthsSnapshot(String seriesName, ZonedDateTime from , ZonedDateTime to){
-        List<TimeSeriesPoint> result = search(resolveMonthIndexNames(seriesName, from, to), from, to);
+    public List<TimeSeriesPoint> monthsSnapshot(String seriesName, String owner, ZonedDateTime from , ZonedDateTime to){
+        List<TimeSeriesPoint> result = search(
+                resolveIndexName().seriesName(seriesName).owner(owner).months().from(from).to(to).list(),
+                from, to
+        );
         if (result.isEmpty()) {
             logger.info("Empty result for month series search. Attempting to aggregate minute series...");
-            result = getLastPointPerMonth(resolveMinuteIndexNames(seriesName, from, to), from, to);
+            result = getLastPointPerMonth(
+                    resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                    from, to
+            );
         }
         return result;
     }

@@ -447,10 +447,11 @@ public class ElasticsearchQueryServiceTest {
 
     private List<TimeSeriesPoint> monthsSnapshot(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/monthsSnapshot/{seriesName}?from={from}&to={to}",
+                "/monthsSnapshot/{owner}/{seriesName}?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
