@@ -32,7 +32,7 @@ public class IndexNameResolver {
         ResolveList to(ZonedDateTime to);
     }
 
-    public interface FromOrAt extends From, At {
+    public interface FromOrAtOrResolveList extends From, At, ResolveList {
     }
 
     public interface At {
@@ -56,17 +56,17 @@ public class IndexNameResolver {
     }
 
     public interface Distance {
-        FromOrAt minutes();
-        FromOrAt hours();
-        FromOrAt days();
-        FromOrAt months();
-        FromOrAt years();
+        FromOrAtOrResolveList minutes();
+        FromOrAtOrResolveList hours();
+        FromOrAtOrResolveList days();
+        FromOrAtOrResolveList months();
+        FromOrAtOrResolveList years();
     }
 
     private static class Fluent implements
             From,
             To,
-            FromOrAt,
+            FromOrAtOrResolveList,
             At,
             ResolveList,
             ResolveSingle,
@@ -107,35 +107,35 @@ public class IndexNameResolver {
         }
 
         @Override
-        public FromOrAt minutes() {
+        public FromOrAtOrResolveList minutes() {
             instance.measurementDistance = MINUTES;
             instance.baseTimeUnit = DAYS;
             return this;
         }
 
         @Override
-        public FromOrAt hours() {
+        public FromOrAtOrResolveList hours() {
             instance.measurementDistance = HOURS;
             instance.baseTimeUnit = DAYS;
             return this;
         }
 
         @Override
-        public FromOrAt days() {
+        public FromOrAtOrResolveList days() {
             instance.measurementDistance = DAYS;
             instance.baseTimeUnit = YEARS;
             return this;
         }
 
         @Override
-        public FromOrAt months() {
+        public FromOrAtOrResolveList months() {
             instance.measurementDistance = MONTHS;
             instance.baseTimeUnit = YEARS;
             return this;
         }
 
         @Override
-        public FromOrAt years() {
+        public FromOrAtOrResolveList years() {
             instance.measurementDistance = YEARS;
             instance.baseTimeUnit = FOREVER;
             return this;
@@ -144,28 +144,32 @@ public class IndexNameResolver {
         @Override
         public List<String> list() {
             if (instance.baseTimeUnit == FOREVER)
-                return singletonList(formatName(dateTimeFormatter(instance.baseTimeUnit), instance.from));
+                return singletonList(formatName(instance.from));
             List<String> indices = new ArrayList<>();
-            instance.from = truncate(instance.from, instance.baseTimeUnit);
-            instance.to = truncate(instance.to, instance.baseTimeUnit);
-            for (ZonedDateTime timestamp = instance.from; timestamp.isBefore(instance.to) || timestamp.isEqual(instance.to); timestamp = timestamp.plus(1, instance.baseTimeUnit)) {
-                indices.add(formatName(dateTimeFormatter(instance.baseTimeUnit), timestamp));
+            if (instance.from == null && instance.to == null) {
+                indices.add(formatName(null));
+            } else {
+                instance.from = truncate(instance.from, instance.baseTimeUnit);
+                instance.to = truncate(instance.to, instance.baseTimeUnit);
+                for (ZonedDateTime timestamp = instance.from; timestamp.isBefore(instance.to) || timestamp.isEqual(instance.to); timestamp = timestamp.plus(1, instance.baseTimeUnit)) {
+                    indices.add(formatName(timestamp));
+                }
             }
             return indices;
         }
 
         @Override
         public String single() {
-            return formatName(dateTimeFormatter(instance.baseTimeUnit), instance.at);
+            return formatName(instance.at);
         }
 
-        private String formatName(DateTimeFormatter dateTimeFormatter, ZonedDateTime timestamp) {
+        private String formatName(ZonedDateTime timestamp) {
             return format(
                     "%s:%s:%s%s",
                     instance.owner,
                     instance.seriesName,
                     measurementDistanceName(instance.measurementDistance),
-                    dateTimeFormatter.format(timestamp)
+                    timestamp != null ? dateTimeFormatter(instance.baseTimeUnit).format(timestamp) : "*"
             );
         }
 

@@ -8,9 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static java.lang.String.format;
 
@@ -31,11 +29,19 @@ public class QueryRestController {
         );
     }
 
-    @RequestMapping("minutes/{owner}")
+    @GetMapping("minutes/{owner}")
     public List<String> timeSeries(
         @PathVariable String owner)
     {
         return service.availableTimeSeries(owner);
+    }
+
+    @GetMapping("minutes/{owner}/{seriesName}/last")
+    public TimeSeriesPoint last(
+            @PathVariable String owner,
+            @PathVariable String seriesName)
+    {
+        return service.last(seriesName, owner);
     }
 
     @GetMapping("minutes/{owner}/{seriesName}")

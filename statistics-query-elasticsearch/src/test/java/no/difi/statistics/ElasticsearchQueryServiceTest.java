@@ -31,16 +31,13 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import static java.time.temporal.ChronoUnit.DAYS;
 import static no.difi.statistics.test.utils.DataGenerator.createRandomTimeSeries;
 import static no.difi.statistics.test.utils.DataOperations.*;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(
@@ -102,6 +99,7 @@ public class ElasticsearchQueryServiceTest {
         indexMinutePoint(timeSeriesName, now, 1003);
         indexMinutePoint(anotherTimeSeriesName, now, 42);
     }
+
     @Test
     public void givenTimeSeriesWhenQueringForAvailableTimeSeriesThenAvailableTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
         indexMinutePoints();
@@ -111,6 +109,14 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(2, availableTimeSeries.size());
         assertTrue(availableTimeSeries.contains(timeSeriesName));
         assertTrue(availableTimeSeries.contains(anotherTimeSeriesName));
+    }
+
+    @Test
+    public void givenTimeSeriesWhenQueringForLastUpdatedThenLastUpdatedIsReturned() throws IOException, ExecutionException, InterruptedException {
+        indexMinutePointsFrom(ZonedDateTime.of(2007, 1, 1, 11, 11, 11, 11, ZoneId.of("UTC")), 1, 2, 3, 4, 5, 6, 7, 8, 9); // Some random "old" points
+        TimeSeriesPoint expectedLastPoint = indexMinutePoint(ZonedDateTime.of(2016, 3, 3, 12, 12, 13, 123, ZoneId.of("UTC")), 123L);
+        TimeSeriesPoint actualLastPoint = last(timeSeriesName, owner);
+        assertEquals(expectedLastPoint, actualLastPoint);
     }
 
     @Test
@@ -417,6 +423,18 @@ public class ElasticsearchQueryServiceTest {
                 owner
         ).getBody();
     }
+
+    private TimeSeriesPoint last(String seriesName, String owner){
+        return restTemplate.exchange(
+                "/minutes/{owner}/{seriesName}/last",
+                HttpMethod.GET,
+                null,
+                TimeSeriesPoint.class,
+                owner,
+                seriesName
+        ).getBody();
+    }
+
     private TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
         return restTemplate.exchange(
                 "/point/{owner}/{seriesName}?from={from}&to={to}",

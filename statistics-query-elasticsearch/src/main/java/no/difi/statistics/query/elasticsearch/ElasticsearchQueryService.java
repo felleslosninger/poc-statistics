@@ -26,6 +26,7 @@ import org.elasticsearch.search.aggregations.bucket.range.date.DateRangeBuilder;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
 import org.elasticsearch.search.aggregations.metrics.sum.Sum;
 import org.elasticsearch.search.aggregations.metrics.tophits.InternalTopHits;
+import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
 import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
@@ -164,6 +165,22 @@ public class ElasticsearchQueryService implements QueryService {
         );
     }
 
+    @Override
+    public TimeSeriesPoint last(String seriesName, String owner) {
+        return last(
+                resolveIndexName().seriesName(seriesName).owner(owner).minutes().list()
+        );
+    }
+
+    private TimeSeriesPoint last(List<String> indexnames) {
+        SearchResponse response = searchBuilder(indexnames)
+                .addAggregation(AggregationBuilders.topHits("last_updated").setSize(1).addSort("timestamp", SortOrder.DESC))
+                .setSize(0) // We are after aggregation and not the search hits
+                .execute().actionGet();
+        TopHits topHits = response.getAggregations().get("last_updated");
+        return point(topHits.getHits().getAt(0));
+    }
+
     private List<TimeSeriesPoint> search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
@@ -174,7 +191,8 @@ public class ElasticsearchQueryService implements QueryService {
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames, from, to)
+        SearchResponse response = searchBuilder(indexNames)
+                .setQuery(timeRange(from, to))
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
         List<TimeSeriesPoint> series = new ArrayList<>();
@@ -188,7 +206,8 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private TimeSeriesPoint sumAggregate(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
-        SearchResponse response = searchBuilder(indexNames, from, to)
+        SearchResponse response = searchBuilder(indexNames)
+                .setQuery(timeRange(from, to))
                 .addAggregation(dateRangeBuilder("a", from, to, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -210,7 +229,8 @@ public class ElasticsearchQueryService implements QueryService {
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames, from, to)
+        SearchResponse response = searchBuilder(indexNames)
+                .setQuery(timeRange(from, to))
                 .addAggregation(dateHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -234,7 +254,8 @@ public class ElasticsearchQueryService implements QueryService {
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames, from, to)
+        SearchResponse response = searchBuilder(indexNames)
+                .setQuery(timeRange(from, to))
                 .addAggregation(dateHistogramBuilder("per_day", DateHistogramInterval.DAY, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -258,7 +279,8 @@ public class ElasticsearchQueryService implements QueryService {
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames, from, to)
+        SearchResponse response = searchBuilder(indexNames)
+                .setQuery(timeRange(from, to))
                 .addAggregation(dateSnapshotHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -285,7 +307,8 @@ public class ElasticsearchQueryService implements QueryService {
         }
         double percentileValue = percentileValue(indexNames, filter.getMeasurementId(), filter.getPercentile(), from, to);
         logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
-        SearchResponse response = searchBuilder(indexNames, from, to)
+        SearchResponse response = searchBuilder(indexNames)
+                .setQuery(timeRange(from, to))
                 .setPostFilter(QueryBuilders.rangeQuery(filter.getMeasurementId()).gt(percentileValue))
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
@@ -298,17 +321,17 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private double percentileValue(List<String> indexNames, String measurementId, int percentile, ZonedDateTime from, ZonedDateTime to) {
-        SearchResponse response = searchBuilder(indexNames, from, to)
+        SearchResponse response = searchBuilder(indexNames)
+                .setQuery(timeRange(from, to))
                 .setSize(0) // We are after aggregation and not the search hits
                 .addAggregation(percentiles("p").field(measurementId).percentiles(percentile).compression(10000))
                 .execute().actionGet();
         return ((Percentiles)response.getAggregations().get("p")).percentile(percentile);
     }
 
-    private SearchRequestBuilder searchBuilder(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+    private SearchRequestBuilder searchBuilder(List<String> indexNames) {
         return elasticSearchClient
                 .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
-                .setQuery(timeRange(from, to))
                 .addSort(timeFieldName, SortOrder.ASC)
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .setTypes(defaultType);

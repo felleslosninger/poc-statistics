@@ -16,7 +16,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
@@ -50,8 +49,22 @@ public class QueryRestControllerTest {
     }
 
     @Test
+    public void whenRequestingLastUpdatedThenServiceReceivesCorrespondingRequest() throws Exception {
+        final String timeSeries = "a_series";
+        ResultActions result = mockMvc.perform(
+                get("/minutes/{owner}/{seriesName}/last", aSeriesOwner() ,timeSeries)
+                        .contentType(MediaType.APPLICATION_JSON_UTF8)
+        );
+        assertNormalResponse(result);
+        verify(backendConfig.queryService()).last(timeSeries, aSeriesOwner());
+    }
+
+    @Test
     public void whenAskingForSeriesNamesThenServiceReceivesCorrespondingRequest() throws Exception {
-        ResultActions result = mockMvc.perform(get("/minutes/{owner}", aSeriesOwner()));
+        ResultActions result = mockMvc.perform(
+                get("/minutes/{owner}", aSeriesOwner())
+                        .contentType(MediaType.APPLICATION_JSON_UTF8)
+        );
         assertNormalResponse(result);
         verify(backendConfig.queryService()).availableTimeSeries(aSeriesOwner());
     }
@@ -137,7 +150,7 @@ public class QueryRestControllerTest {
     }
 
     private void assertNormalResponse(ResultActions result) throws Exception {
-        result.andExpect(status().is(200)).andExpect(content().contentType(APPLICATION_JSON_UTF8));
+        result.andExpect(status().is(200));
     }
 
 }
