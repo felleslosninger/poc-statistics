@@ -14,6 +14,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static java.lang.String.format;
+import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchIngestService implements IngestService {
@@ -27,7 +28,11 @@ public class ElasticsearchIngestService implements IngestService {
 
     @Override
     public void minute(String timeSeriesName, String owner, TimeSeriesPoint dataPoint) {
-        indexTimeSeriesPoint(indexNameForMinuteSeries(timeSeriesName, owner, dataPoint.getTimestamp()), "default", dataPoint);
+        indexTimeSeriesPoint(
+                resolveIndexName().seriesName(timeSeriesName).owner(owner).minutes().at(dataPoint.getTimestamp()).single(),
+                "default",
+                dataPoint
+        );
     }
 
     private void indexTimeSeriesPoint(String indexName, String indexType, TimeSeriesPoint dataPoint) {
@@ -38,15 +43,6 @@ public class ElasticsearchIngestService implements IngestService {
             return;
         }
         client.prepareIndex(indexName, indexType).setSource(document).get();
-    }
-
-    private String indexNameForMinuteSeries(String baseName, String organizationNumber, ZonedDateTime timestamp) {
-        return format(
-                "%s/%s:minute%s",
-                organizationNumber,
-                baseName,
-                DateTimeFormatter.ofPattern("yyyy.MM.dd").format(timestamp)
-        );
     }
 
     private static byte[] document(TimeSeriesPoint dataPoint) {
