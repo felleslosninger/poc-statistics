@@ -4,37 +4,63 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 String version = DateTimeFormatter.ofPattern('yyyyMMddHHmm').format(ZonedDateTime.now(ZoneId.of('UTC')))
+String deployBranch = 'develop'
 
-stage 'Build'
-node {
-    checkout scm
-    if (env.BRANCH_NAME == 'develop') {
-        sh "mvn clean versions:set -DnewVersion=${version}"
-        sh 'mvn deploy'
-    } else {
-        sh 'mvn clean verify'
-    }
-}
+stage('Build') {
 
-if (env.BRANCH_NAME == 'develop') {
-
-    stage 'Staging deploy'
     node {
-        sh "ssh eid-test-docker01 docker service update --image difi/statistics-query-elasticsearch:${version} statistics-query"
-        sh "ssh eid-test-docker01 docker service update --image difi/statistics-ingest-elasticsearch:${version} statistics-ingest"
-        sh "ssh eid-test-docker01 docker service update --image difi/statistics-elasticsearch:${version} elasticsearch"
-        sh "ssh eid-test-docker01 docker service update --image difi/statistics-elasticsearch:${version} elasticsearch_gossip"
-    }
-
-    stage 'Production deploy'
-    timeout(time:5, unit:'DAYS') {
-        input "Do you approve deployment of version ${version} to production?"
-        node {
-            sh "ssh eid-prod-docker01 docker service update --image difi/statistics-query-elasticsearch:${version} statistics-query"
-            sh "ssh eid-prod-docker01 docker service update --image difi/statistics-ingest-elasticsearch:${version} statistics-ingest"
-            sh "ssh eid-prod-docker01 docker service update --image difi/statistics-elasticsearch:${version} elasticsearch"
-            sh "ssh eid-prod-docker01 docker service update --image difi/statistics-elasticsearch:${version} elasticsearch_gossip"
+        checkout scm
+        stash includes: 'pipeline/*.sh', name: 'pipeline'
+        if (env.BRANCH_NAME == deployBranch) {
+            sh "pipeline/buildAndDeliver.sh ${version}"
+        } else {
+            sh "pipeline/buildAndVerify.sh"
         }
     }
 
+}
+
+if (env.BRANCH_NAME == deployBranch) {
+
+    stage('Staging deploy') {
+
+        node {
+            unstash 'pipeline'
+            upgrade('eid-test-docker01', "${version}")
+        }
+    }
+
+    stage('Production deploy') {
+        timeout(time: 5, unit: 'DAYS') {
+            input "Do you approve deployment of version ${version} to production?"
+            node {
+                unstash 'pipeline'
+                upgrade('eid-prod-docker01', "${version}")
+            }
+        }
+
+    }
+
+}
+
+def upgrade(String masterNode, String version) {
+    updateService(masterNode, 'statistics-query', 'difi/statistics-query-elasticsearch', version, 10)
+    updateService(masterNode, 'statistics-ingest', 'difi/statistics-ingest-elasticsearch', version, 10)
+    // See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
+    disableShardAllocation(masterNode)
+    updateService(masterNode, 'elasticsearch', 'difi/statistics-elasticsearch', version, 200)
+    updateService(masterNode, 'elasticsearch_gossip', 'difi/statistics-elasticsearch', version, 200)
+    enableShardAllocation(masterNode)
+}
+
+def updateService(String masterNode, String service, String image, String version, int delay) {
+    sh "pipeline/updateService.sh ${service} ${image} ${version} ${masterNode} ${delay}"
+}
+
+def disableShardAllocation(String masterNode) {
+    sh "pipeline/disableShardAllocation.sh ${masterNode}"
+}
+
+def enableShardAllocation(String masterNode) {
+    sh "pipeline/enableShardAllocation.sh ${masterNode}"
 }
