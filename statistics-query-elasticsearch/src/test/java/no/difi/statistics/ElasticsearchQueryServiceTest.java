@@ -51,7 +51,7 @@ public class ElasticsearchQueryServiceTest {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            GenericContainer backend = new GenericContainer("elasticsearch:2.3.5");
+            GenericContainer backend = new GenericContainer("elasticsearch:2.4.1");
             backend.start();
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),

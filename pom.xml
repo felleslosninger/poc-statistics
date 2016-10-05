@@ -28,6 +28,7 @@
     <properties>
         <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
         <springboot.version>1.4.0.RC1</springboot.version>
+        <elasticsearch.version>2.4.1</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <difi.docker.registry>docker.io/difi</difi.docker.registry>
@@ -63,7 +64,7 @@
             <dependency>
                 <groupId>org.elasticsearch</groupId>
                 <artifactId>elasticsearch</artifactId>
-                <version>2.3.5</version>
+                <version>${elasticsearch.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.influxdb</groupId>

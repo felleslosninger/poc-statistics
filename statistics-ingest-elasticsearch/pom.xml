@@ -73,7 +73,7 @@
                             </run>
                         </image>
                         <image>
-                            <name>elasticsearch:2.3</name>
+                            <name>elasticsearch:${elasticsearch.version}</name>
                             <alias>elasticsearch</alias>
                             <run>
                                 <namingStrategy>alias</namingStrategy>
