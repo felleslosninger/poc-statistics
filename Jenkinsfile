@@ -1,32 +1,58 @@
-#!groovy​
+#!groovy
 import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-String version = DateTimeFormatter.ofPattern('yyyyMMddHHmm').format(ZonedDateTime.now(ZoneId.of('UTC')))
+import static java.time.ZonedDateTime.now
+
+String version = DateTimeFormatter.ofPattern('yyyyMMddHHmm').format(now(ZoneId.of('UTC')))
 String deployBranch = 'develop'
+String qaFeatureBranch = /feature\/qa\/(\w+-\w+)/
+String featureBranch = /feature\/(\w+-\w+)/
 
 stage('Build') {
 
     node {
         checkout scm
-        stash includes: 'pipeline/*.sh', name: 'pipeline'
-        if (env.BRANCH_NAME == deployBranch) {
-            sh "pipeline/buildAndDeliver.sh ${version}"
-        } else {
-            sh "pipeline/buildAndVerify.sh"
+        def commitId = commitId()
+        stash includes: 'pipeline/*', name: 'pipeline'
+        if (env.BRANCH_NAME.matches(deployBranch)) {
+            currentBuild.displayName = "#${currentBuild.number}: Deploy version ${version}"
+            currentBuild.description = "Commit: ${commitId}"
+            sh "pipeline/build.sh deliver ${version}"
+        } else if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
+            jiraId = (env.BRANCH_NAME =~ qaFeatureBranch)[0][1]
+            currentBuild.displayName = "#${currentBuild.number}: QA for feature ${jiraId}"
+            currentBuild.description = "Feature: ${jiraId} Commit: ${commitId}"
+            sh "pipeline/build.sh deliver ${version}"
+        } else if (env.BRANCH_NAME.matches(featureBranch)) {
+            jiraId = (env.BRANCH_NAME =~ featureBranch)[0][1]
+            currentBuild.displayName = "#${currentBuild.number}: Build for feature ${jiraId}"
+            currentBuild.description = "Feature: ${jiraId} Commit: ${commitId}"
+            sh "pipeline/build.sh verify"
         }
     }
 
 }
 
-if (env.BRANCH_NAME == deployBranch) {
+if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
 
-    stage('Staging deploy') {
-
+    stage('QA deploy') {
         node {
             unstash 'pipeline'
-            upgrade('eid-test-docker01', "${version}")
+            sh "pipeline/environment.sh create ${version}"
+            managerNode = "statistics-${version}-node01"
+            sh "docker-machine ssh ${managerNode} bash -s -- < pipeline/application.sh createAndVerify ${version}"
+            sh "pipeline/environment.sh delete ${version}"
+        }
+    }
+}
+
+if (env.BRANCH_NAME.matches(deployBranch)) {
+
+    stage('Staging deploy') {
+        node {
+            unstash 'pipeline'
+            sh "ssh 'eid-test-docker01' bash -s -- < pipeline/application.sh update ${version}"
         }
     }
 
@@ -35,7 +61,7 @@ if (env.BRANCH_NAME == deployBranch) {
             input "Do you approve deployment of version ${version} to production?"
             node {
                 unstash 'pipeline'
-                upgrade('eid-prod-docker01', "${version}")
+                sh "ssh 'eid-prod-docker01' bash -s -- < pipeline/application.sh update ${version}"
             }
         }
 
@@ -43,24 +69,8 @@ if (env.BRANCH_NAME == deployBranch) {
 
 }
 
-def upgrade(String masterNode, String version) {
-    updateService(masterNode, 'statistics-query', 'difi/statistics-query-elasticsearch', version, 10)
-    updateService(masterNode, 'statistics-ingest', 'difi/statistics-ingest-elasticsearch', version, 10)
-    // See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
-    disableShardAllocation(masterNode)
-    updateService(masterNode, 'elasticsearch', 'difi/statistics-elasticsearch', version, 200)
-    updateService(masterNode, 'elasticsearch_gossip', 'difi/statistics-elasticsearch', version, 200)
-    enableShardAllocation(masterNode)
+def commitId() {
+    sh 'git rev-parse HEAD > commit'
+    return readFile('commit').trim()
 }
 
-def updateService(String masterNode, String service, String image, String version, int delay) {
-    sh "pipeline/updateService.sh ${service} ${image} ${version} ${masterNode} ${delay}"
-}
-
-def disableShardAllocation(String masterNode) {
-    sh "pipeline/disableShardAllocation.sh ${masterNode}"
-}
-
-def enableShardAllocation(String masterNode) {
-    sh "pipeline/enableShardAllocation.sh ${masterNode}"
-}
