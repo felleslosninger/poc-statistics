@@ -132,12 +132,21 @@ Alternativt kan du finne kildekode-revisjonen gitt navnet på bildet:
 $ docker inspect --format={{.ContainerConfig.Labels.label}} difi/statistics-query-elasticsearch:20160704142905
 ```
 
-## Kontinuerlige leveranser
+## Kontinuerlig utrulling
 
-For å understøtte kontinuerlige leveranser benyttes Jenkins sin ['pipeline-as-code'](https://jenkins.io/solutions/pipeline/)-
+For å understøtte kontinuerlig utrulling benyttes Jenkins sin ['pipeline-as-code'](https://jenkins.io/solutions/pipeline/)-
 funksjonalitet. Det benyttes da en _Jenkinsfile_ som ligger på roten av prosjektet og spesifiserer byggejobben. I dette
-prosjektet spesifiseres det at en versjonert utgave av applikasjonen skal lages ved hver endring på _develop_-grenen.
-Endringer på andre grener vil kun sette i gang et verifiseringsbygg.
+prosjektet vil endringer på _feature_-grener og _bugfix_-grener føre til at det gjøres et raskt verifiseringsbygg med
+automatiske tester (`Build`). Endringer på _develop_-grenen vil utløse et verifiseringsbygg med påfølgende utrulling til
+testmiljøet (`Staging deploy`). Status på dette kan følges [her](http://eid-jenkins02.dmz.local/job/poc-statistics/job/develop)
+(krever tilgang til Difis lokalnett):
+
+![](doc/pipeline-job-status.png)
+
+Når applikasjonen er verifisert i testmiljøet kan en knapp trykkes for å fortsette utrulling til produksjonsmiljøet (du
+får opp dialogboksen ved å holde musepekeren over boksen under `Production deploy`):
+
+![](doc/pipeline-production-deploy-button.png)
 
 
 ## Oppsett av Docker-sverm på Amazon Web Services (AWS)
