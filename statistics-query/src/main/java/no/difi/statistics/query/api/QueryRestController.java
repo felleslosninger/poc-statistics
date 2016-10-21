@@ -5,12 +5,11 @@ import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.view.RedirectView;
 
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.List;
-
-import static java.lang.String.format;
 
 @RestController
 public class QueryRestController {
@@ -22,11 +21,8 @@ public class QueryRestController {
     }
 
     @GetMapping("/")
-    public String index() throws IOException {
-        return format(
-                "Statistics Query version %s",
-                System.getProperty("difi.version", "N/A")
-        );
+    public RedirectView index() throws IOException {
+        return new RedirectView("swagger-ui.html");
     }
 
     @GetMapping("minutes/{owner}")
@@ -105,7 +101,7 @@ public class QueryRestController {
         return service.monthsSnapshot(seriesName, owner, from, to);
     }
 
-    @RequestMapping("years/{owner}/{seriesName}")
+    @GetMapping("years/{owner}/{seriesName}")
     public List<TimeSeriesPoint> years(
             @PathVariable String owner,
             @PathVariable String seriesName,
