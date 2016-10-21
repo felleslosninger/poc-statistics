@@ -52,7 +52,7 @@ if (env.BRANCH_NAME.matches(deployBranch)) {
     stage('Staging deploy') {
         node {
             unstash 'pipeline'
-            sh "ssh 'eid-test-docker01' bash -s -- < pipeline/application.sh update ${version}"
+            sh "ssh 'eid-test-docker01.dmz.local' bash -s -- < pipeline/application.sh update ${version}"
         }
     }
 
@@ -61,7 +61,7 @@ if (env.BRANCH_NAME.matches(deployBranch)) {
             input "Do you approve deployment of version ${version} to production?"
             node {
                 unstash 'pipeline'
-                sh "ssh 'eid-prod-docker01' bash -s -- < pipeline/application.sh update ${version}"
+                sh "ssh 'eid-prod-docker01.dmz.local' bash -s -- < pipeline/application.sh update ${version}"
             }
         }
 
