@@ -140,22 +140,33 @@ deleteNetwork() {
 }
 
 disableShardAllocation() {
+    host=${1-'localhost'}
     echo -n "Disabling Elasticsearch shard allocation..."
-    curl -s -XPUT localhost:9200/_cluster/settings \
+    curl -s -XPUT http://${host}:9200/_cluster/settings \
         -d '{"transient":{"cluster.routing.allocation.enable":"none"}}' \
         && ok || fail
 }
 
 enableShardAllocation() {
+    host=${1-'localhost'}
     echo -n "Enabling Elasticsearch shard allocation..."
-    curl -s -XPUT localhost:9200/_cluster/settings \
+    curl -s -XPUT http://${host}:9200/_cluster/settings \
         -d '{"transient":{"cluster.routing.allocation.enable":"all"}}' \
         && ok || fail
 }
 
 waitForGreenStatus() {
+    host=${1-'localhost'}
     echo -n "Waiting for Elasticsearch to be green... "
-    curl -sS -f -XGET 'http://localhost:9200/_cluster/health?wait_for_status=green&timeout=5m' > /dev/null \
+    curl -sS -f -XGET http://${host}:9200/_cluster/health?wait_for_status=green&timeout=5m > /dev/null \
+        && ok || fail
+}
+
+indexExists() {
+    index=${1}
+    host=${2-'localhost'}
+    echo -n "Checking existence of index \"${index}\"... "
+    curl -s -f --head http://${host}:9200/${index} > /dev/null \
         && ok || fail
 }
 
@@ -180,6 +191,11 @@ doCreateTestData() {
         -H "Content-Type: application/json;charset=UTF-8" \
         -XPOST \
         http://${host}:8081/minutes/991825827/test\?from=2016-01-01T00:00:00.000Z\&to=2016-01-03T00:00:00.000Z
+}
+
+verifyTestData() {
+    indexExists 991825827:test:minute2016.01.01 || return $?
+    indexExists 991825827:test:minute2016.01.02 || return $?
 }
 
 waitForServiceToBeAvailable() {
@@ -245,9 +261,8 @@ update() {
     updateService 'elasticsearch' ${version}
     waitForServiceUpdateToComplete 'elasticsearch'
     waitForServiceToBeAvailable 'elasticsearch'
-    # PBLEID-12611
-    #updateService 'elasticsearch_gossip' ${version}
-    #waitForServiceUpdateToComplete 'elasticsearch_gossip'
+    updateService 'elasticsearch_gossip' ${version}
+    waitForServiceUpdateToComplete 'elasticsearch_gossip'
     waitForServiceToBeAvailable 'elasticsearch_gossip'
     #enableShardAllocation
     echo "Application updated"
@@ -277,6 +292,7 @@ verify() {
     waitForGreenStatus || return $?
     update ${version} || return $?
     waitForGreenStatus || return $?
+    verifyTestData || return $?
 }
 
 case "${1}" in *)
