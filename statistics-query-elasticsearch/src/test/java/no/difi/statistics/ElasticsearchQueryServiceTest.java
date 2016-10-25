@@ -63,7 +63,8 @@ public class ElasticsearchQueryServiceTest {
 
     }
 
-    private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
+    private final static ZoneId UTC = ZoneId.of("UTC");
+    private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, UTC);
     private final static String measurementId = "count";
     private final static String timeSeriesName = "test";
     private final static String anotherTimeSeriesName = "anothertimeseriesname";
@@ -101,7 +102,7 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
-    public void givenTimeSeriesWhenQueringForAvailableTimeSeriesThenAvailableTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
+    public void givenTimeSeriesWhenQueryingForAvailableTimeSeriesThenAvailableTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
         indexMinutePoints();
 
         List<String> availableTimeSeries = availableTimeSeries(owner);
@@ -112,15 +113,20 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
-    public void givenTimeSeriesWhenQueringForLastUpdatedThenLastUpdatedIsReturned() throws IOException, ExecutionException, InterruptedException {
-        indexMinutePointsFrom(ZonedDateTime.of(2007, 1, 1, 11, 11, 11, 11, ZoneId.of("UTC")), 1, 2, 3, 4, 5, 6, 7, 8, 9); // Some random "old" points
-        TimeSeriesPoint expectedLastPoint = indexMinutePoint(ZonedDateTime.of(2016, 3, 3, 12, 12, 13, 123, ZoneId.of("UTC")), 123L);
-        TimeSeriesPoint actualLastPoint = last(timeSeriesName, owner);
+    public void givenTimeSeriesWhenQueryingForLastPointWithinRangeThenThatPointIsReturned() throws IOException, ExecutionException, InterruptedException {
+        indexMinutePointsFrom(dateTime(2007, 1, 1, 11, 11), 1, 2, 3, 4, 5, 6, 7, 8, 9); // Some random "old" points
+        TimeSeriesPoint expectedLastPoint = indexMinutePoint(dateTime(2016, 3, 3, 12, 12), 123L);
+        indexMinutePoint(dateTime(2016, 3, 4, 1, 2), 5675L);
+        TimeSeriesPoint actualLastPoint = last(timeSeriesName, owner, dateTime(2007, 1, 1, 0, 0), dateTime(2016, 3, 3, 13, 0));
         assertEquals(expectedLastPoint, actualLastPoint);
     }
 
+    private ZonedDateTime dateTime(int year, int month, int day, int hour, int minute) {
+        return ZonedDateTime.of(year, month, day, hour, minute, 0, 0, UTC);
+    }
+
     @Test
-    public void givenTimeSeriesWhenQueringForAvailableTimeSeriesWithAnotherOwnerThenNoTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
+    public void givenTimeSeriesWhenQueryingForAvailableTimeSeriesWithAnotherOwnerThenNoTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
         indexMinutePoints();
 
         List<String> availableTimeSeries = availableTimeSeries("anotherOwner");
@@ -304,7 +310,7 @@ public class ElasticsearchQueryServiceTest {
     public void givenMinuteSeriesWhenQueryingForMonthSnapshotsThenLastPointInMonthAreReturned() throws IOException {
         List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
         indexMinutePoints(points);
-        List<TimeSeriesPoint> resultingPoints = monthsSnapshot(
+        List<TimeSeriesPoint> resultingPoints = lastInMonth(
                 timeSeriesName,
                 now.truncatedTo(DAYS),
                 now.truncatedTo(DAYS).plusMinutes(100)
@@ -328,7 +334,7 @@ public class ElasticsearchQueryServiceTest {
         List<TimeSeriesPoint> pointsMonth2 = createRandomTimeSeries(now.truncatedTo(DAYS).plusMonths(1), ChronoUnit.MINUTES, 100, "measurementA", "measurementB");
         indexMinutePoints(pointsMonth2);
 
-        List<TimeSeriesPoint> resultingPoints = monthsSnapshot(
+        List<TimeSeriesPoint> resultingPoints = lastInMonth(
                 timeSeriesName,
                 now.truncatedTo(DAYS),
                 now.truncatedTo(DAYS).plusMonths(1).plusMinutes(100)
@@ -424,14 +430,16 @@ public class ElasticsearchQueryServiceTest {
         ).getBody();
     }
 
-    private TimeSeriesPoint last(String seriesName, String owner){
+    private TimeSeriesPoint last(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to){
         return restTemplate.exchange(
-                "/minutes/{owner}/{seriesName}/last",
+                "/minutes/{owner}/{seriesName}/last?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 TimeSeriesPoint.class,
                 owner,
-                seriesName
+                seriesName,
+                formatTimestamp(from),
+                formatTimestamp(to)
         ).getBody();
     }
 
@@ -500,9 +508,9 @@ public class ElasticsearchQueryServiceTest {
         ).getBody();
     }
 
-    private List<TimeSeriesPoint> monthsSnapshot(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
+    private List<TimeSeriesPoint> lastInMonth(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
         return restTemplate.exchange(
-                "/monthsSnapshot/{owner}/{seriesName}?from={from}&to={to}",
+                "/months/{owner}/{seriesName}/last?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},

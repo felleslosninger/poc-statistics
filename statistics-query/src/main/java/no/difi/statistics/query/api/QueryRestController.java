@@ -35,9 +35,12 @@ public class QueryRestController {
     @GetMapping("minutes/{owner}/{seriesName}/last")
     public TimeSeriesPoint last(
             @PathVariable String owner,
-            @PathVariable String seriesName)
+            @PathVariable String seriesName,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+    )
     {
-        return service.last(seriesName, owner);
+        return service.last(seriesName, owner, from, to);
     }
 
     @GetMapping("minutes/{owner}/{seriesName}")
@@ -91,14 +94,14 @@ public class QueryRestController {
         return service.months(seriesName, owner, from, to);
     }
 
-    @GetMapping("monthsSnapshot/{owner}/{seriesName}")
-    public List<TimeSeriesPoint> monthsSnapshot(
+    @GetMapping("months/{owner}/{seriesName}/last")
+    public List<TimeSeriesPoint> lastInMonths(
             @PathVariable String owner,
             @PathVariable String seriesName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.monthsSnapshot(seriesName, owner, from, to);
+        return service.lastInMonths(seriesName, owner, from, to);
     }
 
     @GetMapping("years/{owner}/{seriesName}")

@@ -10,7 +10,7 @@ public interface QueryService {
 
     List<String> availableTimeSeries(String owner);
 
-    TimeSeriesPoint last(String seriesName, String owner);
+    TimeSeriesPoint last(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 
     List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 
@@ -22,7 +22,7 @@ public interface QueryService {
 
     List<TimeSeriesPoint> months(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> monthsSnapshot(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> lastInMonths(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 
     List<TimeSeriesPoint> years(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 

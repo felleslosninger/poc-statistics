@@ -49,7 +49,7 @@ public class InfluxDBQueryService implements QueryService {
     }
 
     @Override
-    public TimeSeriesPoint last(String seriesName, String owner) {
+    public TimeSeriesPoint last(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
         throw new UnsupportedOperationException();
     }
 
@@ -74,7 +74,7 @@ public class InfluxDBQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> monthsSnapshot(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to){
+    public List<TimeSeriesPoint> lastInMonths(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to){
         throw new UnsupportedOperationException();
     }
 

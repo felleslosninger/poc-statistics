@@ -23,10 +23,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static org.mockito.Mockito.verify;
-import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -49,14 +47,18 @@ public class QueryRestControllerTest {
     }
 
     @Test
-    public void whenRequestingLastUpdatedThenServiceReceivesCorrespondingRequest() throws Exception {
+    public void whenRequestingLastPointThenServiceReceivesCorrespondingRequest() throws Exception {
         final String timeSeries = "a_series";
+        final String from = "2013-10-12T12:13:13.123+02:00";
+        final String to = "2013-10-12T13:13:13.123+02:00";
         ResultActions result = mockMvc.perform(
                 get("/minutes/{owner}/{seriesName}/last", aSeriesOwner() ,timeSeries)
+                        .param("from", from)
+                        .param("to", to)
                         .contentType(MediaType.APPLICATION_JSON_UTF8)
         );
         assertNormalResponse(result);
-        verify(backendConfig.queryService()).last(timeSeries, aSeriesOwner());
+        verify(backendConfig.queryService()).last(timeSeries, aSeriesOwner(), parseTimestamp(from), parseTimestamp(to));
     }
 
     @Test

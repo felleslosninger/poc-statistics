@@ -15,7 +15,6 @@ import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
@@ -42,7 +41,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.*;
 
 public class ElasticsearchQueryService implements QueryService {
 
@@ -134,14 +133,14 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> monthsSnapshot(String seriesName, String owner, ZonedDateTime from , ZonedDateTime to){
+    public List<TimeSeriesPoint> lastInMonths(String seriesName, String owner, ZonedDateTime from , ZonedDateTime to){
         List<TimeSeriesPoint> result = search(
                 resolveIndexName().seriesName(seriesName).owner(owner).months().from(from).to(to).list(),
                 from, to
         );
         if (result.isEmpty()) {
             logger.info("Empty result for month series search. Attempting to aggregate minute series...");
-            result = getLastPointPerMonth(
+            result = lastInMonth(
                     resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
                     from, to
             );
@@ -166,15 +165,17 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public TimeSeriesPoint last(String seriesName, String owner) {
+    public TimeSeriesPoint last(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
         return last(
-                resolveIndexName().seriesName(seriesName).owner(owner).minutes().list()
+                resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                from, to
         );
     }
 
-    private TimeSeriesPoint last(List<String> indexnames) {
-        SearchResponse response = searchBuilder(indexnames)
-                .addAggregation(AggregationBuilders.topHits("last_updated").setSize(1).addSort("timestamp", SortOrder.DESC))
+    private TimeSeriesPoint last(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+        SearchResponse response = searchBuilder(indexNames)
+                .setQuery(timeRange(from, to))
+                .addAggregation(topHits("last_updated").setSize(1).addSort("timestamp", SortOrder.DESC))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         TopHits topHits = response.getAggregations().get("last_updated");
@@ -231,7 +232,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRange(from, to))
-                .addAggregation(dateHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
+                .addAggregation(sumHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -256,7 +257,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRange(from, to))
-                .addAggregation(dateHistogramBuilder("per_day", DateHistogramInterval.DAY, measurementIds(indexNames)))
+                .addAggregation(sumHistogramBuilder("per_day", DateHistogramInterval.DAY, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -270,7 +271,7 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
-    private List<TimeSeriesPoint> getLastPointPerMonth(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+    private List<TimeSeriesPoint> lastInMonth(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
                     "Executing last point per month:\nIndexes: %s\nFrom: %s\nTo: %s\n",
@@ -281,7 +282,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRange(from, to))
-                .addAggregation(dateSnapshotHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
+                .addAggregation(lastHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -348,25 +349,24 @@ public class ElasticsearchQueryService implements QueryService {
         return fieldMapping.keySet().stream().filter(f -> !f.equals("timestamp") && !f.startsWith("_")).collect(toList());
     }
 
-    private DateHistogramBuilder dateHistogramBuilder(String name, DateHistogramInterval interval, List<String> measurementIds) {
-        DateHistogramBuilder builder = AggregationBuilders.dateHistogram(name).field("timestamp").interval(interval);
+    private DateHistogramBuilder sumHistogramBuilder(String name, DateHistogramInterval interval, List<String> measurementIds) {
+        DateHistogramBuilder builder = dateHistogram(name).field("timestamp").interval(interval);
         for (String measurementId : measurementIds)
-            builder.subAggregation(AggregationBuilders.sum(measurementId).field(measurementId));
+            builder.subAggregation(sum(measurementId).field(measurementId));
         return builder;
     }
 
-    private DateHistogramBuilder dateSnapshotHistogramBuilder(String name, DateHistogramInterval interval, List<String> measurementIds) {
-        DateHistogramBuilder builder = AggregationBuilders.dateHistogram(name).field("timestamp").interval(interval);
-        TopHitsBuilder topHitsBuilder = AggregationBuilders.topHits(name).setSize(1).addSort("timestamp", SortOrder.DESC);
-        for (String measurementId : measurementIds)
-            topHitsBuilder.addField(measurementId);
+    private DateHistogramBuilder lastHistogramBuilder(String name, DateHistogramInterval interval, List<String> measurementIds) {
+        DateHistogramBuilder builder = dateHistogram(name).field("timestamp").interval(interval);
+        TopHitsBuilder topHitsBuilder = topHits(name).setSize(1).addSort("timestamp", SortOrder.DESC);
+        measurementIds.forEach(topHitsBuilder::addField);
         return builder.subAggregation(topHitsBuilder);
     }
 
     private DateRangeBuilder dateRangeBuilder(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
-        DateRangeBuilder builder = AggregationBuilders.dateRange(name).field(timeFieldName).addRange(formatTimestamp(from), formatTimestamp(to));
+        DateRangeBuilder builder = dateRange(name).field(timeFieldName).addRange(formatTimestamp(from), formatTimestamp(to));
         for (String measurementId : measurementIds)
-            builder.subAggregation(AggregationBuilders.sum(measurementId).field(measurementId));
+            builder.subAggregation(sum(measurementId).field(measurementId));
         return builder;
     }
 
