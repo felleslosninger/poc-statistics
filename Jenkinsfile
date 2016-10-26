@@ -14,6 +14,7 @@ stage('Build') {
     node {
         checkout scm
         def commitId = commitId()
+        def jiraId
         stash includes: 'pipeline/*', name: 'pipeline'
         if (env.BRANCH_NAME.matches(deployBranch)) {
             currentBuild.displayName = "#${currentBuild.number}: Deploy version ${version}"
@@ -36,7 +37,7 @@ stage('Build') {
 
 if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
 
-    stage('QA deploy') {
+    stage('QA') {
         node {
             unstash 'pipeline'
             sh "pipeline/environment.sh create ${version}"
@@ -45,6 +46,17 @@ if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
             sh "pipeline/environment.sh delete ${version}"
         }
     }
+
+    stage('Integration') {
+        timeout(time: 10, unit: 'DAYS') {
+            input "Do you approve integration of feature ${jiraId} into production code?"
+            node {
+                checkout scm
+                sh "pipeline/feature.sh integrate"
+            }
+        }
+    }
+
 }
 
 if (env.BRANCH_NAME.matches(deployBranch)) {
@@ -64,7 +76,6 @@ if (env.BRANCH_NAME.matches(deployBranch)) {
                 sh "ssh 'eid-prod-docker01.dmz.local' bash -s -- < pipeline/application.sh update ${version}"
             }
         }
-
     }
 
 }
