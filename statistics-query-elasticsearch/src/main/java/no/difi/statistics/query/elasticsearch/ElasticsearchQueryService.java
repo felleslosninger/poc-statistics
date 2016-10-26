@@ -10,7 +10,6 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
@@ -41,6 +40,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
+import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.*;
 
 public class ElasticsearchQueryService implements QueryService {
@@ -174,7 +174,7 @@ public class ElasticsearchQueryService implements QueryService {
 
     private TimeSeriesPoint last(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRange(from, to))
+                .setQuery(timeRangeQuery(from, to))
                 .addAggregation(topHits("last_updated").setSize(1).addSort("timestamp", SortOrder.DESC))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -193,7 +193,7 @@ public class ElasticsearchQueryService implements QueryService {
             ));
         }
         SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRange(from, to))
+                .setQuery(timeRangeQuery(from, to))
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
         List<TimeSeriesPoint> series = new ArrayList<>();
@@ -208,7 +208,7 @@ public class ElasticsearchQueryService implements QueryService {
 
     private TimeSeriesPoint sumAggregate(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRange(from, to))
+                .setQuery(timeRangeQuery(from, to))
                 .addAggregation(dateRangeBuilder("a", from, to, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -231,7 +231,7 @@ public class ElasticsearchQueryService implements QueryService {
             ));
         }
         SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRange(from, to))
+                .setQuery(timeRangeQuery(from, to))
                 .addAggregation(sumHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -256,7 +256,7 @@ public class ElasticsearchQueryService implements QueryService {
             ));
         }
         SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRange(from, to))
+                .setQuery(timeRangeQuery(from, to))
                 .addAggregation(sumHistogramBuilder("per_day", DateHistogramInterval.DAY, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -281,7 +281,7 @@ public class ElasticsearchQueryService implements QueryService {
             ));
         }
         SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRange(from, to))
+                .setQuery(timeRangeQuery(from, to))
                 .addAggregation(lastHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
@@ -309,8 +309,8 @@ public class ElasticsearchQueryService implements QueryService {
         double percentileValue = percentileValue(indexNames, filter.getMeasurementId(), filter.getPercentile(), from, to);
         logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
         SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRange(from, to))
-                .setPostFilter(QueryBuilders.rangeQuery(filter.getMeasurementId()).gt(percentileValue))
+                .setQuery(timeRangeQuery(from, to))
+                .setPostFilter(rangeQuery(filter.getMeasurementId()).gt(percentileValue))
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
         List<TimeSeriesPoint> series = new ArrayList<>();
@@ -323,7 +323,7 @@ public class ElasticsearchQueryService implements QueryService {
 
     private double percentileValue(List<String> indexNames, String measurementId, int percentile, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRange(from, to))
+                .setQuery(timeRangeQuery(from, to))
                 .setSize(0) // We are after aggregation and not the search hits
                 .addAggregation(percentiles("p").field(measurementId).percentiles(percentile).compression(10000))
                 .execute().actionGet();
@@ -370,8 +370,13 @@ public class ElasticsearchQueryService implements QueryService {
         return builder;
     }
 
-    private RangeQueryBuilder timeRange(ZonedDateTime from, ZonedDateTime to) {
-        return QueryBuilders.rangeQuery(timeFieldName).from(dateTimeFormatter.format(from)).to(dateTimeFormatter.format(to));
+    private RangeQueryBuilder timeRangeQuery(ZonedDateTime from, ZonedDateTime to) {
+        RangeQueryBuilder builder = rangeQuery(timeFieldName);
+        if (from != null)
+            builder.from(dateTimeFormatter.format(from));
+        if (to != null)
+            builder.to(dateTimeFormatter.format(to));
+        return builder;
     }
 
     private TimeSeriesPoint point(SearchHit hit) {

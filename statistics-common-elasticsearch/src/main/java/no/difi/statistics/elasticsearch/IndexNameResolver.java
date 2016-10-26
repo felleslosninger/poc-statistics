@@ -1,5 +1,6 @@
 package no.difi.statistics.elasticsearch;
 
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -149,6 +150,8 @@ public class IndexNameResolver {
             if (instance.from == null && instance.to == null) {
                 indices.add(formatName(null));
             } else {
+                if (instance.from == null) instance.from = ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
+                if (instance.to == null) instance.to = ZonedDateTime.of(2050, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
                 instance.from = truncate(instance.from, instance.baseTimeUnit);
                 instance.to = truncate(instance.to, instance.baseTimeUnit);
                 for (ZonedDateTime timestamp = instance.from; timestamp.isBefore(instance.to) || timestamp.isEqual(instance.to); timestamp = timestamp.plus(1, instance.baseTimeUnit)) {

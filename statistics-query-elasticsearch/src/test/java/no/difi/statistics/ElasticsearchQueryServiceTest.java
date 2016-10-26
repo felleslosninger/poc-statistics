@@ -158,7 +158,7 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(0, size(timeSeries));
     }
 
-    @Test @Ignore
+    @Test
     public void givenMinuteSeriesWhenQueryingForApproxUnlimitedRangeThenAllDataPointsAreReturned() throws IOException, InterruptedException {
         indexMinutePoint(now.minusMinutes(100), 100);
         indexMinutePoint(now.minusMinutes(200), 200);
@@ -166,6 +166,36 @@ public class ElasticsearchQueryServiceTest {
         indexMinutePoint(now.minusMinutes(400), 400);
         List<TimeSeriesPoint> timeSeries = minutes(timeSeriesName, now.minusYears(10), now.plusYears(10));
         assertEquals(4, size(timeSeries));
+    }
+
+    @Test
+    public void givenMinuteSeriesWhenQueryingWithoutRangeThenAllDataPointsAreReturned() throws IOException, InterruptedException {
+        indexMinutePoint(now.minusMinutes(100), 100);
+        indexMinutePoint(now.minusMinutes(200), 200);
+        indexMinutePoint(now.minusMinutes(300), 300);
+        indexMinutePoint(now.minusMinutes(400), 400);
+        List<TimeSeriesPoint> timeSeries = minutes(timeSeriesName);
+        assertEquals(4, size(timeSeries));
+    }
+
+    @Test
+    public void givenMinuteSeriesWhenQueryingWithLeftOpenRangeThenCorrectDataPointsAreReturned() throws IOException, InterruptedException {
+        indexMinutePoint(now.minusMinutes(100), 100);
+        indexMinutePoint(now.minusMinutes(200), 200);
+        indexMinutePoint(now.minusMinutes(300), 300);
+        indexMinutePoint(now.minusMinutes(400), 400);
+        List<TimeSeriesPoint> timeSeries = minutesTo(timeSeriesName, now.minusMinutes(101));
+        assertEquals(3, size(timeSeries));
+    }
+
+    @Test
+    public void givenMinuteSeriesWhenQueryingWithRightOpenRangeThenCorrectDataPointsAreReturned() throws IOException, InterruptedException {
+        indexMinutePoint(now.minusMinutes(100), 100);
+        indexMinutePoint(now.minusMinutes(200), 200);
+        indexMinutePoint(now.minusMinutes(300), 300);
+        indexMinutePoint(now.minusMinutes(400), 400);
+        List<TimeSeriesPoint> timeSeries = minutesFrom(timeSeriesName, now.minusMinutes(101));
+        assertEquals(1, size(timeSeries));
     }
 
     @Test
@@ -210,7 +240,7 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(0, size(timeSeries));
     }
 
-    @Test @Ignore
+    @Test
     public void givenDaySeriesWhenQueryingForApproxUnlimitedRangeThenAllDataPointsAreReturned() throws IOException, InterruptedException {
         indexDayPoint(now.minusDays(100), 100);
         indexDayPoint(now.minusDays(200), 200);
@@ -236,12 +266,12 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(0, size(timeSeries));
     }
 
-    @Test @Ignore
+    @Test
     public void givenMonthSeriesWhenQueryingForApproxUnlimitedRangeThenAllDataPointsAreReturned() throws IOException, InterruptedException {
-        indexMonthPoint(now.minusMonths(100), 100);
-        indexMonthPoint(now.minusMonths(200), 200);
-        indexMonthPoint(now.minusMonths(300), 300);
-        indexMonthPoint(now.minusMonths(400), 400);
+        indexMonthPoint(now.minusMonths(10), 100);
+        indexMonthPoint(now.minusMonths(20), 200);
+        indexMonthPoint(now.minusMonths(30), 300);
+        indexMonthPoint(now.minusMonths(40), 400);
         List<TimeSeriesPoint> timeSeries = months(timeSeriesName, now.minusYears(10), now.plusYears(10));
         assertEquals(4, size(timeSeries));
     }
@@ -466,6 +496,41 @@ public class ElasticsearchQueryServiceTest {
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
+        ).getBody();
+    }
+
+    private List<TimeSeriesPoint> minutesTo(String seriesName, ZonedDateTime to) {
+        return restTemplate.exchange(
+                "/minutes/{owner}/{seriesName}?to={to}",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
+                seriesName,
+                formatTimestamp(to)
+        ).getBody();
+    }
+
+    private List<TimeSeriesPoint> minutesFrom(String seriesName, ZonedDateTime from) {
+        return restTemplate.exchange(
+                "/minutes/{owner}/{seriesName}?from={from}",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
+                seriesName,
+                formatTimestamp(from)
+        ).getBody();
+    }
+
+    private List<TimeSeriesPoint> minutes(String seriesName) {
+        return restTemplate.exchange(
+                "/minutes/{owner}/{seriesName}",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                owner,
+                seriesName
         ).getBody();
     }
 
