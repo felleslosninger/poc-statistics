@@ -14,7 +14,6 @@ stage('Build') {
     node {
         checkout scm
         def commitId = commitId()
-        def jiraId
         stash includes: 'pipeline/*', name: 'pipeline'
         if (env.BRANCH_NAME.matches(deployBranch)) {
             currentBuild.displayName = "#${currentBuild.number}: Deploy version ${version}"
@@ -49,7 +48,7 @@ if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
 
     stage('Integration') {
         timeout(time: 10, unit: 'DAYS') {
-            input "Do you approve integration of feature ${jiraId} into production code?"
+            input "Approve integration of feature?"
             node {
                 checkout scm
                 sh "pipeline/feature.sh integrate"
