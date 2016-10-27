@@ -48,10 +48,11 @@ prepareQA() {
 integrate() {
     echo "Integrating feature..."
     echo -n "Verifying that current branch is QA branch... "
-    [[ $(currentBranch) =~ feature/qa/.* ]] && ok || die "Must be on QA branch"
+    currentBranch=$(currentBranch)
+    [[ ${currentBranch} =~ feature/qa/.* ]] && ok || die "Not a QA branch: ${currentBranch}"
     echo -n "Rebasing onto $(masterBranch)... "
     git rebase $(masterBranch) && ok || die
-    qaBranch=$(currentBranch)
+    qaBranch=${currentBranch}
     echo -n "Checking out $(masterBranch)... "
     git checkout $(masterBranch) && ok || die
     echo -n "Merging into $(masterBranch)... "
