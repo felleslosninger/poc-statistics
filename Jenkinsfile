@@ -46,16 +46,6 @@ if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
         }
     }
 
-    stage('Integration') {
-        timeout(time: 10, unit: 'DAYS') {
-            input "Approve integration of feature?"
-            node {
-                checkout scm
-                sh "pipeline/feature.sh integrate"
-            }
-        }
-    }
-
 }
 
 if (env.BRANCH_NAME.matches(deployBranch)) {

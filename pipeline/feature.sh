@@ -51,7 +51,7 @@ integrate() {
     currentBranch=$(currentBranch)
     [[ ${currentBranch} =~ feature/qa/.* ]] && ok || die "Not a QA branch: ${currentBranch}"
     echo -n "Rebasing onto $(masterBranch)... "
-    git rebase $(masterBranch) && ok || die
+    git rebase -i --autosquash $(masterBranch) && ok || die
     qaBranch=${currentBranch}
     echo -n "Checking out $(masterBranch)... "
     git checkout $(masterBranch) && ok || die
