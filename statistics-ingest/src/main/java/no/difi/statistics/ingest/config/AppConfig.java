@@ -45,7 +45,8 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
                 .antMatchers("/").permitAll()
-                .antMatchers("/minutes/{owner}/**").access("#owner == authentication.name")
+                .antMatchers("/{owner}/{seriesName}/minute/**").access("#owner == authentication.name")
+                .antMatchers("/{owner}/{seriesName}/minutes/**").access("#owner == authentication.name")
                 .anyRequest().authenticated()
                 .and()
                 .httpBasic()

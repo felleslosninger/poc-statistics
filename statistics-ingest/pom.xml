@@ -30,7 +30,7 @@
         </dependency>
         <dependency>
             <groupId>no.difi.statistics</groupId>
-            <artifactId>statistics-model</artifactId>
+            <artifactId>statistics-ingest-model</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

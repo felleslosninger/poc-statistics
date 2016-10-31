@@ -16,6 +16,7 @@
         <module>statistics-model</module>
         <module>statistics-common-elasticsearch</module>
         <module>statistics-query-model</module>
+        <module>statistics-ingest-model</module>
         <module>statistics-ingest-elasticsearch</module>
         <module>statistics-ingest-influxdb</module>
         <module>statistics-test-utils</module>
@@ -224,7 +225,7 @@
                 <plugin>
                     <groupId>io.fabric8</groupId>
                     <artifactId>docker-maven-plugin</artifactId>
-                    <version>0.15.16</version>
+                    <version>0.17.1</version>
                     <configuration>
                         <images>
                             <image>

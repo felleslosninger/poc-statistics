@@ -2,9 +2,11 @@ package no.difi.statistics.ingest.api;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.TimeSeriesPoint;
+import no.difi.statistics.model.ingest.IngestResponse;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 import static java.lang.String.format;
 
@@ -26,7 +28,7 @@ public class IngestRestController {
     }
 
     @PostMapping(
-            value = "minutes/{owner}/{seriesName}",
+            value = "{owner}/{seriesName}/minute",
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
     public void minute(
@@ -36,4 +38,17 @@ public class IngestRestController {
     ) {
         ingestService.minute(seriesName, owner, dataPoint);
     }
+
+    @PostMapping(
+            value = "{owner}/{seriesName}/minutes",
+            consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
+    )
+    public IngestResponse minutes(
+            @PathVariable String owner,
+            @PathVariable String seriesName,
+            @RequestBody List<TimeSeriesPoint> dataPoints
+    ) {
+        return ingestService.minutes(seriesName, owner, dataPoints);
+    }
+
 }

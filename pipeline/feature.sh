@@ -17,7 +17,7 @@ ok() {
 }
 
 requireArgument() {
-    test -z ${!1} && die "Missing argument '${1}'"
+    test -z "${!1}" && die "Missing argument '${1}'"
 }
 
 start() {

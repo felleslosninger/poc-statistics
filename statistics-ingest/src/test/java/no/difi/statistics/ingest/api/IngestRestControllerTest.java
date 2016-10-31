@@ -101,7 +101,7 @@ public class IngestRestControllerTest {
     }
 
     private MockHttpServletRequestBuilder baseRequest(String owner, String seriesName) {
-        return post("/minutes/{owner}/{seriesName}", owner, seriesName).contentType(MediaType.APPLICATION_JSON_UTF8);
+        return post("/{owner}/{seriesName}/minute", owner, seriesName).contentType(MediaType.APPLICATION_JSON_UTF8);
     }
 
     private String authorizationHeader(String username, String password) {

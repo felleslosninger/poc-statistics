@@ -11,7 +11,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -26,11 +25,11 @@ public class ElasticsearchConfig implements BackendConfig {
     @Bean
     @Override
     public IngestService ingestService() {
-        return new ElasticsearchIngestService(elasticSearchClient());
+        return new ElasticsearchIngestService(elasticsearchClient());
     }
 
     @Bean(destroyMethod = "close")
-    public Client elasticSearchClient() {
+    public Client elasticsearchClient() {
         String host = environment.getRequiredProperty("no.difi.statistics.elasticsearch.host");
         int port = environment.getRequiredProperty("no.difi.statistics.elasticsearch.port", Integer.class);
         try {

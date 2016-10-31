@@ -49,7 +49,7 @@ createService() {
             --mode global \
             --stop-grace-period 5m \
             --name ${service} \
-            -p 9200:9200 -p 9300:9300 \
+            -p 8082:9200 -p 9300:9300 \
             difi/statistics-elasticsearch:${version} -Des.discovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Des.node.master=false) \
             || fail "Failed to create service ${service}"
         ;;
@@ -142,7 +142,7 @@ deleteNetwork() {
 disableShardAllocation() {
     host=${1-'localhost'}
     echo -n "Disabling Elasticsearch shard allocation..."
-    curl -s -XPUT http://${host}:9200/_cluster/settings \
+    curl -s -XPUT http://${host}:8082/_cluster/settings \
         -d '{"transient":{"cluster.routing.allocation.enable":"none"}}' \
         && ok || fail
 }
@@ -150,7 +150,7 @@ disableShardAllocation() {
 enableShardAllocation() {
     host=${1-'localhost'}
     echo -n "Enabling Elasticsearch shard allocation..."
-    curl -s -XPUT http://${host}:9200/_cluster/settings \
+    curl -s -XPUT http://${host}:8082/_cluster/settings \
         -d '{"transient":{"cluster.routing.allocation.enable":"all"}}' \
         && ok || fail
 }
@@ -158,7 +158,7 @@ enableShardAllocation() {
 waitForGreenStatus() {
     host=${1-'localhost'}
     echo -n "Waiting for Elasticsearch to be green... "
-    curl -sS -f -XGET http://${host}:9200/_cluster/health?wait_for_status=green&timeout=5m > /dev/null \
+    curl -sS -f -XGET http://${host}:8082/_cluster/health?wait_for_status=green&timeout=5m > /dev/null \
         && ok || fail
 }
 
@@ -166,7 +166,7 @@ indexExists() {
     index=${1}
     host=${2-'localhost'}
     echo -n "Checking existence of index \"${index}\"... "
-    curl -s -f --head http://${host}:9200/${index} > /dev/null \
+    curl -s -f --head http://${host}:8082/${index} > /dev/null \
         && ok || fail
 }
 
@@ -223,7 +223,7 @@ isServiceAvailable() {
             url="http://${host}:9201"
             ;;
         'elasticsearch')
-            url="http://${host}:9200"
+            url="http://${host}:8082"
             ;;
         'query')
             url="http://${host}:8080"
@@ -241,29 +241,29 @@ isServiceAvailable() {
 create() {
     version=${1-'latest'}
     echo "Creating application with version ${version}..."
-    createNetwork 'statistics'
-    createService 'elasticsearch_gossip' ${version}
-    waitForServiceToBeAvailable 'elasticsearch_gossip'
-    createService 'elasticsearch' ${version}
-    createService 'query' ${version}
-    createService 'ingest' ${version}
+    createNetwork 'statistics' || return $?
+    createService 'elasticsearch_gossip' ${version} || return $?
+    waitForServiceToBeAvailable 'elasticsearch_gossip' || return $?
+    createService 'elasticsearch' ${version} || return $?
+    createService 'query' ${version} || return $?
+    createService 'ingest' ${version} || return $?
     echo "Application created"
 }
 
 update() {
     version=${1-'latest'}
     echo "Updating application to version ${version}..."
-    updateService 'query' ${version}
-    updateService 'ingest' ${version}
+    updateService 'query' ${version} || return $?
+    updateService 'ingest' ${version} || return $?
     # Se https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
     # Inntil data persisteres (utenfor konteiner), så må shards reallokeres under oppgradering for at de skal beholdes.
     #disableShardAllocation
-    updateService 'elasticsearch' ${version}
-    waitForServiceUpdateToComplete 'elasticsearch'
-    waitForServiceToBeAvailable 'elasticsearch'
-    updateService 'elasticsearch_gossip' ${version}
-    waitForServiceUpdateToComplete 'elasticsearch_gossip'
-    waitForServiceToBeAvailable 'elasticsearch_gossip'
+    updateService 'elasticsearch' ${version} || return $?
+    waitForServiceUpdateToComplete 'elasticsearch' || return $?
+    waitForServiceToBeAvailable 'elasticsearch' || return $?
+    updateService 'elasticsearch_gossip' ${version} || return $?
+    waitForServiceUpdateToComplete 'elasticsearch_gossip' || return $?
+    waitForServiceToBeAvailable 'elasticsearch_gossip' || return $?
     #enableShardAllocation
     echo "Application updated"
 }
