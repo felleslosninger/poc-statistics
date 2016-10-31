@@ -79,7 +79,7 @@ qaBranch() {
 }
 
 masterBranch() {
-    echo 'develop'
+    echo 'master'
 }
 
 publishBranch() {

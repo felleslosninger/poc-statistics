@@ -5,7 +5,7 @@ import java.time.format.DateTimeFormatter
 import static java.time.ZonedDateTime.now
 
 String version = DateTimeFormatter.ofPattern('yyyyMMddHHmm').format(now(ZoneId.of('UTC')))
-String deployBranch = 'develop'
+String deployBranch = 'master'
 String qaFeatureBranch = /feature\/qa\/(\w+-\w+)/
 String featureBranch = /feature\/(\w+-\w+)/
 
