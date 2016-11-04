@@ -28,13 +28,14 @@ import java.net.MalformedURLException;
 import java.net.UnknownHostException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Collections.singletonList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.model.ingest.IngestResponse.Status.Failed;
@@ -121,6 +122,21 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @Test
+    public void whenIngestingDuplicatePointThenFailAndPointIsNotIngested() throws InterruptedException, IOException {
+        TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
+        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
+        TimeSeriesPoint point2 = point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 567543L).build();
+        ResponseEntity<Void> response1 = ingest("series", point1);
+        ResponseEntity<Void> response2 = ingest("series", duplicateOfPoint1);
+        ResponseEntity<Void> response3 = ingest("series", point2);
+        assertEquals(200, response1.getStatusCodeValue());
+        assertEquals(409, response2.getStatusCodeValue());
+        assertEquals(200, response3.getStatusCodeValue());
+        assertIngested(point1);
+        assertIngested(point2);
+    }
+
+    @Test
     public void whenIngestingAPointThenProperlyNamedIndexIsCreated() {
         final String owner = "991825827";
         final String password = "654321";
@@ -145,8 +161,12 @@ public class ElasticsearchIngestServiceTest {
     }
 
     private void assertIngested(int index, TimeSeriesPoint point, IngestResponse response) {
-        String id = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(point.getTimestamp());
         assertEquals(Ok, response.getStatuses().get(index));
+        assertIngested(point);
+    }
+
+    private void assertIngested(TimeSeriesPoint point) {
+        String id = documentId(point.getTimestamp());
         assertEquals(
                 (Long)point.getMeasurement("aMeasurement").get().getValue(),
                 elasticsearchHelper.get(
@@ -159,6 +179,10 @@ public class ElasticsearchIngestServiceTest {
 
     private TimeSeriesPoint.Builder point() {
         return TimeSeriesPoint.builder();
+    }
+
+    private ResponseEntity<Void> ingest(String series, TimeSeriesPoint point) {
+        return ingest(owner, "654321", series, point);
     }
 
     private ResponseEntity<Void> ingest(String owner, String password, String series, TimeSeriesPoint point) {
@@ -189,6 +213,14 @@ public class ElasticsearchIngestServiceTest {
                 entity,
                 headers
         );
+    }
+
+    private static String documentId(ZonedDateTime timestamp) {
+        return normalize(timestamp).toString();
+    }
+
+    private static ZonedDateTime normalize(ZonedDateTime timestamp) {
+        return timestamp.truncatedTo(MINUTES).withZoneSameInstant(UTC);
     }
 
 }

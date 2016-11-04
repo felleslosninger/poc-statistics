@@ -39,10 +39,14 @@ start() {
 }
 
 prepareQA() {
-    [[ $(currentBranch) =~ feature/.* ]] && ok || die "Must be on feature branch"
-    git checkout -b $(qaBranch)
-    git rebase origin/$(masterBranch) || die
-    publishBranch
+    echo -n "Verifying that current branch is a feature branch: "
+    [[ $(currentBranch) =~ feature/.* ]] && ok || die
+    echo -n "Verifying that current branch is integratable: "
+    isIntegratable && ok || die
+    echo -n "Creating QA branch \"$(qaBranch)\": "
+    createQABranch && ok || die
+    echo -n "Publishing QA branch... "
+    publishBranch && ok || die
 }
 
 integrate() {
@@ -63,6 +67,14 @@ integrate() {
     git push origin --delete ${qaBranch} && ok || die
     echo -n "Deleting QA branch locally... "
     git branch -D ${qaBranch}
+}
+
+isIntegratable() {
+    git branch --contains $(masterBranch) | grep $(currentBranch) > /dev/null
+}
+
+createQABranch() {
+    git checkout -q -b $(qaBranch) > /dev/null
 }
 
 fetchMasterBranch() {
