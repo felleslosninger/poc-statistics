@@ -32,9 +32,8 @@ start() {
     git checkout -b ${featureBranch}
     commitMessage="$(currentBranch): ${message}" # TODO: Enforce max 50 char message
     tmpFile="/tmp/${id}_Changes.md"
-    changesFile="doc/Changes.md"
-    echo "${commitMessage}" | cat - ${changesFile} > ${tmpFile} && mv ${tmpFile} ${changesFile}
-    git add ${changesFile}
+    echo "${commitMessage}" | cat - $(changesFile) > ${tmpFile} && mv ${tmpFile} $(changesFile)
+    git add $(changesFile)
     git commit -m "${commitMessage}"
 }
 
@@ -54,13 +53,15 @@ integrate() {
     echo -n "Verifying that current branch is QA branch... "
     currentBranch=$(currentBranch)
     [[ ${currentBranch} =~ feature/qa/.* ]] && ok || die "Not a QA branch: ${currentBranch}"
-    echo -n "Rebasing onto $(masterBranch)... "
-    git rebase -i --autosquash $(masterBranch) && ok || die
+    echo -n "Verifying that current branch is integratable: "
+    isIntegratable && ok || die
     qaBranch=${currentBranch}
     echo -n "Checking out $(masterBranch)... "
     git checkout $(masterBranch) && ok || die
     echo -n "Merging into $(masterBranch)... "
-    git merge --ff-only ${qaBranch} && ok || die
+    git merge --ff-only --squash ${qaBranch} && ok || die
+    echo -n "Committing... "
+    git commit -m "$(head -1 $(changesFile))"
     echo -n "Pushing $(masterBranch) with feature..."
     git push && ok || die
     echo -n "Deleting QA branch on remote... "
@@ -92,6 +93,10 @@ qaBranch() {
 
 masterBranch() {
     echo 'master'
+}
+
+changesFile() {
+    echo 'doc/Changes.txt'
 }
 
 publishBranch() {
