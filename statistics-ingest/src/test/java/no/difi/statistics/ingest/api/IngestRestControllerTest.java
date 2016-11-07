@@ -8,10 +8,15 @@ import no.difi.statistics.model.TimeSeriesPoint;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -19,10 +24,12 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
+import static java.util.Collections.singletonList;
 import static org.apache.tomcat.util.codec.binary.Base64.encodeBase64;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -34,16 +41,16 @@ public class IngestRestControllerTest {
 
     @Autowired
     private IngestService service;
-
-    private static final String VALIDUSERNAME = "984661185";
-    private static final String VALIDPASSWORD = "123456";
+    @Autowired
+    private AuthenticationProvider authenticationProvider;
 
     @Autowired
     private MockMvc mockMvc;
 
     @After
-    public void resetMock() {
+    public void resetMocks() {
         reset(service);
+        reset(authenticationProvider);
     }
 
     @Test
@@ -53,31 +60,78 @@ public class IngestRestControllerTest {
 
     @Test
     public void whenIngestingAndUserIsNotTheSameAsOwnerThenAccessIsDenied() throws Exception {
-        mockMvc.perform(aRequestWithOwnerDifferentThanUser().content(json(aPoint())))
+        permitUser("aUser", "aPassword");
+        mockMvc.perform(
+                request()
+                        .owner("anotherUser")
+                        .series("aTimeSeries")
+                        .user("aUser")
+                        .password("aPassword")
+                        .content(json(aPoint()))
+                        .build()
+        )
                 .andExpect(status().is(403));
     }
 
     @Test
     public void whenSendingRequestWithValidTimeSeriesPointAndValidLoginThenExpectValuesSentToServiceMethodToBeTheSameAsSentToService() throws Exception {
+        permitUser("aUser", "aPassword");
         TimeSeriesPoint timeSeriesPoint = aPoint();
-        mockMvc.perform(aRequest().content(json(timeSeriesPoint))).andExpect(status().is(200));
-        verify(service).minute(eq("aTimeSeries"), eq(VALIDUSERNAME), eq(timeSeriesPoint));
+        mockMvc.perform(
+                request()
+                        .owner("aUser")
+                        .series("aTimeSeries")
+                        .user("aUser")
+                        .password("aPassword")
+                        .content(json(timeSeriesPoint))
+                        .build()
+        )
+                .andExpect(status().is(200));
+        verify(service).minute(eq("aTimeSeries"), eq("aUser"), eq(timeSeriesPoint));
     }
 
     @Test
     public void whenSendingValidRequestThenExpectNormalResponse() throws Exception {
-        mockMvc.perform(aRequest().content(json(aPoint()))).andExpect(status().is(200));
+        permitUser("aUser", "aPassword");
+        mockMvc.perform(
+                request()
+                        .owner("aUser")
+                        .series("aTimeSeries")
+                        .user("aUser")
+                        .password("aPassword")
+                        .content(json(aPoint()))
+                        .build()
+        )
+                .andExpect(status().is(200));
     }
 
     @Test
     public void whenSendingRequestWithInvalidContentThenExpect400Response() throws Exception {
-        mockMvc.perform(aRequest().content("invalidJson"))
+        permitUser("aUser", "aPassword");
+        mockMvc.perform(
+                request()
+                        .owner("aUser")
+                        .series("aTimeSeries")
+                        .user("aUser")
+                        .password("aPassword")
+                        .content("invalidJson")
+                        .build()
+        )
                 .andExpect(status().is(400));
     }
 
     @Test
     public void whenSendingRequestWithWrongPasswordThenExpect401Response() throws Exception {
-        mockMvc.perform(aRequestWithWrongPassword().content(json(aPoint())))
+        permitUser("aUser", "aPassword");
+        mockMvc.perform(
+                request()
+                        .owner("aUser")
+                        .series("aTimeSeries")
+                        .user("aUser")
+                        .password("wrongPassword")
+                        .content(json(aPoint()))
+                        .build()
+        )
                 .andExpect(status().is(401));
     }
 
@@ -88,30 +142,79 @@ public class IngestRestControllerTest {
                 .build();
     }
 
-    private MockHttpServletRequestBuilder aRequest() {
-        return baseRequest(VALIDUSERNAME, "aTimeSeries").header("Authorization", authorizationHeader(VALIDUSERNAME, VALIDPASSWORD));
+    public static RequestBuilder request() {
+        return new RequestBuilder();
     }
 
-    private MockHttpServletRequestBuilder aRequestWithOwnerDifferentThanUser() {
-        return baseRequest("ownerisnotuser", "aTimeSeries").header("Authorization", authorizationHeader(VALIDUSERNAME, VALIDPASSWORD));
-    }
+    public static class RequestBuilder {
+        private String owner;
+        private String series;
+        private String user;
+        private String password;
+        private String content;
 
-    private MockHttpServletRequestBuilder aRequestWithWrongPassword() {
-        return baseRequest(VALIDUSERNAME, "aTimeSeries").header("Authorization", authorizationHeader(VALIDUSERNAME, "wrongPassword"));
-    }
+        RequestBuilder owner(String owner) {
+            this.owner = owner;
+            return this;
+        }
 
-    private MockHttpServletRequestBuilder baseRequest(String owner, String seriesName) {
-        return post("/{owner}/{seriesName}/minute", owner, seriesName).contentType(MediaType.APPLICATION_JSON_UTF8);
-    }
+        RequestBuilder series(String series) {
+            this.series = series;
+            return this;
+        }
 
-    private String authorizationHeader(String username, String password) {
-        return "Basic " + new String(encodeBase64((username + ":" + password).getBytes()));
+        RequestBuilder user(String user) {
+            this.user = user;
+            return this;
+        }
+
+        RequestBuilder password(String password) {
+            this.password = password;
+            return this;
+        }
+
+        RequestBuilder content(String content) {
+            this.content = content;
+            return this;
+        }
+
+        private String authorizationHeader(String username, String password) {
+            return "Basic " + new String(encodeBase64((username + ":" + password).getBytes()));
+        }
+
+        MockHttpServletRequestBuilder build() {
+            return post("/{owner}/{seriesName}/minute", owner, series)
+                    .contentType(MediaType.APPLICATION_JSON_UTF8)
+                    .header("Authorization", authorizationHeader(user, password))
+                    .content(content);
+        }
+
     }
 
     private String json(TimeSeriesPoint timeSeriesPoint) throws Exception {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .writeValueAsString(timeSeriesPoint);
+    }
+
+    private void permitUser(String user, String password) {
+        UsernamePasswordAuthenticationToken successToken =
+                new UsernamePasswordAuthenticationToken(user, password, singletonList(new SimpleGrantedAuthority(user)));
+        when(authenticationProvider.authenticate(argThat(matchesCredentials(user, password)))).thenReturn(successToken);
+        when(authenticationProvider.supports(any(Class.class))).thenReturn(true);
+    }
+
+    private ArgumentMatcher<Authentication> matchesCredentials(String user, String password) {
+        return new ArgumentMatcher<Authentication>() {
+            @Override
+            public boolean matches(Object argument) {
+                if (!(argument instanceof UsernamePasswordAuthenticationToken))
+                    return false;
+                UsernamePasswordAuthenticationToken authentication = (UsernamePasswordAuthenticationToken) argument;
+                return authentication.getPrincipal() != null && authentication.getCredentials() != null &&
+                        authentication.getPrincipal().equals(user) && authentication.getCredentials().equals(password);
+            }
+        };
     }
 
 }

@@ -2,6 +2,7 @@ package no.difi.statistics.ingest.elasticsearch.config;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.ingest.config.BackendConfig;
+import no.difi.statistics.ingest.elasticsearch.ElasticsearchAuthenticationProvider;
 import no.difi.statistics.ingest.elasticsearch.ElasticsearchIngestService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
@@ -11,6 +12,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.security.authentication.AuthenticationProvider;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -38,6 +40,12 @@ public class ElasticsearchConfig implements BackendConfig {
         } catch (UnknownHostException e) {
             throw new RuntimeException("Failed to create Elasticsearch client", e);
         }
+    }
+
+    @Bean
+    @Override
+    public AuthenticationProvider authenticationProvider() {
+        return new ElasticsearchAuthenticationProvider();
     }
 
 }

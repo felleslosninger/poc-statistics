@@ -8,6 +8,8 @@ import org.influxdb.InfluxDBFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.authentication.AuthenticationManagerBeanDefinitionParser;
 
 import static java.lang.String.format;
 
@@ -20,6 +22,12 @@ public class InfluxDBConfig implements BackendConfig {
     @Bean
     public IngestService ingestService() {
         return new InfluxDBIngestService(influxdbClient());
+    }
+
+    @Override
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        return new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider();
     }
 
     @Bean
