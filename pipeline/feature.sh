@@ -30,11 +30,19 @@ start() {
     [ -z "$(git diff --summary FETCH_HEAD)" ] || die "Local branch and remote diverges"
     featureBranch="feature/${id}"
     git checkout -b ${featureBranch}
-    commitMessage="$(currentBranch): ${message}" # TODO: Enforce max 50 char message
-    tmpFile="/tmp/${id}_Changes.md"
-    echo "${commitMessage}" | cat - $(changesFile) > ${tmpFile} && mv ${tmpFile} $(changesFile)
+    editChangeLog "${message}"
+}
+
+editChangesLog() {
+    message=${1}
+    requireArgument 'message'
+    logEntry="$(currentBranch): ${message}" # TODO: Enforce max 50 char message
+    tmpDir=$(mktemp -d "${TMPDIR:-/tmp/}XXXXXXXXXXXX")
+    tmpFile="${tmpDir}/Changes.txt"
+    echo "${logEntry}" | cat - $(changesFile) > ${tmpFile} && mv ${tmpFile} $(changesFile)
+    rm -r ${tmpDir}
     git add $(changesFile)
-    git commit -m "${commitMessage}"
+    git commit -m "${logEntry}"
 }
 
 prepareQA() {
