@@ -247,10 +247,9 @@ waitForInstancesToTerminate() {
     echoOk
 }
 
-createDockerMachines() {
+awsDockerParams() {
     version=$1
     requireArgument 'version'
-    echo "Creating Docker machines..."
     system_id=$(systemId ${version})
     vpc_id=$(vpcId ${version})
     output=$(aws ec2 describe-subnets --filters $(vpcFilter ${version})) || fail "Failed to find subnet"
@@ -258,8 +257,7 @@ createDockerMachines() {
     availability_zone=$(echo ${output} | jq -r ".Subnets[].AvailabilityZone") || fail "Failed to get availability zone for subnet"
     output=$(aws ec2 describe-security-groups --filters $(filter ${version})) || fail "Failed to find security group"
     sg_name=$(echo ${output} | jq -r ".SecurityGroups[].GroupName") || fail "Failed to get security group name"
-    node_base_name=${system_id}-node
-    dm_params="\
+    echo -n "\
         --engine-label system_id=${system_id} \
         -d amazonec2 \
         --amazonec2-tags SystemId,${system_id} \
@@ -268,13 +266,41 @@ createDockerMachines() {
         --amazonec2-zone ${availability_zone:${#availability_zone}-1:1} \
         --amazonec2-security-group ${sg_name} \
         --amazonec2-instance-type c4.large"
-    docker-machine create ${dm_params} $(nodeName ${version} '01') &
+}
+
+virtualBoxDockerParams() {
+    version=$1
+    requireArgument 'version'
+    echo -n "\
+        --engine-label system_id=$(systemId ${version}) \
+        -d virtualbox"
+}
+
+createDockerMachines() {
+    version=$1
+    requireArgument 'version'
+    driver=${2-'amazonec2'}
+    echo "Creating Docker machines..."
+    case ${driver} in
+        'amazonec2')
+            params=$(awsDockerParams ${version})
+            ;;
+        'virtualbox')
+            params=$(virtualBoxDockerParams ${version})
+            ;;
+        "*")
+            fail "Unsupported docker-machine driver ${driver}"
+            ;;
+    esac
+    docker-machine create ${params} $(nodeName ${version} '01') &
     child_pids="${child_pids} $!"
-    docker-machine create ${dm_params} $(nodeName ${version} '02') &
+    docker-machine create ${params} $(nodeName ${version} '02') &
     child_pids="${child_pids} $!"
-    docker-machine create ${dm_params} $(nodeName ${version} '03') &
+    docker-machine create ${params} $(nodeName ${version} '03') &
     child_pids="${child_pids} $!"
     wait
+    [ "${driver}" == 'virtualbox' ] && \
+        docker-machine ssh $(nodeName ${version} '01') tce-load -wi bash || fail
     echoOk
 }
 
@@ -309,7 +335,7 @@ setupDockerSwarm() {
     requireArgument 'version'
     managerNode=$(nodeName ${version} '01')
     echo "Creating Docker swarm..."
-    output=$(docker-machine ssh ${managerNode} sudo docker swarm init --advertise-addr eth0) || fail "Failed to initialize Docker swarm"
+    output=$(docker-machine ssh ${managerNode} sudo docker swarm init --advertise-addr eth1) || fail "Failed to initialize Docker swarm"
     swarm_address=$(docker-machine ssh ${managerNode} sudo docker node inspect self | jq -r ".[].ManagerStatus.Addr") || fail "Failed to get address of Docker swarm manager"
     swarm_token=$(docker-machine ssh ${managerNode} sudo docker swarm join-token -q worker) || fail "Failed to get Docker swarm's join token"
     joinDockerSwarm $(nodeName ${version} '02') ${swarm_token} ${swarm_address}
@@ -320,25 +346,31 @@ setupDockerSwarm() {
 create() {
     version=$1
     requireArgument 'version'
-    createVpc ${version}
-    createSubnet ${version}
-    createInternetGateway ${version}
-    createRoute ${version}
-    createSecurityGroup ${version}
-    createDockerMachines ${version}
+    driver=${2-'amazonec2'}
+    [ "${driver}" == 'amazonec2' ] && {
+        createVpc ${version}
+        createSubnet ${version}
+        createInternetGateway ${version}
+        createRoute ${version}
+        createSecurityGroup ${version}
+    }
+    createDockerMachines ${version} ${driver}
     setupDockerSwarm ${version}
 }
 
 delete() {
     version=$1
+    driver=${2-'amazonec2'}
     requireArgument 'version'
+    [ "${driver}" == 'amazonec2' ] && {
+        deleteRunningInstances ${version}
+        waitForInstancesToTerminate ${version}
+        deleteSubnet ${version}
+        deleteSecurityGroup ${version}
+        deleteInternetGateway ${version}
+        deleteVpc ${version}
+    }
     deleteDockerMachines ${version}
-    deleteRunningInstances ${version}
-    waitForInstancesToTerminate ${version}
-    deleteSubnet ${version}
-    deleteSecurityGroup ${version}
-    deleteInternetGateway ${version}
-    deleteVpc ${version}
 }
 
 case $1 in *)
