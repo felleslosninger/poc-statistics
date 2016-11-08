@@ -1,31 +1,28 @@
 package no.difi.statistics.ingest.elasticsearch;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.authentication.dao.AbstractUserDetailsAuthenticationProvider;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.util.Collection;
+import static java.util.Collections.singletonList;
 
-public class ElasticsearchAuthenticationProvider extends AbstractUserDetailsAuthenticationProvider {
-
-    @Override
-    protected void additionalAuthenticationChecks(UserDetails userDetails, UsernamePasswordAuthenticationToken authentication) throws AuthenticationException {
-
-    }
+public class ElasticsearchUserDetailsService implements UserDetailsService {
 
     @Override
-    protected UserDetails retrieveUser(String username, UsernamePasswordAuthenticationToken authentication) throws AuthenticationException {
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // TODO: Return instance of subclass of User with an additional property containing salt, which is retrieved by ReflectionSaltSource.
         return new UserDetails() {
             @Override
             public Collection<? extends GrantedAuthority> getAuthorities() {
-                return null;
+                return singletonList(new SimpleGrantedAuthority("USER"));
             }
 
             @Override
             public String getPassword() {
-                return "########";
+                return "bbb";
             }
 
             @Override

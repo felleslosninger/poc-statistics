@@ -16,13 +16,18 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 
 import static java.util.Collections.singletonList;
 import static org.apache.tomcat.util.codec.binary.Base64.encodeBase64;
@@ -42,7 +47,7 @@ public class IngestRestControllerTest {
     @Autowired
     private IngestService service;
     @Autowired
-    private AuthenticationProvider authenticationProvider;
+    private UserDetailsService userDetailsService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -50,7 +55,7 @@ public class IngestRestControllerTest {
     @After
     public void resetMocks() {
         reset(service);
-        reset(authenticationProvider);
+        reset(userDetailsService);
     }
 
     @Test
@@ -198,23 +203,11 @@ public class IngestRestControllerTest {
     }
 
     private void permitUser(String user, String password) {
-        UsernamePasswordAuthenticationToken successToken =
-                new UsernamePasswordAuthenticationToken(user, password, singletonList(new SimpleGrantedAuthority(user)));
-        when(authenticationProvider.authenticate(argThat(matchesCredentials(user, password)))).thenReturn(successToken);
-        when(authenticationProvider.supports(any(Class.class))).thenReturn(true);
+        when(userDetailsService.loadUserByUsername(user)).thenReturn(userDetails(user, password));
     }
 
-    private ArgumentMatcher<Authentication> matchesCredentials(String user, String password) {
-        return new ArgumentMatcher<Authentication>() {
-            @Override
-            public boolean matches(Object argument) {
-                if (!(argument instanceof UsernamePasswordAuthenticationToken))
-                    return false;
-                UsernamePasswordAuthenticationToken authentication = (UsernamePasswordAuthenticationToken) argument;
-                return authentication.getPrincipal() != null && authentication.getCredentials() != null &&
-                        authentication.getPrincipal().equals(user) && authentication.getCredentials().equals(password);
-            }
-        };
+    private UserDetails userDetails(String user, String password) {
+        return new User(user, password, singletonList(new SimpleGrantedAuthority("USER")));
     }
 
 }
