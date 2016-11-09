@@ -13,11 +13,11 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Configuration
 @EnableAutoConfiguration
 @EnableWebSecurity
+@EnableSwagger2
 public class AppConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
@@ -54,14 +54,35 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
-                .antMatchers("/").permitAll()
-                .antMatchers("/{owner}/{seriesName}/minute/**").access("#owner == authentication.name")
-                .antMatchers("/{owner}/{seriesName}/minutes/**").access("#owner == authentication.name")
+                // No authentication required for documentation paths used by Swagger
+                .antMatchers("/", "/swagger-ui.html", "/swagger-resources/**", "/v2/api-docs/**").permitAll()
+                // Authentication required for ingest methods. Username must be equal to owner of series.
+                .antMatchers("/{owner}/{seriesName}/**").access("#owner == authentication.name")
                 .anyRequest().authenticated()
                 .and()
                 .httpBasic()
                 .and()
                 .csrf().disable();
+    }
+
+    @Bean
+    public Docket apiDocumentation() {
+        return new Docket(DocumentationType.SWAGGER_2)
+                .groupName("statistikk-inndata")
+                .select()
+                .apis(basePackage(IngestRestController.class.getPackage().getName()))
+                .paths(any())
+                .build()
+                .apiInfo(new ApiInfoBuilder()
+                        .title("Statistikk for offentlige tjenester")
+                        .description(
+                                format(
+                                        "Beskrivelse av API for innlegging av data (versjon %s).",
+                                        System.getProperty("difi.version", "N/A")
+                                )
+                        )
+                        .build()
+                );
     }
 
 }
