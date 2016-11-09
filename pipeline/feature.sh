@@ -30,7 +30,7 @@ start() {
     [ -z "$(git diff --summary FETCH_HEAD)" ] || die "Local branch and remote diverges"
     featureBranch="feature/${id}"
     git checkout -b ${featureBranch}
-    editChangeLog "${message}"
+    editChangesLog "${message}"
 }
 
 editChangesLog() {

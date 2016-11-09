@@ -6,14 +6,10 @@ import no.difi.statistics.model.ingest.IngestResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.view.RedirectView;
 
-import javax.servlet.http.HttpServletResponse;
-import java.util.Collections;
-import java.util.HashMap;
+import java.io.IOException;
 import java.util.List;
-import java.util.Map;
-
-import static java.lang.String.format;
 
 @RestController
 public class IngestRestController {
@@ -24,12 +20,9 @@ public class IngestRestController {
         this.ingestService = ingestService;
     }
 
-    @GetMapping(value="/")
-    public String index() {
-        return format(
-                "Statistics Ingest version %s",
-                System.getProperty("difi.version", "N/A")
-        );
+    @GetMapping("/")
+    public RedirectView index() throws IOException {
+        return new RedirectView("swagger-ui.html");
     }
 
     @ExceptionHandler(IngestService.TimeSeriesPointAlreadyExists.class)

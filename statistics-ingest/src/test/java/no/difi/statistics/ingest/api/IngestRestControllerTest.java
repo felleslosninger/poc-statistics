@@ -20,11 +20,13 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 import static org.apache.tomcat.util.codec.binary.Base64.encodeBase64;
+import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -48,7 +50,8 @@ public class IngestRestControllerTest {
 
     @Test
     public void whenRequestingIndexThenAuthorizationIsNotRequired() throws Exception {
-        mockMvc.perform(get("/")).andExpect(status().is(200));
+        mockMvc.perform(get("/")).andExpect(status().is(302)).andExpect(header().string("Location", equalTo("swagger-ui.html")));
+        mockMvc.perform(get("/swagger-ui.html")).andExpect(status().is(200));
     }
 
     @Test
