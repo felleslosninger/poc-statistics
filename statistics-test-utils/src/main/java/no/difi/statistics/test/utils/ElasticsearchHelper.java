@@ -1,4 +1,4 @@
-package no.difi.statistics.ingest.elasticsearch;
+package no.difi.statistics.test.utils;
 
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -16,6 +16,7 @@ import java.net.UnknownHostException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static java.lang.String.format;
@@ -35,7 +36,7 @@ public class ElasticsearchHelper {
         this.refreshUrl = new URL(format("http://%s:%d/_refresh", host, port));
     }
 
-    public void clear() throws ExecutionException, InterruptedException {
+    public void clear() {
         client.admin().indices().prepareDelete("_all").get();
     }
 
@@ -52,6 +53,20 @@ public class ElasticsearchHelper {
                 .prepareState().execute()
                 .actionGet().getState()
                 .getMetaData().concreteAllIndices();
+    }
+
+    public void index(String indexName, String indexType, String document) {
+        client.prepareIndex(indexName, indexType)
+                .setSource(document)
+                .setRefresh(true) // Make document immediately searchable for testing purposes
+                .get();
+    }
+
+    public void index(String indexName, String indexType, String id, Map<String, String> document) {
+        client.prepareIndex(indexName, indexType, id)
+                .setSource(document)
+                .setRefresh(true) // Make document immediately searchable for testing purposes
+                .get();
     }
 
     public SearchResponse search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {

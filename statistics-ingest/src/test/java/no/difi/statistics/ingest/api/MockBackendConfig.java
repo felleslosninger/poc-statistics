@@ -18,10 +18,4 @@ public class MockBackendConfig implements BackendConfig {
         return mock(IngestService.class);
     }
 
-    @Override
-    @Bean
-    public UserDetailsService userDetailsService() {
-        return mock(UserDetailsService.class);
-    }
-
 }

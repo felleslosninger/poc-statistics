@@ -3,7 +3,8 @@ package no.difi.statistics.ingest.elasticsearch;
 import no.difi.statistics.ingest.config.AppConfig;
 import no.difi.statistics.ingest.elasticsearch.config.ElasticsearchConfig;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.ingest.IngestResponse;
+import no.difi.statistics.ingest.api.IngestResponse;
+import no.difi.statistics.test.utils.ElasticsearchHelper;
 import org.elasticsearch.client.Client;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -18,9 +19,12 @@ import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.IOException;
@@ -38,12 +42,19 @@ import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Collections.singletonList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
-import static no.difi.statistics.model.ingest.IngestResponse.Status.Failed;
-import static no.difi.statistics.model.ingest.IngestResponse.Status.Ok;
+import static no.difi.statistics.ingest.api.IngestResponse.Status.Failed;
+import static no.difi.statistics.ingest.api.IngestResponse.Status.Ok;
+import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
+import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.test.web.client.ExpectedCount.manyTimes;
+import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 @SpringBootTest(
         webEnvironment = RANDOM_PORT
@@ -69,7 +80,6 @@ public class ElasticsearchIngestServiceTest {
     }
 
     private final ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
-    private final String owner = "991825827";
     private static GenericContainer backend;
 
     @Autowired
@@ -77,9 +87,22 @@ public class ElasticsearchIngestServiceTest {
     @Autowired
     private Client client;
     private ElasticsearchHelper elasticsearchHelper;
+    @Autowired
+    private RestTemplate authenticationRestTemplate;
+    private MockRestServiceServer authenticationService;
+    private String owner = "123456789";
+    private String password = "aPassword";
 
     @Before
     public void prepare() throws InterruptedException, MalformedURLException, UnknownHostException {
+        authenticationService = MockRestServiceServer.bindTo(authenticationRestTemplate).build();
+        authenticationService
+                .expect(manyTimes(), requestTo("http://authentication:8083/authentications"))
+                .andExpect(method(POST))
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8))
+                .andExpect(jsonPath("username", equalTo(owner)))
+                .andExpect(jsonPath("password", equalTo(password)))
+                .andRespond(withSuccess("{\"authenticated\": true}", MediaType.APPLICATION_JSON_UTF8));
         elasticsearchHelper = new ElasticsearchHelper(
                 client,
                 backend.getContainerIpAddress(),
@@ -138,8 +161,6 @@ public class ElasticsearchIngestServiceTest {
 
     @Test
     public void whenIngestingAPointThenProperlyNamedIndexIsCreated() {
-        final String owner = "991825827";
-        final String password = "654321";
         final String series = "series";
         ResponseEntity<Void> response = ingest(owner, password, series, point().timestamp(now).measurement("aMeasurement", 103L).build());
         assertEquals(200, response.getStatusCodeValue());
@@ -182,7 +203,7 @@ public class ElasticsearchIngestServiceTest {
     }
 
     private ResponseEntity<Void> ingest(String series, TimeSeriesPoint point) {
-        return ingest(owner, "654321", series, point);
+        return ingest(owner, password, series, point);
     }
 
     private ResponseEntity<Void> ingest(String owner, String password, String series, TimeSeriesPoint point) {
@@ -196,7 +217,6 @@ public class ElasticsearchIngestServiceTest {
     }
 
     private ResponseEntity<IngestResponse> ingest(String series, TimeSeriesPoint...points) {
-        final String password = "654321";
         return restTemplate.postForEntity(
                 "/{owner}/{seriesName}/minutes",
                 request(points, owner, password),

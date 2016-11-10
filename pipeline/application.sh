@@ -71,6 +71,15 @@ createService() {
             difi/statistics-ingest-elasticsearch:${version}) \
             || fail "Failed to create service ${service}"
         ;;
+    authenticate)
+        output=$(sudo docker service create \
+            --network ${network} \
+            --mode global \
+            --name ${service} \
+            -p 8083:8080 \
+            difi/statistics-authentication:${version}) \
+            || fail "Failed to create service ${service}"
+        ;;
     esac
     ok
 }
@@ -92,6 +101,9 @@ updateService() {
             ;;
         "ingest")
             image='difi/statistics-ingest-elasticsearch'
+            ;;
+        "authenticate")
+            image='difi/statistics-authenticate'
             ;;
         *)
             fail "Unknown service ${service}"
@@ -231,6 +243,9 @@ isServiceAvailable() {
         'ingest')
             url="http://${host}:8081"
             ;;
+        'authenticate')
+            url="http://${host}:8083"
+            ;;
         *)
             echo -n "Unknown service \"${service}\""
             return 1
@@ -247,6 +262,7 @@ create() {
     createService 'elasticsearch' ${version} || return $?
     createService 'query' ${version} || return $?
     createService 'ingest' ${version} || return $?
+    createService 'authenticate' ${version} || return $?
     echo "Application created"
 }
 
@@ -255,6 +271,7 @@ update() {
     echo "Updating application to version ${version}..."
     updateService 'query' ${version} || return $?
     updateService 'ingest' ${version} || return $?
+    updateService 'authenticate' ${version} || return $?
     # Se https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
     # Inntil data persisteres (utenfor konteiner), så må shards reallokeres under oppgradering for at de skal beholdes.
     #disableShardAllocation
@@ -270,6 +287,7 @@ update() {
 
 delete() {
     echo "Deleting application..."
+    deleteService "authenticate"
     deleteService "ingest"
     deleteService "query"
     deleteService "elasticsearch"

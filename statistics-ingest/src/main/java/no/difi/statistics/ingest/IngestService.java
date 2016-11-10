@@ -1,7 +1,7 @@
 package no.difi.statistics.ingest;
 
+import no.difi.statistics.ingest.api.IngestResponse;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.ingest.IngestResponse;
 
 import java.util.List;
 
