@@ -1,9 +1,9 @@
 package no.difi.statistics.ingest.elasticsearch;
 
+import no.difi.statistics.ingest.api.IngestResponse;
 import no.difi.statistics.ingest.config.AppConfig;
 import no.difi.statistics.ingest.elasticsearch.config.ElasticsearchConfig;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.ingest.api.IngestResponse;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
 import org.elasticsearch.client.Client;
 import org.junit.After;
@@ -19,7 +19,6 @@ import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
@@ -46,14 +45,11 @@ import static no.difi.statistics.ingest.api.IngestResponse.Status.Failed;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Ok;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 import static org.springframework.test.web.client.ExpectedCount.manyTimes;
-import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 @SpringBootTest(
@@ -99,10 +95,10 @@ public class ElasticsearchIngestServiceTest {
         authenticationService
                 .expect(manyTimes(), requestTo("http://authentication:8083/authentications"))
                 .andExpect(method(POST))
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8))
+                .andExpect(content().contentType(APPLICATION_JSON_UTF8))
                 .andExpect(jsonPath("username", equalTo(owner)))
                 .andExpect(jsonPath("password", equalTo(password)))
-                .andRespond(withSuccess("{\"authenticated\": true}", MediaType.APPLICATION_JSON_UTF8));
+                .andRespond(withSuccess("{\"authenticated\": true}", APPLICATION_JSON_UTF8));
         elasticsearchHelper = new ElasticsearchHelper(
                 client,
                 backend.getContainerIpAddress(),

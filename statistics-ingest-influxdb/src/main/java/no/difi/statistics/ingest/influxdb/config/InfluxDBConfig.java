@@ -24,12 +24,6 @@ public class InfluxDBConfig implements BackendConfig {
         return new InfluxDBIngestService(influxdbClient());
     }
 
-    @Override
-    @Bean
-    public AuthenticationProvider authenticationProvider() {
-        return new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider();
-    }
-
     @Bean
     public InfluxDB influxdbClient() {
         String host = environment.getRequiredProperty("no.difi.statistics.influxdb.host");
