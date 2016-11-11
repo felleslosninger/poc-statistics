@@ -26,12 +26,39 @@ requireArgument() {
     test -z ${!1} && fail "Missing argument '${1}'"
 }
 
+image() {
+    service=$1
+    version=${2-'latest'}
+    requireArgument 'service'
+    case "${service}" in
+        "elasticsearch")
+            image="difi/statistics-elasticsearch:${version}"
+            ;;
+        "elasticsearch_gossip")
+            image="difi/statistics-elasticsearch:${version}"
+            ;;
+        "query")
+            image="difi/statistics-query-elasticsearch:${version}"
+            ;;
+        "ingest")
+            image="difi/statistics-ingest-elasticsearch:${version}"
+            ;;
+        "authenticate")
+            image="difi/statistics-authenticate:${version}"
+            ;;
+        *)
+            fail "Unknown service ${service}"
+    esac
+    echo ${image}
+}
+
 createService() {
     service=$1
     version=${2-'latest'}
     requireArgument 'service'
     network='statistics'
     echo -n "Creating service ${service} of version ${version}... "
+    image=$(image ${service} ${version})
     case ${service} in
     elasticsearch_gossip)
         output=$(sudo docker service create \
@@ -40,7 +67,7 @@ createService() {
             --stop-grace-period 5m \
             --name ${service} \
             -p 9201:9201 -p 9301:9301 \
-            difi/statistics-elasticsearch:${version} -Des.http.port=9201 -Des.transport.tcp.port=9301 -Des.node.data=false) \
+            ${image} -Des.http.port=9201 -Des.transport.tcp.port=9301 -Des.node.data=false) \
             || fail "Failed to create service ${service}"
         ;;
     elasticsearch)
@@ -50,7 +77,7 @@ createService() {
             --stop-grace-period 5m \
             --name ${service} \
             -p 8082:9200 -p 9300:9300 \
-            difi/statistics-elasticsearch:${version} -Des.discovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Des.node.master=false) \
+            ${image} -Des.discovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Des.node.master=false) \
             || fail "Failed to create service ${service}"
         ;;
     query)
@@ -59,7 +86,7 @@ createService() {
             --mode global \
             --name ${service} \
             -p 8080:8080 \
-            difi/statistics-query-elasticsearch:${version}) \
+            ${image}) \
             || fail "Failed to create service ${service}"
         ;;
     ingest)
@@ -68,7 +95,16 @@ createService() {
             --mode global \
             --name ${service} \
             -p 8081:8080 \
-            difi/statistics-ingest-elasticsearch:${version}) \
+            ${image}) \
+            || fail "Failed to create service ${service}"
+        ;;
+    authenticate)
+        output=$(sudo docker service create \
+            --network ${network} \
+            --mode global \
+            --name ${service} \
+            -p 8083:8080 \
+            ${image}) \
             || fail "Failed to create service ${service}"
         ;;
     esac
@@ -80,23 +116,9 @@ updateService() {
     version=${2-'latest'}
     requireArgument 'service'
     echo -n "Updating service ${service} to version ${version}... "
-    case "${service}" in
-        "elasticsearch")
-            image='difi/statistics-elasticsearch'
-            ;;
-        "elasticsearch_gossip")
-            image='difi/statistics-elasticsearch'
-            ;;
-        "query")
-            image='difi/statistics-query-elasticsearch'
-            ;;
-        "ingest")
-            image='difi/statistics-ingest-elasticsearch'
-            ;;
-        *)
-            fail "Unknown service ${service}"
-    esac
-    output=$(sudo docker service update --image ${image}:${version} ${service}) \
+    image=$(image ${service} ${version})
+    output=$(sudo docker service inspect ${service}) || { echo "Service needs to be created"; createService ${service} ${version}; return; }
+    output=$(sudo docker service update --image ${image} ${service}) \
         && ok || fail
 }
 
@@ -231,6 +253,9 @@ isServiceAvailable() {
         'ingest')
             url="http://${host}:8081"
             ;;
+        'authenticate')
+            url="http://${host}:8083"
+            ;;
         *)
             echo -n "Unknown service \"${service}\""
             return 1
@@ -247,6 +272,7 @@ create() {
     createService 'elasticsearch' ${version} || return $?
     createService 'query' ${version} || return $?
     createService 'ingest' ${version} || return $?
+    createService 'authenticate' ${version} || return $?
     echo "Application created"
 }
 
@@ -255,6 +281,7 @@ update() {
     echo "Updating application to version ${version}..."
     updateService 'query' ${version} || return $?
     updateService 'ingest' ${version} || return $?
+    updateService 'authenticate' ${version} || return $?
     # Se https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
     # Inntil data persisteres (utenfor konteiner), så må shards reallokeres under oppgradering for at de skal beholdes.
     #disableShardAllocation
@@ -270,6 +297,7 @@ update() {
 
 delete() {
     echo "Deleting application..."
+    deleteService "authenticate"
     deleteService "ingest"
     deleteService "query"
     deleteService "elasticsearch"

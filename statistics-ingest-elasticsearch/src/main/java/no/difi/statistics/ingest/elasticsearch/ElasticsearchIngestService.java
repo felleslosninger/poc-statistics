@@ -3,7 +3,7 @@ package no.difi.statistics.ingest.elasticsearch;
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.ingest.IngestResponse;
+import no.difi.statistics.ingest.api.IngestResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;

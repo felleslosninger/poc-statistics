@@ -7,7 +7,6 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -16,14 +15,12 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 @Configuration
-@EnableAutoConfiguration
 public class ElasticsearchConfig implements BackendConfig {
 
     @Autowired
     private Environment environment;
 
     @Bean
-    @Override
     public IngestService ingestService() {
         return new ElasticsearchIngestService(elasticsearchClient());
     }

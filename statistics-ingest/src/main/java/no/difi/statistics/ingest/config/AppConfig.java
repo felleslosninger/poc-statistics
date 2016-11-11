@@ -1,5 +1,6 @@
 package no.difi.statistics.ingest.config;
 
+import no.difi.statistics.ingest.IngestAuthenticationProvider;
 import no.difi.statistics.ingest.api.IngestRestController;
 import no.difi.statistics.ingest.poc.DifiAdminIngester;
 import no.difi.statistics.ingest.poc.RandomIngesterRestController;
@@ -7,10 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.web.client.RestTemplate;
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
@@ -28,6 +32,8 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
     private BackendConfig backendConfig;
+    @Autowired
+    private Environment environment;
 
     @Bean
     public IngestRestController api() {
@@ -46,8 +52,17 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
 
     @Override
     public void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.inMemoryAuthentication().withUser("984661185").password("123456").roles("USER");
-        auth.inMemoryAuthentication().withUser("991825827").password("654321").roles("USER");
+        auth.authenticationProvider(authenticationProvider());
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        return new IngestAuthenticationProvider(authenticationRestTemplate(), "authentication", 8083);
+    }
+
+    @Bean
+    public RestTemplate authenticationRestTemplate() {
+        return new RestTemplate();
     }
 
     @Override

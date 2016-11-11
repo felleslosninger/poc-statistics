@@ -16,7 +16,6 @@
         <module>statistics-model</module>
         <module>statistics-common-elasticsearch</module>
         <module>statistics-query-model</module>
-        <module>statistics-ingest-model</module>
         <module>statistics-ingest-elasticsearch</module>
         <module>statistics-ingest-influxdb</module>
         <module>statistics-test-utils</module>
@@ -24,6 +23,7 @@
         <module>statistics-client-ingest</module>
         <module>statistics-demo-for-client-ingest</module>
         <module>statistics-elasticsearch</module>
+        <module>statistics-authentication</module>
     </modules>
 
     <properties>

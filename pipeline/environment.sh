@@ -300,7 +300,7 @@ createDockerMachines() {
     child_pids="${child_pids} $!"
     wait
     [ "${driver}" == 'virtualbox' ] && \
-        docker-machine ssh $(nodeName ${version} '01') tce-load -wi bash || fail
+        { docker-machine ssh $(nodeName ${version} '01') tce-load -wi bash || fail; }
     echoOk
 }
 
@@ -333,9 +333,12 @@ joinDockerSwarm() {
 setupDockerSwarm() {
     version=$1
     requireArgument 'version'
+    driver=${2-'amazonec2'}
     managerNode=$(nodeName ${version} '01')
     echo "Creating Docker swarm..."
-    output=$(docker-machine ssh ${managerNode} sudo docker swarm init --advertise-addr eth1) || fail "Failed to initialize Docker swarm"
+    advertiseAddress='eth0'
+    [ "${driver}" == 'virtualbox' ] && advertiseAddress='eth1'
+    output=$(docker-machine ssh ${managerNode} sudo docker swarm init --advertise-addr ${advertiseAddress}) || fail "Failed to initialize Docker swarm"
     swarm_address=$(docker-machine ssh ${managerNode} sudo docker node inspect self | jq -r ".[].ManagerStatus.Addr") || fail "Failed to get address of Docker swarm manager"
     swarm_token=$(docker-machine ssh ${managerNode} sudo docker swarm join-token -q worker) || fail "Failed to get Docker swarm's join token"
     joinDockerSwarm $(nodeName ${version} '02') ${swarm_token} ${swarm_address}
@@ -355,7 +358,7 @@ create() {
         createSecurityGroup ${version}
     }
     createDockerMachines ${version} ${driver}
-    setupDockerSwarm ${version}
+    setupDockerSwarm ${version} ${driver}
 }
 
 delete() {

@@ -3,7 +3,7 @@ package no.difi.statistics.ingest.influxdb;
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.ingest.IngestResponse;
+import no.difi.statistics.ingest.api.IngestResponse;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Point;
 

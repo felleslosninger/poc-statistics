@@ -6,6 +6,7 @@ import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.elasticsearch.config.ElasticsearchConfig;
+import no.difi.statistics.test.utils.ElasticsearchHelper;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -40,9 +41,7 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.*;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
-@SpringBootTest(
-        webEnvironment = RANDOM_PORT
-)
+@SpringBootTest(webEnvironment = RANDOM_PORT)
 @ContextConfiguration(classes = {AppConfig.class, ElasticsearchConfig.class}, initializers = ElasticsearchQueryServiceTest.Initializer.class)
 @RunWith(SpringRunner.class)
 public class ElasticsearchQueryServiceTest {
@@ -76,18 +75,21 @@ public class ElasticsearchQueryServiceTest {
     private Client client;
     @Autowired
     private TestRestTemplate restTemplate;
+    private ElasticsearchHelper elasticsearchHelper;
 
     @Before
-    public void prepare() throws InterruptedException {
-        for (int i = 0; i < 1000; i++) {
-            if (((TransportClient)client).connectedNodes().size() > 0) break;
-            Thread.sleep(10L);
-        }
+    public void prepare() throws Exception {
+        elasticsearchHelper = new ElasticsearchHelper(
+                client,
+                backend.getContainerIpAddress(),
+                backend.getMappedPort(9200)
+        );
+        elasticsearchHelper.waitConnected();
     }
 
     @After
-    public void cleanup() throws ExecutionException, InterruptedException {
-        client.admin().indices().prepareDelete("_all").get();
+    public void cleanup() {
+        elasticsearchHelper.clear();
     }
 
     @AfterClass
@@ -689,10 +691,7 @@ public class ElasticsearchQueryServiceTest {
                 .field("timestamp", formatTimestamp(point.getTimestamp()));
         for (Measurement measurement : point.getMeasurements())
             sourceBuilder.field(measurement.getId(), measurement.getValue());
-        client.prepareIndex(indexName, "default")
-                .setSource(sourceBuilder.endObject())
-                .setRefresh(true) // Make document immediately searchable for the purpose of this test
-                .get();
+        elasticsearchHelper.index(indexName, "default", sourceBuilder.endObject().string());
     }
 
     private TimeSeriesPoint indexTimeSeriesPoint(String indexName, ZonedDateTime timestamp, long value) throws IOException {
