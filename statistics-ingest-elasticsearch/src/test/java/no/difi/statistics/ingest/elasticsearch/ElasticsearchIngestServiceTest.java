@@ -52,6 +52,10 @@ import static org.springframework.test.web.client.ExpectedCount.manyTimes;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+/**
+ * Komponent- og (delvis) integrasjonstest av inndata-tjenesten. Integrasjon mot <code>elasticsearch</code>-tjenesten
+ * verifiseres, mens <code>authentication</code>-tjenesten mockes.
+ */
 @SpringBootTest(
         webEnvironment = RANDOM_PORT
 )
