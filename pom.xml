@@ -23,7 +23,7 @@
         <module>statistics-client-ingest</module>
         <module>statistics-demo-for-client-ingest</module>
         <module>statistics-elasticsearch</module>
-        <module>statistics-authentication</module>
+        <module>statistics-authenticate</module>
     </modules>
 
     <properties>
