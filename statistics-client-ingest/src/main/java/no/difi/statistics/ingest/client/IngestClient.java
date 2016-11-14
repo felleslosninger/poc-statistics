@@ -16,58 +16,68 @@ import java.net.URL;
 import java.util.Base64;
 
 public class IngestClient implements IngestService {
-
     private static final String CONTENT_TYPE_KEY = "Content-Type";
     private static final String JSON_CONTENT_TYPE = "application/json";
-    private static final String SERVICE_NAME = "minutes";
     private static final String REQUEST_METHOD_POST = "POST";
     private static final String AUTHORIZATION_KEY = "Authorization";
     private static final String AUTH_METHOD = "Basic";
+
+    private static final String EXCEPTION_MESSAGE_MALFORMED_URL = "Could not create URL to IngestService";
+    private static final String EXCEPTION_MESSAGE_IO_EXCEPTION = "Could not call IngestService";
 
     private final ObjectMapper objectMapper;
     private final JavaTimeModule javaTimeModule;
     private final ISO8601DateFormat iso8601DateFormat;
 
-    private final String serviceURLTemplate;
     private final String username;
     private final String password;
+    private final String baseUrl;
+    private final String owner;
 
-    public IngestClient(String baseURL, String username, String password) throws IngestException {
+    public IngestClient(String baseURL, String owner, String username, String password) throws IngestException {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
-        serviceURLTemplate = baseURL + "/" + SERVICE_NAME + "/%s";
+        this.baseUrl = baseURL;
+        this.owner = owner;
         this.username = username;
         this.password = password;
     }
 
-    public void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
-        URL url;
-        try {
-            url = new URL(String.format(serviceURLTemplate, seriesName));
-        }catch(MalformedURLException e){
-            throw new IngestException("Could not create URL to IngestService", e);
+    public void post(Series series, String seriesName, TimeSeriesPoint timeSeriesPoint) {
+        if (series == Series.MINUTE) {
+            minute(seriesName, timeSeriesPoint);
         }
-        try {
-            datapoint(timeSeriesPoint, url);
-        }catch(IOException e){
-            throw new IngestException("Could not call IngestService", e);
+        else if (series == Series.HOUR) {
+            hour(seriesName, timeSeriesPoint);
+        }
+        else {
+            throw new IngestException("Time series not given.");
         }
     }
 
-    public void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
+    private void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
         URL url;
         try {
-            url = new URL(String.format(serviceURLTemplate, seriesName));
-        }
-        catch(MalformedURLException e) {
-            throw new IngestException("Could not create URL to IngestService", e);
-        }
-        try {
+            url = new URL(serviceUrlTemplate(seriesName, Series.MINUTE.getSerie()));
             datapoint(timeSeriesPoint, url);
+
+        } catch(MalformedURLException e){
+            throw new IngestException(EXCEPTION_MESSAGE_MALFORMED_URL, e);
+        } catch (IOException e) {
+            throw new IngestException(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
         }
-        catch (IOException e) {
-            throw new IngestException("Could not call IngestService", e);
+    }
+
+    private void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
+        URL url;
+        try {
+            url = new URL(serviceUrlTemplate(seriesName, Series.HOUR.getSerie()));
+            datapoint(timeSeriesPoint, url);
+        } catch(MalformedURLException e) {
+            throw new IngestException(EXCEPTION_MESSAGE_MALFORMED_URL, e);
+        } catch (IOException e) {
+            throw new IngestException(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
         }
     }
 
@@ -116,5 +126,9 @@ public class IngestClient implements IngestService {
         if (responseCode != HttpURLConnection.HTTP_OK) {
             throw new IngestException("Could not post to Ingest Service. Response code from service was " + responseCode);
         }
+    }
+
+    private String serviceUrlTemplate(String serviceName, String series) {
+        return String.format("%s/%s/%s/%s", this.baseUrl, this.owner, serviceName, series);
     }
 }
