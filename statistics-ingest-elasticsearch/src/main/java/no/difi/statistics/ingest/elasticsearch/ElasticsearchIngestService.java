@@ -16,9 +16,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
@@ -28,6 +30,7 @@ public class ElasticsearchIngestService implements IngestService {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final Client client;
     private static final String indexType = "default";
+    private static ChronoUnit chronoUnit = MINUTES;
 
     public ElasticsearchIngestService(Client client) {
         this.client = client;
@@ -35,6 +38,7 @@ public class ElasticsearchIngestService implements IngestService {
 
     @Override
     public void minute(String series, String owner, TimeSeriesPoint dataPoint) throws TimeSeriesPointAlreadyExists {
+        chronoUnit = MINUTES;
         byte[] document = documentBytes(dataPoint);
         String id = id(dataPoint);
         String indexName = resolveIndexName().seriesName(series).owner(owner).minutes().at(normalize(dataPoint.getTimestamp())).single();
@@ -48,6 +52,7 @@ public class ElasticsearchIngestService implements IngestService {
 
     @Override
     public IngestResponse minutes(String timeSeriesName, String owner, List<TimeSeriesPoint> dataPoints) {
+        chronoUnit = MINUTES;
         BulkRequestBuilder bulkRequest = client.prepareBulk();
         for (TimeSeriesPoint point : dataPoints) {
             bulkRequest.add(
@@ -67,6 +72,21 @@ public class ElasticsearchIngestService implements IngestService {
         }
         BulkResponse response = bulkRequest.get();
         return response(response);
+    }
+
+    @Override
+    public IngestResponse hour(String timeSeriesName, String owner, TimeSeriesPoint datapoint) {
+        chronoUnit = HOURS;
+        byte[] document = documentBytes(datapoint);
+        String id = id(datapoint);
+        String indexName = resolveIndexName().seriesName(timeSeriesName).owner(owner).hours().at(normalize(datapoint.getTimestamp())).single();
+        log(indexName, id, document);
+        try {
+            client.prepareIndex(indexName, indexType, id).setSource(document).setCreate(true).get();
+        } catch (DocumentAlreadyExistsException e) {
+            throw new TimeSeriesPointAlreadyExists(owner, timeSeriesName, id, e);
+        }
+        return null;
     }
 
     private IngestResponse response(BulkResponse response) {
@@ -118,7 +138,6 @@ public class ElasticsearchIngestService implements IngestService {
     }
 
     private static ZonedDateTime normalize(ZonedDateTime timestamp) {
-        return timestamp.truncatedTo(MINUTES).withZoneSameInstant(UTC);
+        return timestamp.truncatedTo(chronoUnit).withZoneSameInstant(UTC);
     }
-
 }

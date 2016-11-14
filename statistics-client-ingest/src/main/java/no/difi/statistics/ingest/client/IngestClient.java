@@ -49,13 +49,29 @@ public class IngestClient implements IngestService {
             throw new IngestException("Could not create URL to IngestService", e);
         }
         try {
-            minute(timeSeriesPoint, url);
+            datapoint(timeSeriesPoint, url);
         }catch(IOException e){
             throw new IngestException("Could not call IngestService", e);
         }
     }
 
-    private void minute(TimeSeriesPoint timeSeriesPoint, URL url) throws IOException, IngestException {
+    public void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
+        URL url;
+        try {
+            url = new URL(String.format(serviceURLTemplate, seriesName));
+        }
+        catch(MalformedURLException e) {
+            throw new IngestException("Could not create URL to IngestService", e);
+        }
+        try {
+            datapoint(timeSeriesPoint, url);
+        }
+        catch (IOException e) {
+            throw new IngestException("Could not call IngestService", e);
+        }
+    }
+
+    private void datapoint(TimeSeriesPoint timeSeriesPoint, URL url) throws IOException, IngestException {
         HttpURLConnection conn = getConnection(url);
         OutputStream outputStream = writeJsonToOutputStream(timeSeriesPoint, conn);
         outputStream.flush();

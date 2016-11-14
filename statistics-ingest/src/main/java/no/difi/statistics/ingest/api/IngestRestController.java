@@ -30,7 +30,6 @@ public class IngestRestController {
         // Do nothing
     }
 
-
     @PostMapping(
             value = "{owner}/{seriesName}/minute",
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
@@ -55,4 +54,15 @@ public class IngestRestController {
         return ingestService.minutes(seriesName, owner, dataPoints);
     }
 
+    @PostMapping(
+            value = "{owner}/{seriesName}/hour",
+            consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
+    )
+    public void hour(
+            @PathVariable String owner,
+            @PathVariable String seriesName,
+            @RequestBody TimeSeriesPoint dataPoint
+    ) {
+        ingestService.hour(seriesName, owner, dataPoint);
+    }
 }

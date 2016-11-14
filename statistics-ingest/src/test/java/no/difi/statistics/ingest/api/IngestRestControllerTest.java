@@ -12,6 +12,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
@@ -43,6 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ContextConfiguration(classes = {AppConfig.class, MockBackendConfig.class})
 @AutoConfigureMockMvc
 public class IngestRestControllerTest {
+    public static final String URI_MINUTE = "/{owner}/{seriesName}/minute";
+    public static final String URI_HOUR = "/{owner}/{seriesName}/hour";
 
     @Autowired
     private RestTemplate authenticationRestTemplate;
@@ -76,9 +79,7 @@ public class IngestRestControllerTest {
         mockMvc.perform(
                 request()
                         .owner("anotherUser")
-                        .series("aTimeSeries")
                         .user("aUser")
-                        .password("aPassword")
                         .content(json(aPoint()))
                         .build()
         )
@@ -91,10 +92,7 @@ public class IngestRestControllerTest {
         TimeSeriesPoint timeSeriesPoint = aPoint();
         mockMvc.perform(
                 request()
-                        .owner("aUser")
                         .series("aTimeSeries")
-                        .user("aUser")
-                        .password("aPassword")
                         .content(json(timeSeriesPoint))
                         .build()
         )
@@ -103,15 +101,12 @@ public class IngestRestControllerTest {
     }
 
     @Test
-    public void whenSendingValidRequestThenExpectNormalResponse() throws Exception {
+    public void whenSendingValidMinuteRequestThenExpectNormalResponse() throws Exception {
         validCredentials("aUser", "aPassword");
         mockMvc.perform(
                 request()
-                        .owner("aUser")
-                        .series("aTimeSeries")
-                        .user("aUser")
-                        .password("aPassword")
                         .content(json(aPoint()))
+                        .uri(URI_MINUTE)
                         .build()
         )
                 .andExpect(status().is(200));
@@ -122,10 +117,6 @@ public class IngestRestControllerTest {
         validCredentials("aUser", "aPassword");
         mockMvc.perform(
                 request()
-                        .owner("aUser")
-                        .series("aTimeSeries")
-                        .user("aUser")
-                        .password("aPassword")
                         .content("invalidJson")
                         .build()
         )
@@ -138,13 +129,24 @@ public class IngestRestControllerTest {
         mockMvc.perform(
                 request()
                         .owner("aUser")
-                        .series("aTimeSeries")
                         .user("aUser")
                         .password("wrongPassword")
                         .content(json(aPoint()))
                         .build()
         )
                 .andExpect(status().is(401));
+    }
+
+    @Test
+    public void whenSendingValidHourRequestThenExpectNormalResponse() throws Exception {
+        validCredentials("aUser", "aPassword");
+        mockMvc.perform(
+                request()
+                        .content(json(aPoint()))
+                        .uri(URI_HOUR)
+                        .build()
+        )
+                .andExpect(status().is(HttpStatus.OK.value()));
     }
 
     private TimeSeriesPoint aPoint() {
@@ -159,11 +161,12 @@ public class IngestRestControllerTest {
     }
 
     public static class RequestBuilder {
-        private String owner;
-        private String series;
-        private String user;
-        private String password;
+        private String owner = "aUser";
+        private String series = "aTimeSeries";
+        private String user = "aUser";
+        private String password = "aPassword";
         private String content;
+        private String uri = URI_MINUTE;
 
         RequestBuilder owner(String owner) {
             this.owner = owner;
@@ -190,17 +193,21 @@ public class IngestRestControllerTest {
             return this;
         }
 
+        RequestBuilder uri(String uriHour) {
+            this.uri = uriHour;
+            return this;
+        }
+
         private String authorizationHeader(String username, String password) {
             return "Basic " + new String(encodeBase64((username + ":" + password).getBytes()));
         }
 
         MockHttpServletRequestBuilder build() {
-            return post("/{owner}/{seriesName}/minute", owner, series)
+            return post(uri, owner, series)
                     .contentType(MediaType.APPLICATION_JSON_UTF8)
                     .header("Authorization", authorizationHeader(user, password))
                     .content(content);
         }
-
     }
 
     private String json(TimeSeriesPoint timeSeriesPoint) throws Exception {

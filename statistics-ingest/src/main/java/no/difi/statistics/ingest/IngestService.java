@@ -13,6 +13,8 @@ public interface IngestService {
 
     IngestResponse minutes(String timeSeriesName, String owner, List<TimeSeriesPoint> dataPoints);
 
+    IngestResponse hour(String timeSeriesName, String owner, TimeSeriesPoint dataPoint);
+
     class TimeSeriesPointAlreadyExists extends RuntimeException {
 
         public TimeSeriesPointAlreadyExists(String owner, String timeSeries, String id, Throwable cause) {
