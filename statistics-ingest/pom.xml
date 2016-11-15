@@ -49,11 +49,6 @@
             <groupId>io.springfox</groupId>
             <artifactId>springfox-swagger-ui</artifactId>
         </dependency>
-        <dependency>
-            <groupId>no.difi.statistics</groupId>
-            <artifactId>statistics-model</artifactId>
-            <version>DEV-SNAPSHOT</version>
-        </dependency>
     </dependencies>
 
 </project>

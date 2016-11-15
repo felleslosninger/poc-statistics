@@ -58,24 +58,24 @@ prepareQA() {
 
 integrate() {
     echo "Integrating feature..."
-    echo -n "Verifying that current branch is QA branch... "
+    echo -n "Verifying that current branch is feature branch... "
     currentBranch=$(currentBranch)
-    [[ ${currentBranch} =~ feature/qa/.* ]] && ok || die "Not a QA branch: ${currentBranch}"
+    [[ ${currentBranch} =~ feature/.* ]] && ok || die "Not a feature branch: ${currentBranch}"
     echo -n "Verifying that current branch is integratable: "
     isIntegratable && ok || die
-    qaBranch=${currentBranch}
+    featureBranch=${currentBranch}
     echo -n "Checking out $(masterBranch)... "
     git checkout $(masterBranch) && ok || die
     echo -n "Merging into $(masterBranch)... "
-    git merge --ff-only --squash ${qaBranch} && ok || die
+    git merge --ff-only --squash ${featureBranch} && ok || die
     echo -n "Committing... "
     git commit -m "$(head -1 $(changesFile))"
     echo -n "Pushing $(masterBranch) with feature..."
     git push && ok || die
-    echo -n "Deleting QA branch on remote... "
-    git push origin --delete ${qaBranch} && ok || die
-    echo -n "Deleting QA branch locally... "
-    git branch -D ${qaBranch}
+    echo -n "Deleting feature branch on remote... "
+    git push origin --delete ${featureBranch} && ok || die
+    echo -n "Deleting feature branch locally... "
+    git branch -D ${featureBranch}
 }
 
 isIntegratable() {

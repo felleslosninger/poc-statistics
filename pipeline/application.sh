@@ -194,9 +194,18 @@ indexExists() {
 
 createTestData() {
     host=${1-'localhost'}
-    echo -n "Creating test data... "
+    user='991825827'
+    echo -n "Creating credentials for user ${user}..."
     for i in $(seq 1 600); do
-        doCreateTestData ${host}
+        password=$(doCreateCredentials ${user} ${host})
+        ret=$?
+        [ ! ${ret} -eq 7 -a ! ${ret} -eq 22 ] && break # Stop retry if neither connect error nor server failure
+        dotSleep
+    done
+    [ ${ret} ] && ok || fail
+    echo -n "Creating test data with credentials ${user}/${password}... "
+    for i in $(seq 1 600); do
+        doCreateTestData ${user} ${password} ${host}
         ret=$?
         [ ! ${ret} -eq 7 -a ! ${ret} -eq 22 ] && break # Stop retry if neither connect error nor server failure
         dotSleep
@@ -205,14 +214,32 @@ createTestData() {
 }
 
 doCreateTestData() {
-    host=${1-'localhost'}
+    user=$1
+    password=$2
+    requireArgument 'user'
+    requireArgument 'password'
+    host=${3-'localhost'}
+    owner=${user}
     curl \
         -sS \
         -f \
-        -u 991825827:654321 \
+        -u ${user}:${password} \
         -H "Content-Type: application/json;charset=UTF-8" \
         -XPOST \
-        http://${host}:8081/minutes/991825827/test\?from=2016-01-01T00:00:00.000Z\&to=2016-01-03T00:00:00.000Z
+        http://${host}:8081/${owner}/test/minutes\?from=2016-01-01T00:00:00.000Z\&to=2016-01-03T00:00:00.000Z
+}
+
+doCreateCredentials() {
+    user=$1
+    requireArgument 'user'
+    host=${2-'localhost'}
+    password=$(curl \
+        -sS \
+        -f \
+        -H "Content-Type: application/json;charset=UTF-8" \
+        -XPOST \
+        http://${host}:8083/credentials/${user}/short) || return $?
+    echo -n ${password}
 }
 
 verifyTestData() {
@@ -226,7 +253,7 @@ waitForServiceToBeAvailable() {
     host=${2-'localhost'}
     echo -n "Waiting for service \"${service}\" to be available: "
     status=false
-    for i in $(seq 1 100); do
+    for i in $(seq 1 200); do
         isServiceAvailable ${service} ${host}
         ret=$?
         [ ${ret} -eq 7 -o ${ret} -eq 27 ] && dotSleep; # Connect failure or request timeout
@@ -248,13 +275,13 @@ isServiceAvailable() {
             url="http://${host}:8082"
             ;;
         'query')
-            url="http://${host}:8080"
+            url="http://${host}:8080/health"
             ;;
         'ingest')
-            url="http://${host}:8081"
+            url="http://${host}:8081/health"
             ;;
         'authenticate')
-            url="http://${host}:8083"
+            url="http://${host}:8083/health"
             ;;
         *)
             echo -n "Unknown service \"${service}\""

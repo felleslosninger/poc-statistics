@@ -17,9 +17,9 @@
         <module>statistics-common-elasticsearch</module>
         <module>statistics-query-model</module>
         <module>statistics-ingest-elasticsearch</module>
-        <module>statistics-ingest-influxdb</module>
+        <!--<module>statistics-ingest-influxdb</module>-->
         <module>statistics-test-utils</module>
-        <module>statistics-query-influxdb</module>
+        <!--<module>statistics-query-influxdb</module>-->
         <module>statistics-client-ingest</module>
         <module>statistics-demo-for-client-ingest</module>
         <module>statistics-elasticsearch</module>
@@ -234,6 +234,9 @@
                                     <entryPoint>
                                         ["java","-jar","-Ddifi.version=${project.version}","/maven/${project.artifactId}.${project.packaging}"]
                                     </entryPoint>
+                                    <runCmds>
+                                        <runCmd>apk add --no-cache curl</runCmd> <!-- Used for health checks -->
+                                    </runCmds>
                                 </build>
                                 <name>${difi.docker.registry}/${project.artifactId}:${project.version}</name>
                             </image>

@@ -211,7 +211,7 @@ public class IngestRestControllerTest {
 
     private void validCredentials(String username, String password) {
         authenticationService
-                .expect(once(), requestTo("http://authentication:8083/authentications"))
+                .expect(once(), requestTo("http://authenticate:8080/authentications"))
                 .andExpect(method(POST))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8))
                 .andExpect(jsonPath("username", equalTo(username)))
@@ -221,7 +221,7 @@ public class IngestRestControllerTest {
 
     private void invalidCredentials(String username, String password) {
         authenticationService
-                .expect(once(), requestTo("http://authentication:8083/authentications"))
+                .expect(once(), requestTo("http://authenticate:8080/authentications"))
                 .andExpect(method(POST))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8))
                 .andExpect(jsonPath("username", equalTo(username)))

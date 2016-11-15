@@ -5,36 +5,30 @@ import java.time.format.DateTimeFormatter
 import static java.time.ZonedDateTime.now
 
 String version = DateTimeFormatter.ofPattern('yyyyMMddHHmm').format(now(ZoneId.of('UTC')))
-String deployBranch = 'master'
-String qaFeatureBranch = /feature\/qa\/(\w+-\w+)/
-String featureBranch = /feature\/(\w+-\w+)/
 
 stage('Build') {
 
     node {
         checkout scm
-        def commitId = commitId()
+        env.commitId = readCommitId()
+        env.commitMessage = readCommitMessage()
         stash includes: 'pipeline/*', name: 'pipeline'
-        if (env.BRANCH_NAME.matches(deployBranch)) {
-            currentBuild.displayName = "#${currentBuild.number}: Deploy version ${version}"
-            currentBuild.description = "Commit: ${commitId}"
+        currentBuild.description = "Commit: ${env.commitId}"
+        if (isDeployBuild()) {
+            currentBuild.displayName = "#${currentBuild.number}: Deploy build for version ${version}"
             sh "pipeline/build.sh deliver ${version}"
-        } else if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
-            jiraId = (env.BRANCH_NAME =~ qaFeatureBranch)[0][1]
-            currentBuild.displayName = "#${currentBuild.number}: QA for feature ${jiraId}"
-            currentBuild.description = "Feature: ${jiraId} Commit: ${commitId}"
+        } else if (isQaBuild()) {
+            currentBuild.displayName = "#${currentBuild.number}: QA build for version ${version}"
             sh "pipeline/build.sh deliver ${version}"
-        } else if (env.BRANCH_NAME.matches(featureBranch)) {
-            jiraId = (env.BRANCH_NAME =~ featureBranch)[0][1]
-            currentBuild.displayName = "#${currentBuild.number}: Build for feature ${jiraId}"
-            currentBuild.description = "Feature: ${jiraId} Commit: ${commitId}"
+        } else if (isQuickBuild()) {
+            currentBuild.displayName = "#${currentBuild.number}: Quick build"
             sh "pipeline/build.sh verify"
         }
     }
 
 }
 
-if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
+if (isQaBuild()) {
 
     stage('QA') {
         node {
@@ -42,13 +36,14 @@ if (env.BRANCH_NAME.matches(qaFeatureBranch)) {
             sh "pipeline/environment.sh create ${version}"
             managerNode = "statistics-${version}-node01"
             sh "docker-machine ssh ${managerNode} bash -s -- < pipeline/application.sh createAndVerify ${version}"
-            sh "pipeline/environment.sh delete ${version}"
+            if (!env.commitMessage.startsWith("qa! keep!"))
+                sh "pipeline/environment.sh delete ${version}"
         }
     }
 
 }
 
-if (env.BRANCH_NAME.matches(deployBranch)) {
+if (isDeployBuild()) {
 
     stage('Staging deploy') {
         node {
@@ -69,8 +64,22 @@ if (env.BRANCH_NAME.matches(deployBranch)) {
 
 }
 
-def commitId() {
-    sh 'git rev-parse HEAD > commit'
-    return readFile('commit').trim()
+boolean isDeployBuild() {
+    return env.BRANCH_NAME.matches('master')
 }
 
+boolean isQaBuild() {
+    return env.commitMessage.startsWith("qa!") || env.BRANCH_NAME.matches(/feature\/qa\/(\w+-\w+)/)
+}
+
+boolean isQuickBuild() {
+    return env.BRANCH_NAME.matches(/feature\/(\w+-\w+)/)
+}
+
+String readCommitId() {
+    return sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+}
+
+String readCommitMessage() {
+    return sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
+}

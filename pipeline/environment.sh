@@ -37,6 +37,7 @@ tag() {
     requireArgument 'id'
     requireArgument 'system_id'
     output=$(aws ec2 create-tags --resources ${id} --tags Key=SystemId,Value=${system_id}) || fail "Failed to tag resource"
+    output=$(aws ec2 create-tags --resources ${id} --tags Key=Name,Value=${system_id}) || fail "Failed to set name on VPC"
 }
 
 filter() {
@@ -265,7 +266,10 @@ awsDockerParams() {
         --amazonec2-subnet-id ${subnet_id} \
         --amazonec2-zone ${availability_zone:${#availability_zone}-1:1} \
         --amazonec2-security-group ${sg_name} \
-        --amazonec2-instance-type c4.large"
+        --amazonec2-instance-type c4.large \
+        "
+#        --amazonec2-ssh-user rancher \
+#        --amazonec2-ami ami-dfdff3c8"
 }
 
 virtualBoxDockerParams() {

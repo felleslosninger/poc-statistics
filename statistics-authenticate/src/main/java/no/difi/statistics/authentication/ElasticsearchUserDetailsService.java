@@ -1,6 +1,7 @@
 package no.difi.statistics.authentication;
 
 import org.elasticsearch.client.Client;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,7 +22,11 @@ public class ElasticsearchUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return user(client.prepareGet("authentication", "authentication", username).get().getSource());
+        try {
+            return user(client.prepareGet("authentication", "authentication", username).get().getSource());
+        } catch (IndexNotFoundException e) {
+            throw new UsernameNotFoundException(username);
+        }
     }
 
     private UserDetails user(Map<String, Object> document) {

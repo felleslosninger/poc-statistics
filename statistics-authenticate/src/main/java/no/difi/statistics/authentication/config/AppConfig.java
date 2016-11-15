@@ -46,7 +46,7 @@ public class AppConfig {
 
     @Bean
     public AuthenticationService authenticationService() {
-        return new AuthenticationService(authenticationProvider());
+        return new AuthenticationService(authenticationProvider(), elasticsearchClient());
     }
 
     @Bean

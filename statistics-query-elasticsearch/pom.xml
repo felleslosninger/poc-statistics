@@ -101,6 +101,12 @@
                                         </fileSets>
                                     </inline>
                                 </assembly>
+                                <healthCheck>
+                                    <cmd>curl -f -sS http://localhost:8080/health || exit 1</cmd>
+                                    <timeout>5s</timeout>
+                                    <retries>60</retries>
+                                    <interval>10s</interval>
+                                </healthCheck>
                             </build>
                             <run>
                                 <namingStrategy>alias</namingStrategy>

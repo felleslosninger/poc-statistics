@@ -57,7 +57,7 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        return new IngestAuthenticationProvider(authenticationRestTemplate(), "authentication", 8083);
+        return new IngestAuthenticationProvider(authenticationRestTemplate(), "authenticate", 8080);
     }
 
     @Bean
@@ -70,6 +70,8 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
         http.authorizeRequests()
                 // No authentication required for documentation paths used by Swagger
                 .antMatchers("/", "/swagger-ui.html", "/swagger-resources/**", "/v2/api-docs/**").permitAll()
+                // No authentication required for health check path
+                .antMatchers("/health").permitAll()
                 // Authentication required for ingest methods. Username must be equal to owner of series.
                 .antMatchers("/{owner}/{seriesName}/**").access("#owner == authentication.name")
                 .anyRequest().authenticated()

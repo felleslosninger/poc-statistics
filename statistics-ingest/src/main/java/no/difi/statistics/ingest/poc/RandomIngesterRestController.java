@@ -21,7 +21,7 @@ public class RandomIngesterRestController {
 
     @RequestMapping(
             method = RequestMethod.POST,
-            value = "minutes/{owner}/{seriesName}",
+            value = "{owner}/{seriesName}/minutes",
             params = {"from", "to"},
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
