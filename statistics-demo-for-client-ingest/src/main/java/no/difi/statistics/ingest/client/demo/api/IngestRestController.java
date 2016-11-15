@@ -27,7 +27,7 @@ public class IngestRestController {
         );
     }
 
-    @RequestMapping(method= RequestMethod.POST, value = "minute/{seriesName}")
+    @RequestMapping(method= RequestMethod.POST, value = "/{seriesName}/minute")
     public void addMinutes(
             @PathVariable String seriesName,
             @RequestBody TimeSeriesPoint dataPoint

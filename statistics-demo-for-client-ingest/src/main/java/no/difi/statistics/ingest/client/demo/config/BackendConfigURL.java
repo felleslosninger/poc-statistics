@@ -21,5 +21,5 @@ public class BackendConfigURL implements BackendConfig {
     @Override
     @Bean
     public IngestService ingestService() throws IngestException {
-        return new IngestClient(serviceURL,environment.getProperty("user"), environment.getProperty("pwd")); }
+        return new IngestClient(serviceURL, environment.getProperty("owner"), environment.getProperty("user"), environment.getProperty("pwd")); }
 }

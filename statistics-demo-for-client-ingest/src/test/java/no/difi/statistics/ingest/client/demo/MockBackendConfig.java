@@ -15,5 +15,4 @@ public class MockBackendConfig implements BackendConfig {
     public IngestService ingestService() {
         return mock(IngestService.class);
     }
-
 }
