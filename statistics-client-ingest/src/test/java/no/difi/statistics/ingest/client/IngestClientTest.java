@@ -27,8 +27,7 @@ public class IngestClientTest {
     private static final String CONTENTTYPE = "Content-Type";
     private static final String AUTHORIZATION = "Authorization";
     private static final String HOSTNAME = "localhost";
-    private static final String SERVICE = "/minutes";
-    private static final String SERVICE_REGEX = SERVICE + "/.+";
+    private static final String SERVICE = "/minute";
     private static final String PROTOCOL = "http://";
     private static final String EXPECTED_JSON_STRING = "{\"timestamp\":\"2016-08-03T15:40:04+02:00\",\"measurements\":[{\"id\":\"id1\",\"value\":1},{\"id\":\"id2\",\"value\":2}]}";
 
@@ -38,7 +37,8 @@ public class IngestClientTest {
     private static final String SERIES_NAME = "seriesName3";
 
     private static final String EXCEPTIONMESSAGE = "Could not call IngestService";
-    public static final String OWNER = "999888777";
+    private static final String OWNER = "999888777";
+    private static final String SERVICE_REGEX = "^[a-zA-Z0-9/]*$";
 
     private final IngestClient ingestClient;
 
@@ -72,27 +72,27 @@ public class IngestClientTest {
     @Test
     public void whenCallingMinutesContentTypeJsonIsSpecified() throws Exception {
         ingestClient.post(Series.MINUTE, SERIES_NAME, timeSeriesPoint);
-        verify(postRequestedFor(urlEqualTo(OWNER + "/" + SERIES_NAME + "/" + SERVICE))
+        verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
                 .withHeader(CONTENTTYPE, equalTo(JSON)));
     }
 
     @Test
     public void whenCallingAuthorizationHeaderIsSpecifiedWithValidUsernameAndPassword(){
         ingestClient.post(Series.MINUTE, SERIES_NAME, timeSeriesPoint);
-        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + SERIES_NAME))
+        verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
         .withHeader(AUTHORIZATION, equalTo(validAuthHeader(VALID_USERNAME, VALID_PASSWORD))));
     }
 
     @Test
     public void whenCallingMinutesCorrectURLIsRequested() throws Exception {
         ingestClient.post(Series.MINUTE, SERIES_NAME, timeSeriesPoint);
-        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + SERIES_NAME)));
+        verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE)));
     }
 
     @Test
     public void whenCallingMinutesRequestBodyIsAsExpected() throws Exception {
         ingestClient.post(Series.MINUTE, SERIES_NAME, timeSeriesPoint);
-        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + SERIES_NAME))
+        verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
                 .withRequestBody(equalToJson(EXPECTED_JSON_STRING)));
     }
 

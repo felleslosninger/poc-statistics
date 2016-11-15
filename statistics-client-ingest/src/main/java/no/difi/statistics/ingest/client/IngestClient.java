@@ -81,11 +81,13 @@ public class IngestClient implements IngestService {
         }
     }
 
-    private void datapoint(TimeSeriesPoint timeSeriesPoint, URL url) throws IOException, IngestException {
+    private void datapoint(TimeSeriesPoint timeSeriesPoint, URL url) throws IOException {
         HttpURLConnection conn = getConnection(url);
         OutputStream outputStream = writeJsonToOutputStream(timeSeriesPoint, conn);
         outputStream.flush();
-        controlResponse(conn);
+        if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+            throw new IngestException("Could not post to Ingest Service.");
+        }
         conn.disconnect();
     }
 
@@ -119,13 +121,6 @@ public class IngestClient implements IngestService {
                 .setDateFormat(iso8601DateFormat)
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
                 .writerFor(TimeSeriesPoint.class);
-    }
-
-    private void controlResponse(HttpURLConnection conn) throws IOException, IngestException {
-        int responseCode = conn.getResponseCode();
-        if (responseCode != HttpURLConnection.HTTP_OK) {
-            throw new IngestException("Could not post to Ingest Service. Response code from service was " + responseCode);
-        }
     }
 
     private String serviceUrlTemplate(String serviceName, String series) {
