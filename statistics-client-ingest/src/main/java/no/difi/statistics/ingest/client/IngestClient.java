@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import no.difi.statistics.ingest.client.exception.CommunicationError;
-import no.difi.statistics.ingest.client.exception.MailformedUrl;
+import no.difi.statistics.ingest.client.exception.MalformedUrl;
 import no.difi.statistics.ingest.client.exception.MissingData;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
@@ -36,7 +36,7 @@ public class IngestClient implements IngestService {
     private final String baseUrl;
     private final String owner;
 
-    public IngestClient(String baseURL, String owner, String username, String password) throws MailformedUrl {
+    public IngestClient(String baseURL, String owner, String username, String password) throws MalformedUrl {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
@@ -47,10 +47,10 @@ public class IngestClient implements IngestService {
     }
 
     public void ingest(Distance distance, String seriesName, TimeSeriesPoint timeSeriesPoint) {
-        if (distance == Distance.MINUTE) {
+        if (distance == Distance.minute) {
             minute(seriesName, timeSeriesPoint);
         }
-        else if (distance == Distance.HOUR) {
+        else if (distance == Distance.hour) {
             hour(seriesName, timeSeriesPoint);
         }
         else {
@@ -58,26 +58,26 @@ public class IngestClient implements IngestService {
         }
     }
 
-    private void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MailformedUrl {
+    private void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MalformedUrl {
         URL url;
         try {
-            url = new URL(serviceUrlTemplate(seriesName, Distance.MINUTE.getSerie()));
+            url = new URL(serviceUrlTemplate(seriesName, Distance.minute.getSerie()));
             datapoint(timeSeriesPoint, url);
 
         } catch(MalformedURLException e){
-            throw new MailformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);
+            throw new MalformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);
         } catch (IOException e) {
             throw new CommunicationError(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
         }
     }
 
-    private void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MailformedUrl {
+    private void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MalformedUrl {
         URL url;
         try {
-            url = new URL(serviceUrlTemplate(seriesName, Distance.HOUR.getSerie()));
+            url = new URL(serviceUrlTemplate(seriesName, Distance.hour.getSerie()));
             datapoint(timeSeriesPoint, url);
         } catch(MalformedURLException e) {
-            throw new MailformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);
+            throw new MalformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);
         } catch (IOException e) {
             throw new CommunicationError(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
         }

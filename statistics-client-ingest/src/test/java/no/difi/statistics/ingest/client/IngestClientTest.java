@@ -2,7 +2,7 @@ package no.difi.statistics.ingest.client;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import java.util.Base64;
-import no.difi.statistics.ingest.client.exception.MailformedUrl;
+import no.difi.statistics.ingest.client.exception.MalformedUrl;
 import no.difi.statistics.ingest.client.model.Measurement;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 import org.hamcrest.core.IsInstanceOf;
@@ -71,27 +71,27 @@ public class IngestClientTest {
 
     @Test
     public void whenCallingMinutesContentTypeJsonIsSpecified() throws Exception {
-        ingestClient.ingest(Distance.MINUTE, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
                 .withHeader(CONTENTTYPE, equalTo(JSON)));
     }
 
     @Test
     public void whenCallingAuthorizationHeaderIsSpecifiedWithValidUsernameAndPassword(){
-        ingestClient.ingest(Distance.MINUTE, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
         .withHeader(AUTHORIZATION, equalTo(validAuthHeader(VALID_USERNAME, VALID_PASSWORD))));
     }
 
     @Test
     public void whenCallingMinutesCorrectURLIsRequested() throws Exception {
-        ingestClient.ingest(Distance.MINUTE, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE)));
     }
 
     @Test
     public void whenCallingMinutesRequestBodyIsAsExpected() throws Exception {
-        ingestClient.ingest(Distance.MINUTE, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
                 .withRequestBody(equalToJson(EXPECTED_JSON_STRING)));
     }
@@ -99,11 +99,11 @@ public class IngestClientTest {
     @Test
     public void whenConnectionTimesOutClientThrowsException(){
         wireMockRule.addRequestProcessingDelay(6000);
-        expectedEx.expect(MailformedUrl.class);
+        expectedEx.expect(MalformedUrl.class);
         expectedEx.expectMessage(EXCEPTIONMESSAGE);
         expectedEx.expectCause(IsInstanceOf.<Throwable>instanceOf(SocketTimeoutException.class));
 
-        ingestClient.ingest(Distance.MINUTE, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
     }
 
     private void setup415Stub(String username, String password) {

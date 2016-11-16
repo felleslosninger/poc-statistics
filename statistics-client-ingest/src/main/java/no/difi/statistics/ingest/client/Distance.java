@@ -1,8 +1,8 @@
 package no.difi.statistics.ingest.client;
 
 public enum Distance {
-    MINUTE("minute"),
-    HOUR("hour");
+    minute("minute"),
+    hour("hour");
 
     private final String serie;
 

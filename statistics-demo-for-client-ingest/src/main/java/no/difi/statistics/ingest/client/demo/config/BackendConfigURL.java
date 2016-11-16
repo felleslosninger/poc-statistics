@@ -2,9 +2,8 @@ package no.difi.statistics.ingest.client.demo.config;
 
 import no.difi.statistics.ingest.client.IngestClient;
 import no.difi.statistics.ingest.client.IngestService;
-import no.difi.statistics.ingest.client.exception.MailformedUrl;
+import no.difi.statistics.ingest.client.exception.MalformedUrl;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -17,7 +16,7 @@ public class BackendConfigURL implements BackendConfig {
 
     @Override
     @Bean
-    public IngestService ingestService() throws MailformedUrl {
+    public IngestService ingestService() throws MalformedUrl {
         return new IngestClient(
                 environment.getRequiredProperty("service.url"),
                 environment.getRequiredProperty("owner"),

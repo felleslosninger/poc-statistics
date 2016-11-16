@@ -32,7 +32,7 @@ public class IngestRestController {
             @PathVariable String seriesName,
             @RequestBody TimeSeriesPoint dataPoint
     ) {
-        ingestService.ingest(Distance.MINUTE, seriesName, dataPoint);
+        ingestService.ingest(Distance.minute, seriesName, dataPoint);
     }
 
     public static void main(String[] args) throws Exception {
