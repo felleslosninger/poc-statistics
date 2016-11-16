@@ -1,7 +1,7 @@
 package no.difi.statistics.ingest.client.demo.api;
 
+import no.difi.statistics.ingest.client.Distance;
 import no.difi.statistics.ingest.client.IngestService;
-import no.difi.statistics.ingest.client.Series;
 import no.difi.statistics.ingest.client.demo.config.AppConfig;
 import no.difi.statistics.ingest.client.demo.config.BackendConfigURL;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
@@ -32,7 +32,7 @@ public class IngestRestController {
             @PathVariable String seriesName,
             @RequestBody TimeSeriesPoint dataPoint
     ) {
-        ingestService.post(Series.MINUTE, seriesName, dataPoint);
+        ingestService.ingest(Distance.MINUTE, seriesName, dataPoint);
     }
 
     public static void main(String[] args) throws Exception {

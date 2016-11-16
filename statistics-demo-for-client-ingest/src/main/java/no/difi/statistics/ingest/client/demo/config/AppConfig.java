@@ -1,7 +1,7 @@
 package no.difi.statistics.ingest.client.demo.config;
 
 import no.difi.statistics.ingest.client.demo.api.IngestRestController;
-import no.difi.statistics.ingest.client.exception.IngestException;
+import no.difi.statistics.ingest.client.exception.MailformedUrl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +15,7 @@ public class AppConfig {
     private BackendConfig backendConfig;
 
     @Bean
-    public IngestRestController api() throws IngestException {
+    public IngestRestController api() throws MailformedUrl {
         return new IngestRestController(backendConfig.ingestService());
     }
 }

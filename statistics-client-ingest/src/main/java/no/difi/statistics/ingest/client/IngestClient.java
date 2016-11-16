@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import no.difi.statistics.ingest.client.exception.IngestException;
+import no.difi.statistics.ingest.client.exception.CommunicationError;
+import no.difi.statistics.ingest.client.exception.MailformedUrl;
+import no.difi.statistics.ingest.client.exception.MissingData;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
 import java.io.IOException;
@@ -34,7 +36,7 @@ public class IngestClient implements IngestService {
     private final String baseUrl;
     private final String owner;
 
-    public IngestClient(String baseURL, String owner, String username, String password) throws IngestException {
+    public IngestClient(String baseURL, String owner, String username, String password) throws MailformedUrl {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
@@ -44,40 +46,40 @@ public class IngestClient implements IngestService {
         this.password = password;
     }
 
-    public void post(Series series, String seriesName, TimeSeriesPoint timeSeriesPoint) {
-        if (series == Series.MINUTE) {
+    public void ingest(Distance distance, String seriesName, TimeSeriesPoint timeSeriesPoint) {
+        if (distance == Distance.MINUTE) {
             minute(seriesName, timeSeriesPoint);
         }
-        else if (series == Series.HOUR) {
+        else if (distance == Distance.HOUR) {
             hour(seriesName, timeSeriesPoint);
         }
         else {
-            throw new IngestException("Time series not given.");
+            throw new MissingData("Time series point not given.");
         }
     }
 
-    private void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
+    private void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MailformedUrl {
         URL url;
         try {
-            url = new URL(serviceUrlTemplate(seriesName, Series.MINUTE.getSerie()));
+            url = new URL(serviceUrlTemplate(seriesName, Distance.MINUTE.getSerie()));
             datapoint(timeSeriesPoint, url);
 
         } catch(MalformedURLException e){
-            throw new IngestException(EXCEPTION_MESSAGE_MALFORMED_URL, e);
+            throw new MailformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);
         } catch (IOException e) {
-            throw new IngestException(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
+            throw new CommunicationError(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
         }
     }
 
-    private void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws IngestException {
+    private void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MailformedUrl {
         URL url;
         try {
-            url = new URL(serviceUrlTemplate(seriesName, Series.HOUR.getSerie()));
+            url = new URL(serviceUrlTemplate(seriesName, Distance.HOUR.getSerie()));
             datapoint(timeSeriesPoint, url);
         } catch(MalformedURLException e) {
-            throw new IngestException(EXCEPTION_MESSAGE_MALFORMED_URL, e);
+            throw new MailformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);
         } catch (IOException e) {
-            throw new IngestException(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
+            throw new CommunicationError(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
         }
     }
 
@@ -86,7 +88,7 @@ public class IngestClient implements IngestService {
         OutputStream outputStream = writeJsonToOutputStream(timeSeriesPoint, conn);
         outputStream.flush();
         if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
-            throw new IngestException("Could not post to Ingest Service.");
+            throw new CommunicationError("Could not post to Ingest Service.");
         }
         conn.disconnect();
     }

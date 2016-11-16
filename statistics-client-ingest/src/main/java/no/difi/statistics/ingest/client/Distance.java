@@ -1,12 +1,12 @@
 package no.difi.statistics.ingest.client;
 
-public enum Series {
+public enum Distance {
     MINUTE("minute"),
     HOUR("hour");
 
     private final String serie;
 
-    Series(String serie) {
+    Distance(String serie) {
         this.serie = serie;
     }
 
