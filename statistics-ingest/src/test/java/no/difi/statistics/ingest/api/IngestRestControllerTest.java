@@ -57,15 +57,6 @@ public class IngestRestControllerTest {
     }
 
     @Autowired
-    private RestTemplate authenticationRestTemplate;
-    private MockRestServiceServer authenticationService;
-
-    @Before
-    public void setup() {
-        authenticationService = MockRestServiceServer.bindTo(authenticationRestTemplate).build();
-    }
-
-    @Autowired
     private IngestService service;
 
     @Autowired
@@ -177,6 +168,11 @@ public class IngestRestControllerTest {
         private String content;
         private String uri = URI_MINUTE;
 
+        public RequestBuilder uri(String uri) {
+            this.uri = uri;
+            return this;
+        }
+
         RequestBuilder owner(String owner) {
             this.owner = owner;
             return this;
@@ -212,7 +208,6 @@ public class IngestRestControllerTest {
                     .header("Authorization", authorizationHeader(user, password))
                     .content(content);
         }
-
     }
 
     private String json(TimeSeriesPoint timeSeriesPoint) throws Exception {

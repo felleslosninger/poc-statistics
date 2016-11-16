@@ -231,8 +231,8 @@ public class ElasticsearchIngestServiceTest {
         return TimeSeriesPoint.builder();
     }
 
-    private ResponseEntity<Void> ingest(String series, TimeSeriesPoint point) {
-        return ingest(owner, password, series, point);
+    private ResponseEntity<Void> ingest(String uriPart, String series, TimeSeriesPoint point) {
+        return ingest(uriPart, owner, password, series, point);
     }
 
     private ResponseEntity<Void> ingest(String uriPart, String owner, String password, String series, TimeSeriesPoint point) {
