@@ -55,7 +55,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 /**
  * Komponent- og (delvis) integrasjonstest av inndata-tjenesten. Integrasjon mot <code>elasticsearch</code>-tjenesten
- * verifiseres, mens <code>authentication</code>-tjenesten mockes.
+ * verifiseres, mens <code>authenticate</code>-tjenesten mockes.
  */
 @SpringBootTest(
         webEnvironment = RANDOM_PORT
@@ -95,10 +95,10 @@ public class ElasticsearchIngestServiceTest {
     private String password = "aPassword";
 
     @Before
-    public void prepare() throws InterruptedException, MalformedURLException, UnknownHostException {
+    public void prepare() throws Exception {
         authenticationService = MockRestServiceServer.bindTo(authenticationRestTemplate).build();
         authenticationService
-                .expect(manyTimes(), requestTo("http://authentication:8083/authentications"))
+                .expect(manyTimes(), requestTo("http://authenticate:8080/authentications"))
                 .andExpect(method(POST))
                 .andExpect(content().contentType(APPLICATION_JSON_UTF8))
                 .andExpect(jsonPath("username", equalTo(owner)))
@@ -109,7 +109,7 @@ public class ElasticsearchIngestServiceTest {
                 backend.getContainerIpAddress(),
                 backend.getMappedPort(9200)
         );
-        elasticsearchHelper.waitConnected();
+        elasticsearchHelper.waitForGreenStatus();
     }
 
     @After
@@ -231,8 +231,8 @@ public class ElasticsearchIngestServiceTest {
         return TimeSeriesPoint.builder();
     }
 
-    private ResponseEntity<Void> ingest(String uriPart, String series, TimeSeriesPoint point) {
-        return ingest(uriPart, owner, password, series, point);
+    private ResponseEntity<Void> ingest(String series, TimeSeriesPoint point) {
+        return ingest(owner, password, series, point);
     }
 
     private ResponseEntity<Void> ingest(String uriPart, String owner, String password, String series, TimeSeriesPoint point) {

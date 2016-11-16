@@ -1,5 +1,6 @@
 package no.difi.statistics.test.utils;
 
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static java.lang.String.format;
+import static org.elasticsearch.cluster.health.ClusterHealthStatus.GREEN;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 
 public class ElasticsearchHelper {
@@ -82,9 +84,14 @@ public class ElasticsearchHelper {
         return value != null && value instanceof Number ? ((Number) value).longValue() : null;
     }
 
-    public void waitConnected() throws InterruptedException {
+    public void waitForGreenStatus() throws InterruptedException, ExecutionException {
         for (int i = 0; i < 1000; i++) {
             if (((TransportClient)client).connectedNodes().size() > 0) break;
+            Thread.sleep(10L);
+        }
+        for (int i = 0; i < 1000; i++) {
+            if (client.admin().cluster().health(new ClusterHealthRequest()).get().getStatus().equals(GREEN))
+                break;
             Thread.sleep(10L);
         }
     }

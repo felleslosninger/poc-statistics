@@ -8,7 +8,6 @@ import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.elasticsearch.config.ElasticsearchConfig;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -84,7 +83,7 @@ public class ElasticsearchQueryServiceTest {
                 backend.getContainerIpAddress(),
                 backend.getMappedPort(9200)
         );
-        elasticsearchHelper.waitConnected();
+        elasticsearchHelper.waitForGreenStatus();
     }
 
     @After

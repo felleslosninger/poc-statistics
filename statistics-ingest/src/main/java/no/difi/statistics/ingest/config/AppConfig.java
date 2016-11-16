@@ -10,16 +10,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.authentication.dao.ReflectionSaltSource;
-import org.springframework.security.authentication.rcp.RemoteAuthenticationManager;
-import org.springframework.security.authentication.rcp.RemoteAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.client.RestTemplate;
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.spi.DocumentationType;
@@ -63,7 +57,7 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        return new IngestAuthenticationProvider(authenticationRestTemplate(), "authentication", 8083);
+        return new IngestAuthenticationProvider(authenticationRestTemplate(), "authenticate", 8080);
     }
 
     @Bean
@@ -76,6 +70,8 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
         http.authorizeRequests()
                 // No authentication required for documentation paths used by Swagger
                 .antMatchers("/", "/swagger-ui.html", "/swagger-resources/**", "/v2/api-docs/**").permitAll()
+                // No authentication required for health check path
+                .antMatchers("/health").permitAll()
                 // Authentication required for ingest methods. Username must be equal to owner of series.
                 .antMatchers("/{owner}/{seriesName}/**").access("#owner == authentication.name")
                 .anyRequest().authenticated()

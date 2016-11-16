@@ -57,6 +57,15 @@ public class IngestRestControllerTest {
     }
 
     @Autowired
+    private RestTemplate authenticationRestTemplate;
+    private MockRestServiceServer authenticationService;
+
+    @Before
+    public void setup() {
+        authenticationService = MockRestServiceServer.bindTo(authenticationRestTemplate).build();
+    }
+
+    @Autowired
     private IngestService service;
 
     @Autowired
@@ -193,21 +202,17 @@ public class IngestRestControllerTest {
             return this;
         }
 
-        RequestBuilder uri(String uriHour) {
-            this.uri = uriHour;
-            return this;
-        }
-
         private String authorizationHeader(String username, String password) {
             return "Basic " + new String(encodeBase64((username + ":" + password).getBytes()));
         }
 
         MockHttpServletRequestBuilder build() {
-            return post(uri, owner, series)
+            return post("/{owner}/{seriesName}/minute", owner, series)
                     .contentType(MediaType.APPLICATION_JSON_UTF8)
                     .header("Authorization", authorizationHeader(user, password))
                     .content(content);
         }
+
     }
 
     private String json(TimeSeriesPoint timeSeriesPoint) throws Exception {
@@ -218,7 +223,7 @@ public class IngestRestControllerTest {
 
     private void validCredentials(String username, String password) {
         authenticationService
-                .expect(once(), requestTo("http://authentication:8083/authentications"))
+                .expect(once(), requestTo("http://authenticate:8080/authentications"))
                 .andExpect(method(POST))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8))
                 .andExpect(jsonPath("username", equalTo(username)))
@@ -228,7 +233,7 @@ public class IngestRestControllerTest {
 
     private void invalidCredentials(String username, String password) {
         authenticationService
-                .expect(once(), requestTo("http://authentication:8083/authentications"))
+                .expect(once(), requestTo("http://authenticate:8080/authentications"))
                 .andExpect(method(POST))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8))
                 .andExpect(jsonPath("username", equalTo(username)))
