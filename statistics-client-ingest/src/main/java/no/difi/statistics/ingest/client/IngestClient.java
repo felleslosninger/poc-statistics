@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import no.difi.statistics.ingest.client.exception.CommunicationError;
 import no.difi.statistics.ingest.client.exception.MalformedUrl;
-import no.difi.statistics.ingest.client.exception.MissingData;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
 import java.io.IOException;
@@ -46,15 +45,12 @@ public class IngestClient implements IngestService {
         this.password = password;
     }
 
-    public void ingest(Distance distance, String seriesName, TimeSeriesPoint timeSeriesPoint) {
+    public void ingest(String seriesName, Distance distance, TimeSeriesPoint timeSeriesPoint) {
         if (distance == Distance.minute) {
             minute(seriesName, timeSeriesPoint);
         }
         else if (distance == Distance.hour) {
             hour(seriesName, timeSeriesPoint);
-        }
-        else {
-            throw new MissingData("Time series point not given.");
         }
     }
 
