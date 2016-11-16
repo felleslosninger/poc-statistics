@@ -107,15 +107,6 @@ createService() {
             ${image}) \
             || fail "Failed to create service ${service}"
         ;;
-    authenticate)
-        output=$(sudo docker service create \
-            --network ${network} \
-            --mode global \
-            --name ${service} \
-            -p 8083:8080 \
-            difi/statistics-authentication:${version}) \
-            || fail "Failed to create service ${service}"
-        ;;
     esac
     ok
 }
@@ -291,9 +282,6 @@ isServiceAvailable() {
             ;;
         'authenticate')
             url="http://${host}:8083/health"
-            ;;
-        'authenticate')
-            url="http://${host}:8083"
             ;;
         *)
             echo -n "Unknown service \"${service}\""
