@@ -61,7 +61,7 @@ public class IngestClient implements IngestService {
     private void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MalformedUrl {
         URL url;
         try {
-            url = new URL(serviceUrlTemplate(seriesName, Distance.minute.getSerie()));
+            url = new URL(serviceUrlTemplate(seriesName, Distance.minute.getValue()));
             datapoint(timeSeriesPoint, url);
 
         } catch(MalformedURLException e){
@@ -74,7 +74,7 @@ public class IngestClient implements IngestService {
     private void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MalformedUrl {
         URL url;
         try {
-            url = new URL(serviceUrlTemplate(seriesName, Distance.hour.getSerie()));
+            url = new URL(serviceUrlTemplate(seriesName, Distance.hour.getValue()));
             datapoint(timeSeriesPoint, url);
         } catch(MalformedURLException e) {
             throw new MalformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);

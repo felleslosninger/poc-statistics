@@ -4,13 +4,13 @@ public enum Distance {
     minute("minute"),
     hour("hour");
 
-    private final String serie;
+    private final String value;
 
-    Distance(String serie) {
-        this.serie = serie;
+    Distance(String value) {
+        this.value = value;
     }
 
-    public String getSerie() {
-        return serie;
+    public String getValue() {
+        return value;
     }
 }

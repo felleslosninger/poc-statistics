@@ -1,8 +1,7 @@
 package no.difi.statistics.ingest.client;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import java.util.Base64;
-import no.difi.statistics.ingest.client.exception.MalformedUrl;
+import no.difi.statistics.ingest.client.exception.CommunicationError;
 import no.difi.statistics.ingest.client.model.Measurement;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 import org.hamcrest.core.IsInstanceOf;
@@ -16,6 +15,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -99,7 +99,7 @@ public class IngestClientTest {
     @Test
     public void whenConnectionTimesOutClientThrowsException(){
         wireMockRule.addRequestProcessingDelay(6000);
-        expectedEx.expect(MalformedUrl.class);
+        expectedEx.expect(CommunicationError.class);
         expectedEx.expectMessage(EXCEPTIONMESSAGE);
         expectedEx.expectCause(IsInstanceOf.<Throwable>instanceOf(SocketTimeoutException.class));
 
