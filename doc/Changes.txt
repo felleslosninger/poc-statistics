@@ -1,3 +1,4 @@
+feature/PBLEID-12865: Øyeblikksmåling på timesnivå
 feature/PBLEID-12860: API for å lagre passord
 bugfix/PBLEID-12905: Inkonsekvent navngiving av autentiseringstjenesten
 feature/PBLEID-12293: Passorddatabase

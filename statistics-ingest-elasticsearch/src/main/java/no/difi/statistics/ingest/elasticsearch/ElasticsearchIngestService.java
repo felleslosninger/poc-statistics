@@ -16,9 +16,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
@@ -35,9 +37,9 @@ public class ElasticsearchIngestService implements IngestService {
 
     @Override
     public void minute(String series, String owner, TimeSeriesPoint dataPoint) throws TimeSeriesPointAlreadyExists {
-        byte[] document = documentBytes(dataPoint);
-        String id = id(dataPoint);
-        String indexName = resolveIndexName().seriesName(series).owner(owner).minutes().at(normalize(dataPoint.getTimestamp())).single();
+        byte[] document = documentBytes(dataPoint, MINUTES);
+        String id = id(dataPoint, MINUTES);
+        String indexName = resolveIndexName().seriesName(series).owner(owner).minutes().at(normalize(dataPoint.getTimestamp(), MINUTES)).single();
         log(indexName, id, document);
         try {
             client.prepareIndex(indexName, indexType, id).setSource(document).setCreate(true).get();
@@ -56,17 +58,31 @@ public class ElasticsearchIngestService implements IngestService {
                                     .seriesName(timeSeriesName)
                                     .owner(owner)
                                     .minutes()
-                                    .at(normalize(point.getTimestamp()))
+                                    .at(normalize(point.getTimestamp(), MINUTES))
                                     .single(),
                             indexType,
-                            id(point)
+                            id(point, MINUTES)
                     )
-                            .setSource(document(point))
+                            .setSource(document(point, MINUTES))
                             .setCreate(true)
             );
         }
         BulkResponse response = bulkRequest.get();
         return response(response);
+    }
+
+    @Override
+    public IngestResponse hour(String timeSeriesName, String owner, TimeSeriesPoint datapoint) {
+        byte[] document = documentBytes(datapoint, HOURS);
+        String id = id(datapoint, HOURS);
+        String indexName = resolveIndexName().seriesName(timeSeriesName).owner(owner).hours().at(normalize(datapoint.getTimestamp(), HOURS)).single();
+        log(indexName, id, document);
+        try {
+            client.prepareIndex(indexName, indexType, id).setSource(document).setCreate(true).get();
+        } catch (DocumentAlreadyExistsException e) {
+            throw new TimeSeriesPointAlreadyExists(owner, timeSeriesName, id, e);
+        }
+        return null;
     }
 
     private IngestResponse response(BulkResponse response) {
@@ -92,18 +108,18 @@ public class ElasticsearchIngestService implements IngestService {
         }
     }
 
-    private static String id(TimeSeriesPoint dataPoint) {
-        return format(dataPoint.getTimestamp());
+    private static String id(TimeSeriesPoint dataPoint, ChronoUnit chronoUnit) {
+        return format(dataPoint.getTimestamp(), chronoUnit);
     }
 
-    private static byte[] documentBytes(TimeSeriesPoint dataPoint) {
-        return document(dataPoint).bytes().toBytes();
+    private static byte[] documentBytes(TimeSeriesPoint dataPoint, ChronoUnit chronoUnit) {
+        return document(dataPoint, chronoUnit).bytes().toBytes();
     }
 
-    private static XContentBuilder document(TimeSeriesPoint dataPoint) {
+    private static XContentBuilder document(TimeSeriesPoint dataPoint, ChronoUnit chronoUnit) {
         try {
             XContentBuilder builder = jsonBuilder().startObject()
-                    .field("timestamp", format(dataPoint.getTimestamp()));
+                    .field("timestamp", format(dataPoint.getTimestamp(), chronoUnit));
             for (Measurement measurement : dataPoint.getMeasurements()) {
                 builder.field(measurement.getId(), measurement.getValue());
             }
@@ -113,12 +129,11 @@ public class ElasticsearchIngestService implements IngestService {
         }
     }
 
-    private static String format(ZonedDateTime timestamp) {
-        return normalize(timestamp).toString();
+    private static String format(ZonedDateTime timestamp, ChronoUnit chronoUnit) {
+        return normalize(timestamp, chronoUnit).toString();
     }
 
-    private static ZonedDateTime normalize(ZonedDateTime timestamp) {
-        return timestamp.truncatedTo(MINUTES).withZoneSameInstant(UTC);
+    private static ZonedDateTime normalize(ZonedDateTime timestamp, ChronoUnit chronoUnit) {
+        return timestamp.truncatedTo(chronoUnit).withZoneSameInstant(UTC);
     }
-
 }

@@ -35,4 +35,9 @@ public class InfluxDBIngestService implements IngestService {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public IngestResponse hour(String timeSeriesName, String owner, TimeSeriesPoint dataPoint) {
+        throw new UnsupportedOperationException();
+    }
+
 }

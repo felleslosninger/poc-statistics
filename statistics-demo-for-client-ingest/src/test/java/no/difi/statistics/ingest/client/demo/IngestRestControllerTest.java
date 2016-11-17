@@ -9,6 +9,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -54,15 +55,15 @@ public class IngestRestControllerTest {
         assert415Response(result);
     }
 
-    private void assert400Response(ResultActions result) throws Exception{
+    private static void assert400Response(ResultActions result) throws Exception{
         result.andExpect(status().is(400));
     }
 
-    private void assert415Response(ResultActions result) throws Exception{
+    private static void assert415Response(ResultActions result) throws Exception{
         result.andExpect(status().is(415));
     }
 
-    private void assertNormalResponse(ResultActions result) throws Exception {
+    private static void assertNormalResponse(ResultActions result) throws Exception {
         result.andExpect(status().is(200));
     }
 
@@ -82,21 +83,20 @@ public class IngestRestControllerTest {
 
     private ResultActions postMinutes(String seriesName, String jsonString) throws Exception {
         String typeJson = "application/json";
-        return mockMvc.perform(post("/minutes/{seriesName}", seriesName)
+        return mockMvc.perform(post("/{seriesName}/minute", seriesName)
                 .contentType(typeJson)
                 .accept(typeJson)
                 .content(jsonString));
     }
 
-
     private ResultActions postMinutesWithoutContentType(String seriesName, String jsonString) throws Exception{
         String typeJson = "application/json";
-        return mockMvc.perform(post("/minutes/{seriesName}", seriesName)
+        return mockMvc.perform(post("/{seriesName}/minute", seriesName)
                 .accept(typeJson)
                 .content(jsonString));
     }
 
-    private String createValidJsonString(TimeSeriesPoint timeSeriesPoint) throws Exception{
+    private static String createValidJsonString(TimeSeriesPoint timeSeriesPoint) throws Exception{
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .writeValueAsString(timeSeriesPoint);

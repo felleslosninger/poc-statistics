@@ -1,8 +1,7 @@
 package no.difi.statistics.ingest.client;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import java.util.Base64;
-import no.difi.statistics.ingest.client.exception.IngestException;
+import no.difi.statistics.ingest.client.exception.CommunicationError;
 import no.difi.statistics.ingest.client.model.Measurement;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 import org.hamcrest.core.IsInstanceOf;
@@ -16,6 +15,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -27,16 +27,18 @@ public class IngestClientTest {
     private static final String CONTENTTYPE = "Content-Type";
     private static final String AUTHORIZATION = "Authorization";
     private static final String HOSTNAME = "localhost";
-    private static final String SERVICE = "/minutes";
-    private static final String SERVICE_REGEX = SERVICE + "/.+";
+    private static final String SERVICE = "/minute";
     private static final String PROTOCOL = "http://";
     private static final String EXPECTED_JSON_STRING = "{\"timestamp\":\"2016-08-03T15:40:04+02:00\",\"measurements\":[{\"id\":\"id1\",\"value\":1},{\"id\":\"id2\",\"value\":2}]}";
 
     private static final String VALID_USERNAME = "984661185";
     private static final String VALID_PASSWORD = "123456";
     private static final String INVALID_PASSWORD = "123";
+    private static final String SERIES_NAME = "seriesName3";
 
     private static final String EXCEPTIONMESSAGE = "Could not call IngestService";
+    private static final String OWNER = "999888777";
+    private static final String SERVICE_REGEX = "^[a-zA-Z0-9/]*$";
 
     private final IngestClient ingestClient;
 
@@ -45,7 +47,7 @@ public class IngestClientTest {
     public IngestClientTest() throws IOException {
         wireMockRule.start();
 
-        ingestClient = new IngestClient(PROTOCOL + HOSTNAME + ":" + wireMockRule.port(), VALID_USERNAME, VALID_PASSWORD);
+        ingestClient = new IngestClient(PROTOCOL + HOSTNAME + ":" + wireMockRule.port(), OWNER, VALID_USERNAME, VALID_PASSWORD);
 
         timeSeriesPoint = buildValidTimeSeriesPoint();
     }
@@ -57,6 +59,51 @@ public class IngestClientTest {
         setupMissingAuthorizationHeaderStub();
         setup200Stub(VALID_USERNAME, VALID_PASSWORD);
         setupWrongPasswordStub(VALID_USERNAME, INVALID_PASSWORD);
+    }
+
+    @Rule
+    public WireMockRule wireMockRule = new WireMockRule(wireMockConfig()
+            .bindAddress(HOSTNAME)
+            .dynamicPort());
+
+    @Rule
+    public ExpectedException expectedEx = ExpectedException.none();
+
+    @Test
+    public void whenCallingMinutesContentTypeJsonIsSpecified() throws Exception {
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
+        verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
+                .withHeader(CONTENTTYPE, equalTo(JSON)));
+    }
+
+    @Test
+    public void whenCallingAuthorizationHeaderIsSpecifiedWithValidUsernameAndPassword(){
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
+        verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
+        .withHeader(AUTHORIZATION, equalTo(validAuthHeader(VALID_USERNAME, VALID_PASSWORD))));
+    }
+
+    @Test
+    public void whenCallingMinutesCorrectURLIsRequested() throws Exception {
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
+        verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE)));
+    }
+
+    @Test
+    public void whenCallingMinutesRequestBodyIsAsExpected() throws Exception {
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
+        verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
+                .withRequestBody(equalToJson(EXPECTED_JSON_STRING)));
+    }
+
+    @Test
+    public void whenConnectionTimesOutClientThrowsException(){
+        wireMockRule.addRequestProcessingDelay(6000);
+        expectedEx.expect(CommunicationError.class);
+        expectedEx.expectMessage(EXCEPTIONMESSAGE);
+        expectedEx.expectCause(IsInstanceOf.<Throwable>instanceOf(SocketTimeoutException.class));
+
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
     }
 
     private void setup415Stub(String username, String password) {
@@ -113,54 +160,5 @@ public class IngestClientTest {
 
         ZonedDateTime timestamp = ZonedDateTime.parse("2016-08-03T15:40:04.000+02:00");
         return TimeSeriesPoint.builder().measurements(measurement).timestamp(timestamp).build();
-    }
-
-    @Rule
-    public WireMockRule wireMockRule = new WireMockRule(wireMockConfig()
-            .bindAddress(HOSTNAME)
-            .dynamicPort());
-
-    @Rule
-    public ExpectedException expectedEx = ExpectedException.none();
-
-    @Test
-    public void whenCallingMinutesContentTypeJsonIsSpecified() throws Exception {
-        String seriesName = "seriesName3";
-        ingestClient.minute(seriesName, timeSeriesPoint);
-        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + seriesName))
-        .withHeader(CONTENTTYPE, equalTo(JSON)));
-    }
-
-    @Test
-    public void whenCallingAuthorizationHeaderIsSpecifiedWithValidUsernameAndPassword(){
-        String seriesName = "seriesName3";
-        ingestClient.minute(seriesName, timeSeriesPoint);
-        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + seriesName))
-        .withHeader(AUTHORIZATION, equalTo(validAuthHeader(VALID_USERNAME, VALID_PASSWORD))));
-    }
-
-    @Test
-    public void whenCallingMinutesCorrectURLIsRequested() throws Exception {
-        String seriesName = "seriesName3";
-        ingestClient.minute(seriesName, timeSeriesPoint);
-        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + seriesName)));
-    }
-
-    @Test
-    public void whenCallingMinutesRequestBodyIsAsExpected() throws Exception {
-        String seriesName = "seriesName3";
-        ingestClient.minute(seriesName, timeSeriesPoint);
-        verify(postRequestedFor(urlEqualTo(SERVICE + "/" + seriesName))
-                .withRequestBody(equalToJson(EXPECTED_JSON_STRING)));
-    }
-
-    @Test
-    public void whenConnectionTimesOutClientThrowsException(){
-        wireMockRule.addRequestProcessingDelay(6000);
-        expectedEx.expect(IngestException.class);
-        expectedEx.expectMessage(EXCEPTIONMESSAGE);
-        expectedEx.expectCause(IsInstanceOf.<Throwable>instanceOf(SocketTimeoutException.class));
-
-        ingestClient.minute("name", timeSeriesPoint);
     }
 }

@@ -103,8 +103,7 @@ public class TimeSeriesPoint {
 
         TimeSeriesPoint that = (TimeSeriesPoint) o;
 
-        if (!timestamp.equals(that.timestamp)) return false;
-        return measurements.equals(that.measurements);
+        return timestamp.equals(that.timestamp) && measurements.equals(that.measurements);
 
     }
 

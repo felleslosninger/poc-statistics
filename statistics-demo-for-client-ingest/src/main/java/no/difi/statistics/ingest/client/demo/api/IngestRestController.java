@@ -1,5 +1,6 @@
 package no.difi.statistics.ingest.client.demo.api;
 
+import no.difi.statistics.ingest.client.Distance;
 import no.difi.statistics.ingest.client.IngestService;
 import no.difi.statistics.ingest.client.demo.config.AppConfig;
 import no.difi.statistics.ingest.client.demo.config.BackendConfigURL;
@@ -26,12 +27,12 @@ public class IngestRestController {
         );
     }
 
-    @RequestMapping(method= RequestMethod.POST, value = "minutes/{seriesName}")
+    @RequestMapping(method= RequestMethod.POST, value = "/{seriesName}/minute")
     public void addMinutes(
             @PathVariable String seriesName,
             @RequestBody TimeSeriesPoint dataPoint
     ) {
-        ingestService.minute(seriesName, dataPoint);
+        ingestService.ingest(seriesName, Distance.minute, dataPoint);
     }
 
     public static void main(String[] args) throws Exception {
