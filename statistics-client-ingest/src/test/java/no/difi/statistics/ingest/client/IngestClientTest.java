@@ -71,27 +71,27 @@ public class IngestClientTest {
 
     @Test
     public void whenCallingMinutesContentTypeJsonIsSpecified() throws Exception {
-        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
                 .withHeader(CONTENTTYPE, equalTo(JSON)));
     }
 
     @Test
     public void whenCallingAuthorizationHeaderIsSpecifiedWithValidUsernameAndPassword(){
-        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
         .withHeader(AUTHORIZATION, equalTo(validAuthHeader(VALID_USERNAME, VALID_PASSWORD))));
     }
 
     @Test
     public void whenCallingMinutesCorrectURLIsRequested() throws Exception {
-        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE)));
     }
 
     @Test
     public void whenCallingMinutesRequestBodyIsAsExpected() throws Exception {
-        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
         verify(postRequestedFor(urlEqualTo("/" + OWNER + "/" + SERIES_NAME + SERVICE))
                 .withRequestBody(equalToJson(EXPECTED_JSON_STRING)));
     }
@@ -103,7 +103,7 @@ public class IngestClientTest {
         expectedEx.expectMessage(EXCEPTIONMESSAGE);
         expectedEx.expectCause(IsInstanceOf.<Throwable>instanceOf(SocketTimeoutException.class));
 
-        ingestClient.ingest(Distance.minute, SERIES_NAME, timeSeriesPoint);
+        ingestClient.ingest(SERIES_NAME, Distance.minute, timeSeriesPoint);
     }
 
     private void setup415Stub(String username, String password) {
