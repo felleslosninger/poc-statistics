@@ -20,6 +20,9 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
+import java.time.ZonedDateTime;
+import java.util.Date;
+
 import static java.lang.String.format;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
@@ -89,10 +92,11 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
     public Docket apiDocumentation() {
         return new Docket(DocumentationType.SWAGGER_2)
                 .groupName("statistikk-inndata")
+                .directModelSubstitute(ZonedDateTime.class, Date.class)
                 .select()
-                .apis(basePackage(IngestRestController.class.getPackage().getName()))
-                .paths(any())
-                .build()
+                    .apis(basePackage(IngestRestController.class.getPackage().getName()))
+                    .paths(any())
+                    .build()
                 .apiInfo(new ApiInfoBuilder()
                         .title("Statistikk for offentlige tjenester")
                         .description(

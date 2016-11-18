@@ -35,6 +35,11 @@ start() {
     editChangesLog "${message}"
 }
 
+info() {
+    isWorkBranch || echo "$(currentBranch) is not a work branch"
+    echo "Change log entry: $(change)"
+}
+
 editChangesLog() {
     message=${1}
     requireArgument 'message'
@@ -58,7 +63,7 @@ integrate() {
     echo -n "Merging into $(masterBranch)... "
     git merge --ff-only --squash ${workBranch} && ok || die
     echo -n "Committing... "
-    git commit -m "$(head -1 $(changesFile))"
+    git commit -m "$(change)"
     echo -n "Pushing $(masterBranch) with new code..."
     git push && ok || die
     echo -n "Deleting work branch on remote... "
@@ -70,7 +75,7 @@ integrate() {
 isIntegratable() {
     workBranch=$(currentBranch)
     echo -n "Verifying that branch ${workBranch} is a bugfix/feature branch: "
-    [[ ${workBranch} =~ (bugfix|feature)/.+ ]] && ok || die "${workBranch} is not a bugfix/feature branch"
+    isWorkBranch && ok || die "${workBranch} is not a bugfix/feature branch"
     echo -n "Verifying that branch ${workBranch} has no unstaged changes: "
     git diff-files --quiet && ok || die "Found unstaged changes."
     echo -n "Verifying that branch ${workBranch} has no staged changes: "
@@ -79,6 +84,10 @@ isIntegratable() {
     [ -z "$(git diff --summary FETCH_HEAD)" ] && ok || die "Local branch and remote diverges"
     echo -n "Verifying that branch ${workBranch} contains origin/$(masterBranch): "
     git branch --contains origin/$(masterBranch) | grep ${workBranch} > /dev/null && ok || die "No. Please run 'git merge origin/$(masterBranch)'."
+}
+
+isWorkBranch() {
+    [[ $(currentBranch) =~ (bugfix|feature)/.+ ]]
 }
 
 fetchMasterBranch() {
@@ -97,7 +106,11 @@ changesFile() {
     echo 'doc/Changes.txt'
 }
 
-publishBranch() {
+change() {
+    head -1 $(changesFile)
+}
+
+publish() {
     git push -u origin $(currentBranch)
 }
 

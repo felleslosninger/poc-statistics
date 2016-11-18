@@ -10,6 +10,8 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
+import java.time.ZonedDateTime;
+
 import static java.lang.String.format;
 import static springfox.documentation.builders.PathSelectors.any;
 import static springfox.documentation.builders.RequestHandlerSelectors.basePackage;
@@ -31,7 +33,8 @@ public class AppConfig {
     public Docket apiDocumentation() {
         return new Docket(DocumentationType.SWAGGER_2)
                 .groupName("statistikk-utdata")
-                    .select()
+                .directModelSubstitute(ZonedDateTime.class, java.util.Date.class)
+                .select()
                     .apis(basePackage(QueryRestController.class.getPackage().getName()))
                     .paths(any())
                     .build()
