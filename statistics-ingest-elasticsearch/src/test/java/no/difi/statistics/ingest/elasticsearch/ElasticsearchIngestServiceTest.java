@@ -37,6 +37,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -44,6 +45,7 @@ import static java.util.Collections.singletonList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Failed;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Ok;
+import static no.difi.statistics.test.utils.MockMvcRequests.request;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
@@ -52,6 +54,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 import static org.springframework.test.web.client.ExpectedCount.manyTimes;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Komponent- og (delvis) integrasjonstest av inndata-tjenesten. Integrasjon mot <code>elasticsearch</code>-tjenesten
@@ -124,10 +127,11 @@ public class ElasticsearchIngestServiceTest {
 
     @Test
     public void whenBulkIngestingPointsThenAllPointsAreIngested() throws InterruptedException, IOException {
-        List<TimeSeriesPoint> points = new ArrayList<>();
-        points.add(point().timestamp(now).measurement("aMeasurement", 10546L).build());
-        points.add(point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build());
-        points.add(point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build());
+        List<TimeSeriesPoint> points = newArrayList(
+            point().timestamp(now).measurement("aMeasurement", 10546L).build(),
+            point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build(),
+            point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build()
+        );
         ResponseEntity<IngestResponse> response = ingest("series", points.get(0), points.get(1), points.get(2));
         assertEquals(200, response.getStatusCodeValue());
         assertIngested(points, response.getBody());
@@ -150,9 +154,9 @@ public class ElasticsearchIngestServiceTest {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
         TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
         TimeSeriesPoint point2 = point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 567543L).build();
-        ResponseEntity<Void> response1 = ingest("minute", "series", point1);
-        ResponseEntity<Void> response2 = ingest("minute", "series", duplicateOfPoint1);
-        ResponseEntity<Void> response3 = ingest("minute", "series", point2);
+        ResponseEntity<Void> response1 = ingest("minutes", "series", point1);
+        ResponseEntity<Void> response2 = ingest("minutes", "series", duplicateOfPoint1);
+        ResponseEntity<Void> response3 = ingest("minutes", "series", point2);
         assertEquals(200, response1.getStatusCodeValue());
         assertEquals(409, response2.getStatusCodeValue());
         assertEquals(200, response3.getStatusCodeValue());
@@ -163,7 +167,8 @@ public class ElasticsearchIngestServiceTest {
     @Test
     public void whenIngestingAPointThenProperlyNamedIndexIsCreated() {
         final String series = "series";
-        ResponseEntity<Void> response = ingest("minute", owner, password, series, point().timestamp(now).measurement("aMeasurement", 103L).build());
+        ResponseEntity<Void> response =
+                ingest("minutes", owner, password, series, point().timestamp(now).measurement("aMeasurement", 103L).build());
         assertEquals(200, response.getStatusCodeValue());
         assertEquals(
                 format("%s:%s:minute%d.%02d.%02d", owner, series, now.getYear(), now.getMonthValue(), now.getDayOfMonth()),
@@ -177,14 +182,26 @@ public class ElasticsearchIngestServiceTest {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 105L).build();
         TimeSeriesPoint pointSameHourAsFirst = point().timestamp(now.plusMinutes(addMinute)).measurement("aMeasurement", 108L).build();
         TimeSeriesPoint pointNextHour = point().timestamp(now.plusHours(1)).measurement("aMeasurement", 115L).build();
-        ResponseEntity<Void> response1 = ingest("hour", "series", point1);
-        ResponseEntity<Void> response3 = ingest("hour", "series", pointSameHourAsFirst);
-        ResponseEntity<Void> response4 = ingest("hour", "series", pointNextHour);
+        ResponseEntity<Void> response1 = ingest("hours", "series", point1);
+        ResponseEntity<Void> response3 = ingest("hours", "series", pointSameHourAsFirst);
+        ResponseEntity<Void> response4 = ingest("hours", "series", pointNextHour);
         assertEquals(HttpStatus.OK.value(), response1.getStatusCodeValue());
         assertEquals(HttpStatus.CONFLICT.value(), response3.getStatusCodeValue());
         assertEquals(HttpStatus.OK.value(), response4.getStatusCodeValue());
         assertIngestedHour(point1);
         assertIngestedHour(pointNextHour);
+    }
+
+    @Test
+    public void givenASeriesWhenRequestingLastPointThenLastPointIsReturned() {
+        List<TimeSeriesPoint> points = newArrayList(
+                point().timestamp(now).measurement("aMeasurement", 10546L).build(),
+                point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build(),
+                point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build()
+        );
+        ingest("series", points.get(0), points.get(1), points.get(2));
+        TimeSeriesPoint lastPoint = last("series").getBody();
+        assertEquals(now.plusMinutes(2), lastPoint.getTimestamp());
     }
 
     private void assertIngested(List<TimeSeriesPoint> points, IngestResponse response) {
@@ -235,13 +252,14 @@ public class ElasticsearchIngestServiceTest {
         return ingest(uriPart, owner, password, series, point);
     }
 
-    private ResponseEntity<Void> ingest(String uriPart, String owner, String password, String series, TimeSeriesPoint point) {
+    private ResponseEntity<Void> ingest(String distance, String owner, String password, String series, TimeSeriesPoint point) {
         return restTemplate.postForEntity(
-                "/{owner}/{seriesName}/" + uriPart,
+                "/{owner}/{seriesName}/{distance}",
                 request(point, owner, password),
                 Void.class,
                 owner,
-                series
+                series,
+                distance
         );
     }
 
@@ -250,6 +268,15 @@ public class ElasticsearchIngestServiceTest {
                 "/{owner}/{seriesName}/minutes",
                 request(points, owner, password),
                 IngestResponse.class,
+                owner,
+                series
+        );
+    }
+
+    private ResponseEntity<TimeSeriesPoint> last(String series) {
+        return restTemplate.getForEntity(
+                "/{owner}/{seriesName}/minutes/last",
+                TimeSeriesPoint.class,
                 owner,
                 series
         );

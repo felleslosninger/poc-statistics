@@ -1,6 +1,8 @@
 package no.difi.statistics.ingest.api;
 
 import no.difi.statistics.ingest.IngestService;
+import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,38 +33,40 @@ public class IngestRestController {
     }
 
     @PostMapping(
-            value = "{owner}/{seriesName}/minute",
+            value = "{owner}/{seriesName}/{distance}",
+            params = "!bulk",
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
-    public void minute(
+    public void ingest(
             @PathVariable String owner,
             @PathVariable String seriesName,
+            @PathVariable MeasurementDistance distance,
             @RequestBody TimeSeriesPoint dataPoint
     ) {
-        ingestService.minute(seriesName, owner, dataPoint);
+        ingestService.ingest(TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner), dataPoint);
     }
 
     @PostMapping(
-            value = "{owner}/{seriesName}/minutes",
+            value = "{owner}/{seriesName}/{distance}",
+            params = "bulk",
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
-    public IngestResponse minutes(
+    public IngestResponse ingest(
             @PathVariable String owner,
             @PathVariable String seriesName,
+            @PathVariable MeasurementDistance distance,
             @RequestBody List<TimeSeriesPoint> dataPoints
     ) {
-        return ingestService.minutes(seriesName, owner, dataPoints);
+        return ingestService.ingest(TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner), dataPoints);
     }
 
-    @PostMapping(
-            value = "{owner}/{seriesName}/hour",
-            consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
-    )
-    public void hour(
+    @GetMapping("{owner}/{seriesName}/{distance}/last")
+    public TimeSeriesPoint last(
             @PathVariable String owner,
             @PathVariable String seriesName,
-            @RequestBody TimeSeriesPoint dataPoint
+            @PathVariable MeasurementDistance distance
     ) {
-        ingestService.hour(seriesName, owner, dataPoint);
+        return ingestService.last(TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner));
     }
+
 }

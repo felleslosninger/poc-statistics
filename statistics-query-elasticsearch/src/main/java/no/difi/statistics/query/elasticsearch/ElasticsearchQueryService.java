@@ -1,7 +1,7 @@
 package no.difi.statistics.query.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
-import no.difi.statistics.model.Measurement;
+import no.difi.statistics.elasticsearch.ResultParser;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
@@ -10,28 +10,16 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHitField;
-import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.range.Range;
-import org.elasticsearch.search.aggregations.bucket.range.date.DateRangeBuilder;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
-import org.elasticsearch.search.aggregations.metrics.sum.Sum;
-import org.elasticsearch.search.aggregations.metrics.tophits.InternalTopHits;
-import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
-import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,17 +28,17 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
+import static no.difi.statistics.elasticsearch.QueryBuilders.*;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.*;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
 
 public class ElasticsearchQueryService implements QueryService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private static final String timeFieldName = "timestamp";
-    private static final String defaultType = "default";
+    private static final String indexType = "default";
 
     private Client elasticSearchClient;
-    private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     public ElasticsearchQueryService(Client elasticSearchClient) {
         this.elasticSearchClient = elasticSearchClient;
@@ -175,11 +163,10 @@ public class ElasticsearchQueryService implements QueryService {
     private TimeSeriesPoint last(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .addAggregation(topHits("last_updated").setSize(1).addSort("timestamp", SortOrder.DESC))
+                .addAggregation(lastAggregation())
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
-        TopHits topHits = response.getAggregations().get("last_updated");
-        return point(topHits.getHits().getAt(0));
+        return ResultParser.pointFromLastAggregation(response);
     }
 
     private List<TimeSeriesPoint> search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
@@ -187,7 +174,7 @@ public class ElasticsearchQueryService implements QueryService {
             logger.debug(format(
                     "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
                     indexNames.stream().collect(joining(",\n  ")),
-                    defaultType,
+                    indexType,
                     from,
                     to
             ));
@@ -201,7 +188,7 @@ public class ElasticsearchQueryService implements QueryService {
             logger.debug("Search result:\n" + response);
         }
         for (SearchHit hit : response.getHits()) {
-            series.add(point(hit));
+            series.add(ResultParser.point(hit));
         }
         return series;
     }
@@ -209,7 +196,7 @@ public class ElasticsearchQueryService implements QueryService {
     private TimeSeriesPoint sumAggregate(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .addAggregation(dateRangeBuilder("a", from, to, measurementIds(indexNames)))
+                .addAggregation(dateRangeAggregation("a", from, to, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -218,7 +205,7 @@ public class ElasticsearchQueryService implements QueryService {
         if (response.getAggregations() == null)
             return null;
         Range range = response.getAggregations().get("a");
-        return point(range.getBuckets().get(0));
+        return ResultParser.point(range.getBuckets().get(0));
     }
 
     private List<TimeSeriesPoint> sumAggregatePerMonth(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
@@ -232,7 +219,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .addAggregation(sumHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
+                .addAggregation(sumHistogramAggregation("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -241,7 +228,7 @@ public class ElasticsearchQueryService implements QueryService {
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
             Histogram histogram = response.getAggregations().get("per_month");
-            series.addAll(histogram.getBuckets().stream().map(this::point).collect(toList()));
+            series.addAll(histogram.getBuckets().stream().map(ResultParser::point).collect(toList()));
         }
         return series;
     }
@@ -257,7 +244,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .addAggregation(sumHistogramBuilder("per_day", DateHistogramInterval.DAY, measurementIds(indexNames)))
+                .addAggregation(sumHistogramAggregation("per_day", DateHistogramInterval.DAY, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -266,7 +253,7 @@ public class ElasticsearchQueryService implements QueryService {
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
             Histogram histogram = response.getAggregations().get("per_day");
-            series.addAll(histogram.getBuckets().stream().map(this::point).collect(toList()));
+            series.addAll(histogram.getBuckets().stream().map(ResultParser::point).collect(toList()));
         }
         return series;
     }
@@ -282,7 +269,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .addAggregation(lastHistogramBuilder("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
+                .addAggregation(lastHistogramAggregation("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -291,7 +278,7 @@ public class ElasticsearchQueryService implements QueryService {
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
             Histogram histogram = response.getAggregations().get("per_month");
-            series.addAll(histogram.getBuckets().stream().map(this::point).collect(toList()));
+            series.addAll(histogram.getBuckets().stream().map(ResultParser::point).collect(toList()));
         }
         return series;
     }
@@ -301,7 +288,7 @@ public class ElasticsearchQueryService implements QueryService {
             logger.debug(format(
                     "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
                     indexNames.stream().collect(joining(",\n  ")),
-                    defaultType,
+                    indexType,
                     from,
                     to
             ));
@@ -316,7 +303,7 @@ public class ElasticsearchQueryService implements QueryService {
         List<TimeSeriesPoint> series = new ArrayList<>();
         logger.info("Search result:\n" + response);
         for (SearchHit hit : response.getHits()) {
-            series.add(point(hit));
+            series.add(ResultParser.point(hit));
         }
         return series;
     }
@@ -335,7 +322,7 @@ public class ElasticsearchQueryService implements QueryService {
                 .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
                 .addSort(timeFieldName, SortOrder.ASC)
                 .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                .setTypes(defaultType);
+                .setTypes(indexType);
     }
 
     private List<String> measurementIds(List<String> indexNames) {
@@ -343,93 +330,11 @@ public class ElasticsearchQueryService implements QueryService {
                 elasticSearchClient.admin().indices()
                         .prepareGetFieldMappings(indexNames.toArray(new String[indexNames.size()]))
                         .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                        .addTypes(defaultType)
+                        .addTypes(indexType)
                         .setFields("*")
-                        .get().mappings().entrySet().stream().findFirst().map(m -> m.getValue().get(defaultType)).orElse(ImmutableMap.of());
+                        .get().mappings().entrySet().stream().findFirst().map(m -> m.getValue().get(indexType)).orElse(ImmutableMap.of());
         return fieldMapping.keySet().stream().filter(f -> !f.equals("timestamp") && !f.startsWith("_")).collect(toList());
     }
 
-    private DateHistogramBuilder sumHistogramBuilder(String name, DateHistogramInterval interval, List<String> measurementIds) {
-        DateHistogramBuilder builder = dateHistogram(name).field("timestamp").interval(interval);
-        for (String measurementId : measurementIds)
-            builder.subAggregation(sum(measurementId).field(measurementId));
-        return builder;
-    }
-
-    private DateHistogramBuilder lastHistogramBuilder(String name, DateHistogramInterval interval, List<String> measurementIds) {
-        DateHistogramBuilder builder = dateHistogram(name).field("timestamp").interval(interval);
-        TopHitsBuilder topHitsBuilder = topHits(name).setSize(1).addSort("timestamp", SortOrder.DESC);
-        measurementIds.forEach(topHitsBuilder::addField);
-        return builder.subAggregation(topHitsBuilder);
-    }
-
-    private DateRangeBuilder dateRangeBuilder(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
-        DateRangeBuilder builder = dateRange(name).field(timeFieldName).addRange(formatTimestamp(from), formatTimestamp(to));
-        for (String measurementId : measurementIds)
-            builder.subAggregation(sum(measurementId).field(measurementId));
-        return builder;
-    }
-
-    private RangeQueryBuilder timeRangeQuery(ZonedDateTime from, ZonedDateTime to) {
-        RangeQueryBuilder builder = rangeQuery(timeFieldName);
-        if (from != null)
-            builder.from(dateTimeFormatter.format(from));
-        if (to != null)
-            builder.to(dateTimeFormatter.format(to));
-        return builder;
-    }
-
-    private TimeSeriesPoint point(SearchHit hit) {
-        return TimeSeriesPoint.builder().timestamp(time(hit)).measurements(measurements(hit)).build();
-    }
-
-    private TimeSeriesPoint point(Histogram.Bucket bucket) {
-        return point(bucket.getKeyAsString(), bucket);
-    }
-
-    private TimeSeriesPoint point(Range.Bucket bucket) {
-        return point(bucket.getFromAsString(), bucket);
-    }
-
-    private TimeSeriesPoint point(String timestamp, MultiBucketsAggregation.Bucket bucket) {
-        return TimeSeriesPoint.builder().timestamp(time(timestamp)).measurements(measurements(bucket.getAggregations())).build();
-    }
-
-    private ZonedDateTime time(SearchHit hit) {
-        return time(hit.getSource().get(timeFieldName).toString());
-    }
-
-    private ZonedDateTime time(String value) {
-        return ZonedDateTime.parse(value, dateTimeFormatter);
-    }
-
-    private List<Measurement> measurements(SearchHit hit) {
-        List<Measurement> measurements = new ArrayList<>();
-        hit.getSource().keySet().stream().filter(field -> !field.equals(timeFieldName)).forEach(field -> {
-            long value = Long.valueOf(hit.getSource().get(field).toString());
-            measurements.add(new Measurement(field, value));
-        });
-        return measurements;
-    }
-
-    private List<Measurement> measurements(Aggregations aggregations) {
-        List<Measurement> measurements = new ArrayList<>();
-        for (Aggregation agg : aggregations) {
-            if(agg instanceof Sum) {
-                measurements.add(new Measurement(agg.getName(), (long) ((Sum) agg).getValue()));
-            }else if(agg instanceof InternalTopHits){
-                Map<String, SearchHitField> fieldsMap = ((InternalTopHits) agg).getHits().getAt(0).fields();
-                for (String s : fieldsMap.keySet()) {
-                    Long value = (long) fieldsMap.get(s).getValues().get(0);
-                    measurements.add(new Measurement(s, value));
-                }
-            }
-        }
-        return measurements;
-    }
-
-    private String formatTimestamp(ZonedDateTime timestamp) {
-        return dateTimeFormatter.format(timestamp);
-    }
 
 }

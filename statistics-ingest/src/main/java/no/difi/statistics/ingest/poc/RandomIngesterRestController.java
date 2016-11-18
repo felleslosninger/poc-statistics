@@ -2,6 +2,8 @@ package no.difi.statistics.ingest.poc;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.Measurement;
+import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
@@ -9,6 +11,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.ZonedDateTime;
 import java.util.Random;
+
+import static no.difi.statistics.model.MeasurementDistance.minutes;
 
 @RestController
 public class RandomIngesterRestController {
@@ -33,9 +37,8 @@ public class RandomIngesterRestController {
     ) {
         Random random = new Random();
         for (ZonedDateTime t = from; t.isBefore(to); t = t.plusMinutes(1)) {
-            service.minute(
-                    seriesName,
-                    owner,
+            service.ingest(
+                    TimeSeriesDefinition.builder().name(seriesName).distance(minutes).owner(owner),
                     TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", random.nextLong())).build()
             );
         }

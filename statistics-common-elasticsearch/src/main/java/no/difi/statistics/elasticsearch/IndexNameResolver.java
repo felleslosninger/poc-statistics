@@ -1,5 +1,7 @@
 package no.difi.statistics.elasticsearch;
 
+import no.difi.statistics.model.MeasurementDistance;
+
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -10,33 +12,34 @@ import java.util.List;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.*;
 import static java.util.Collections.singletonList;
+import static no.difi.statistics.model.MeasurementDistance.*;
 
 public class IndexNameResolver {
 
     private String seriesName;
     private String owner;
-    private ChronoUnit measurementDistance;
+    private MeasurementDistance measurementDistance;
     private ChronoUnit baseTimeUnit;
     private ZonedDateTime from;
     private ZonedDateTime to;
     private ZonedDateTime at;
 
-    public static SeriesName resolveIndexName() {
+    public static SeriesNameEntry resolveIndexName() {
         return new Fluent();
     }
 
-    public interface From {
-        To from(ZonedDateTime from);
+    public interface FromEntry {
+        ToEntry from(ZonedDateTime from);
     }
 
-    public interface To {
+    public interface ToEntry {
         ResolveList to(ZonedDateTime to);
     }
 
-    public interface FromOrAtOrResolveList extends From, At, ResolveList {
+    public interface FromOrAtOrResolveList extends FromEntry, AtEntry, ResolveList {
     }
 
-    public interface At {
+    public interface AtEntry {
         ResolveSingle at(ZonedDateTime at);
     }
 
@@ -48,15 +51,16 @@ public class IndexNameResolver {
         String single();
     }
 
-    public interface SeriesName {
-        Owner seriesName(String seriesName);
+    public interface SeriesNameEntry {
+        OwnerEntry seriesName(String seriesName);
     }
 
-    public interface Owner {
-        Distance owner(String owner);
+    public interface OwnerEntry {
+        DistanceEntry owner(String owner);
     }
 
-    public interface Distance {
+    public interface DistanceEntry {
+        FromOrAtOrResolveList distance(MeasurementDistance distance);
         FromOrAtOrResolveList minutes();
         FromOrAtOrResolveList hours();
         FromOrAtOrResolveList days();
@@ -65,20 +69,20 @@ public class IndexNameResolver {
     }
 
     private static class Fluent implements
-            From,
-            To,
+            FromEntry,
+            ToEntry,
             FromOrAtOrResolveList,
-            At,
+            AtEntry,
             ResolveList,
             ResolveSingle,
-            Owner,
-            SeriesName,
-            Distance {
+            OwnerEntry,
+            SeriesNameEntry,
+            DistanceEntry {
 
         private IndexNameResolver instance = new IndexNameResolver();
 
         @Override
-        public To from(ZonedDateTime from) {
+        public ToEntry from(ZonedDateTime from) {
             instance.from = from;
             return this;
         }
@@ -96,49 +100,63 @@ public class IndexNameResolver {
         }
 
         @Override
-        public Owner seriesName(String seriesName) {
+        public OwnerEntry seriesName(String seriesName) {
             instance.seriesName = seriesName;
             return this;
         }
 
         @Override
-        public Distance owner(String organizationNumber) {
+        public DistanceEntry owner(String organizationNumber) {
             instance.owner = organizationNumber;
             return this;
         }
 
         @Override
+        public FromOrAtOrResolveList distance(MeasurementDistance distance) {
+            instance.measurementDistance = distance;
+            switch (distance) {
+                case minutes:
+                case hours:
+                    instance.baseTimeUnit = DAYS;
+                    break;
+                case days:
+                case months:
+                    instance.baseTimeUnit = YEARS;
+                    break;
+                case years:
+                    instance.baseTimeUnit = FOREVER;
+                    break;
+            }
+            return this;
+        }
+
+        @Override
         public FromOrAtOrResolveList minutes() {
-            instance.measurementDistance = MINUTES;
-            instance.baseTimeUnit = DAYS;
+            distance(minutes);
             return this;
         }
 
         @Override
         public FromOrAtOrResolveList hours() {
-            instance.measurementDistance = HOURS;
-            instance.baseTimeUnit = DAYS;
+            distance(hours);
             return this;
         }
 
         @Override
         public FromOrAtOrResolveList days() {
-            instance.measurementDistance = DAYS;
-            instance.baseTimeUnit = YEARS;
+            distance(days);
             return this;
         }
 
         @Override
         public FromOrAtOrResolveList months() {
-            instance.measurementDistance = MONTHS;
-            instance.baseTimeUnit = YEARS;
+            distance(months);
             return this;
         }
 
         @Override
         public FromOrAtOrResolveList years() {
-            instance.measurementDistance = YEARS;
-            instance.baseTimeUnit = FOREVER;
+            distance(years);
             return this;
         }
 
@@ -190,20 +208,20 @@ public class IndexNameResolver {
         return timestamp.truncatedTo(toUnit);
     }
 
-    private static String measurementDistanceName(ChronoUnit chronoUnit) {
-        switch (chronoUnit) {
-            case MINUTES:
+    private static String measurementDistanceName(MeasurementDistance distance) {
+        switch (distance) {
+            case minutes:
                 return "minute";
-            case HOURS:
+            case hours:
                 return "hour";
-            case DAYS:
+            case days:
                 return "day";
-            case MONTHS:
+            case months:
                 return "month";
-            case YEARS:
+            case years:
                 return "year";
         }
-        throw new IllegalArgumentException(chronoUnit.toString());
+        throw new IllegalArgumentException(distance.toString());
     }
 
     private static DateTimeFormatter dateTimeFormatter(ChronoUnit baseTimeUnit) {

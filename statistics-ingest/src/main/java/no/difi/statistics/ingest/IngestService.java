@@ -1,6 +1,7 @@
 package no.difi.statistics.ingest;
 
 import no.difi.statistics.ingest.api.IngestResponse;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 
 import java.util.List;
@@ -9,11 +10,11 @@ import static java.lang.String.format;
 
 public interface IngestService {
 
-    void minute(String timeSeriesName, String owner, TimeSeriesPoint dataPoint) throws TimeSeriesPointAlreadyExists;
+    void ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint dataPoint) throws TimeSeriesPointAlreadyExists;
 
-    IngestResponse minutes(String timeSeriesName, String owner, List<TimeSeriesPoint> dataPoints);
+    IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints);
 
-    IngestResponse hour(String timeSeriesName, String owner, TimeSeriesPoint dataPoint);
+    TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition);
 
     class TimeSeriesPointAlreadyExists extends RuntimeException {
 

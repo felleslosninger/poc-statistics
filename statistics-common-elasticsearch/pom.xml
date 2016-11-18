@@ -20,6 +20,15 @@
             <groupId>org.hamcrest</groupId>
             <artifactId>hamcrest-library</artifactId>
         </dependency>
+        <dependency>
+            <groupId>no.difi.statistics</groupId>
+            <artifactId>statistics-model</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

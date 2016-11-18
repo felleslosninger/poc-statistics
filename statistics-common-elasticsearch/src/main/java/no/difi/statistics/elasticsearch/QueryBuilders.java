@@ -1,0 +1,61 @@
+package no.difi.statistics.elasticsearch;
+
+import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.elasticsearch.search.aggregations.bucket.range.date.DateRangeBuilder;
+import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsBuilder;
+import org.elasticsearch.search.sort.SortOrder;
+
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.*;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.sum;
+
+public class QueryBuilders {
+
+    private static final String timestampField = "timestamp";
+    private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
+    public static RangeQueryBuilder timeRangeQuery(ZonedDateTime from, ZonedDateTime to) {
+        RangeQueryBuilder builder = rangeQuery(timestampField);
+        if (from != null)
+            builder.from(dateTimeFormatter.format(from));
+        if (to != null)
+            builder.to(dateTimeFormatter.format(to));
+        return builder;
+    }
+
+    public static DateHistogramBuilder sumHistogramAggregation(String name, DateHistogramInterval interval, List<String> measurementIds) {
+        DateHistogramBuilder builder = dateHistogram(name).field(timestampField).interval(interval);
+        for (String measurementId : measurementIds)
+            builder.subAggregation(sum(measurementId).field(measurementId));
+        return builder;
+    }
+
+    public static TopHitsBuilder lastAggregation() {
+        return topHits("last").setSize(1).addSort(timestampField, SortOrder.DESC);
+    }
+
+    public static DateHistogramBuilder lastHistogramAggregation(String name, DateHistogramInterval interval, List<String> measurementIds) {
+        DateHistogramBuilder builder = dateHistogram(name).field(timestampField).interval(interval);
+        TopHitsBuilder topHitsBuilder = topHits(name).setSize(1).addSort(timestampField, SortOrder.DESC);
+        measurementIds.forEach(topHitsBuilder::addField);
+        return builder.subAggregation(topHitsBuilder);
+    }
+
+    public static DateRangeBuilder dateRangeAggregation(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
+        DateRangeBuilder builder = dateRange(name).field(timestampField).addRange(formatTimestamp(from), formatTimestamp(to));
+        for (String measurementId : measurementIds)
+            builder.subAggregation(sum(measurementId).field(measurementId));
+        return builder;
+    }
+
+    private static String formatTimestamp(ZonedDateTime timestamp) {
+        return dateTimeFormatter.format(timestamp);
+    }
+
+}

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.ingest.config.AppConfig;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.junit.After;
 import org.junit.Before;
@@ -24,6 +25,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
+import static no.difi.statistics.model.MeasurementDistance.minutes;
 import static org.apache.tomcat.util.codec.binary.Base64.encodeBase64;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.Matchers.eq;
@@ -44,8 +46,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ContextConfiguration(classes = {AppConfig.class, MockBackendConfig.class})
 @AutoConfigureMockMvc
 public class IngestRestControllerTest {
-    public static final String URI_MINUTE = "/{owner}/{seriesName}/minute";
-    public static final String URI_HOUR = "/{owner}/{seriesName}/hour";
 
     @Autowired
     private RestTemplate authenticationRestTemplate;
@@ -79,9 +79,9 @@ public class IngestRestControllerTest {
         mockMvc.perform(
                 request()
                         .owner("anotherUser")
-                        .user("aUser")
                         .content(json(aPoint()))
-                        .build()
+                        .distance("minutes")
+                        .ingest()
         )
                 .andExpect(status().is(403));
     }
@@ -92,12 +92,15 @@ public class IngestRestControllerTest {
         TimeSeriesPoint timeSeriesPoint = aPoint();
         mockMvc.perform(
                 request()
-                        .series("aTimeSeries")
                         .content(json(timeSeriesPoint))
-                        .build()
+                        .distance("minutes")
+                        .ingest()
         )
                 .andExpect(status().is(200));
-        verify(service).minute(eq("aTimeSeries"), eq("aUser"), eq(timeSeriesPoint));
+        verify(service).ingest(
+                eq(TimeSeriesDefinition.builder().name("aTimeSeries").distance(minutes).owner("aUser")),
+                eq(timeSeriesPoint)
+        );
     }
 
     @Test
@@ -106,8 +109,8 @@ public class IngestRestControllerTest {
         mockMvc.perform(
                 request()
                         .content(json(aPoint()))
-                        .uri(URI_MINUTE)
-                        .build()
+                        .distance("minutes")
+                        .ingest()
         )
                 .andExpect(status().is(200));
     }
@@ -118,7 +121,8 @@ public class IngestRestControllerTest {
         mockMvc.perform(
                 request()
                         .content("invalidJson")
-                        .build()
+                        .distance("minutes")
+                        .ingest()
         )
                 .andExpect(status().is(400));
     }
@@ -128,24 +132,23 @@ public class IngestRestControllerTest {
         invalidCredentials("aUser", "wrongPassword");
         mockMvc.perform(
                 request()
-                        .owner("aUser")
-                        .user("aUser")
                         .password("wrongPassword")
                         .content(json(aPoint()))
-                        .build()
+                        .distance("minutes")
+                        .ingest()
         )
                 .andExpect(status().is(401));
     }
 
     @Test
+    public void whenRequestingLastPointInASeriesThenNoAuthenticationIsRequired() throws Exception {
+        mockMvc.perform(request().distance("minutes").last()).andExpect(status().is(200));
+    }
+
+    @Test
     public void whenSendingValidHourRequestThenExpectNormalResponse() throws Exception {
         validCredentials("aUser", "aPassword");
-        mockMvc.perform(
-                request()
-                        .content(json(aPoint()))
-                        .uri(URI_HOUR)
-                        .build()
-        )
+        mockMvc.perform(request().content(json(aPoint())).distance("hours").ingest())
                 .andExpect(status().is(HttpStatus.OK.value()));
     }
 
@@ -166,12 +169,7 @@ public class IngestRestControllerTest {
         private String user = "aUser";
         private String password = "aPassword";
         private String content;
-        private String uri = URI_MINUTE;
-
-        public RequestBuilder uri(String uri) {
-            this.uri = uri;
-            return this;
-        }
+        private String distance;
 
         RequestBuilder owner(String owner) {
             this.owner = owner;
@@ -198,16 +196,26 @@ public class IngestRestControllerTest {
             return this;
         }
 
+        RequestBuilder distance(String distance) {
+            this.distance = distance;
+            return this;
+        }
+
         private String authorizationHeader(String username, String password) {
             return "Basic " + new String(encodeBase64((username + ":" + password).getBytes()));
         }
 
-        MockHttpServletRequestBuilder build() {
-            return post("/{owner}/{seriesName}/minute", owner, series)
+        MockHttpServletRequestBuilder ingest() {
+            return post("/{owner}/{seriesName}/{distance}", owner, series, distance)
                     .contentType(MediaType.APPLICATION_JSON_UTF8)
                     .header("Authorization", authorizationHeader(user, password))
                     .content(content);
         }
+
+        MockHttpServletRequestBuilder last() {
+            return get("/{owner}/{seriesName}/{distance}/last", owner, series, distance);
+        }
+
     }
 
     private String json(TimeSeriesPoint timeSeriesPoint) throws Exception {

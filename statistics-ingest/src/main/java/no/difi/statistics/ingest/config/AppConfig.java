@@ -21,6 +21,8 @@ import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import static java.lang.String.format;
+import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.POST;
 import static springfox.documentation.builders.PathSelectors.any;
 import static springfox.documentation.builders.RequestHandlerSelectors.basePackage;
 
@@ -69,11 +71,13 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
                 // No authentication required for documentation paths used by Swagger
-                .antMatchers("/", "/swagger-ui.html", "/swagger-resources/**", "/v2/api-docs/**").permitAll()
+                .antMatchers(GET, "/", "/swagger-ui.html", "/swagger-resources/**", "/v2/api-docs/**").permitAll()
                 // No authentication required for health check path
-                .antMatchers("/health").permitAll()
+                .antMatchers(GET, "/health").permitAll()
                 // Authentication required for ingest methods. Username must be equal to owner of series.
-                .antMatchers("/{owner}/{seriesName}/**").access("#owner == authentication.name")
+                .antMatchers(POST, "/{owner}/{seriesName}/**").access("#owner == authentication.name")
+                // No authentication required for getting last point on a series
+                .antMatchers(GET, "/{owner}/{seriesName}/{distance}/last").permitAll()
                 .anyRequest().authenticated()
                 .and()
                 .httpBasic()
