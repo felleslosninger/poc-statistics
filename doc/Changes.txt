@@ -1,3 +1,4 @@
+bugfix/PBLEID-12929: Maven foreldre-pom inkluderer byggeplan for installering og utrulling
 feature/PBLEID-12865: Øyeblikksmåling på timesnivå
 feature/PBLEID-12860: API for å lagre passord
 bugfix/PBLEID-12905: Inkonsekvent navngiving av autentiseringstjenesten

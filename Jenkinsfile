@@ -73,7 +73,7 @@ boolean isQaBuild() {
 }
 
 boolean isQuickBuild() {
-    return env.BRANCH_NAME.matches(/feature\/(\w+-\w+)/)
+    return env.BRANCH_NAME.matches(/(feature|bugfix)\/(\w+-\w+)/)
 }
 
 String readCommitId() {
