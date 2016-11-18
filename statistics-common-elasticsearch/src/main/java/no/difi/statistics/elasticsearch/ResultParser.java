@@ -30,7 +30,8 @@ public class ResultParser {
     }
 
     public static TimeSeriesPoint pointFromLastAggregation(SearchResponse response) {
-        return point(response.getAggregations().<TopHits>get("last").getHits().getAt(0));
+        return response.getAggregations() != null ?
+            point(response.getAggregations().<TopHits>get("last").getHits().getAt(0)) : null;
     }
 
     public static TimeSeriesPoint point(Histogram.Bucket bucket) {

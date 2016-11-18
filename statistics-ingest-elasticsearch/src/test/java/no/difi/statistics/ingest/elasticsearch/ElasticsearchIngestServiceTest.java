@@ -28,11 +28,8 @@ import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.UnknownHostException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -45,16 +42,15 @@ import static java.util.Collections.singletonList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Failed;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Ok;
-import static no.difi.statistics.test.utils.MockMvcRequests.request;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 import static org.springframework.test.web.client.ExpectedCount.manyTimes;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Komponent- og (delvis) integrasjonstest av inndata-tjenesten. Integrasjon mot <code>elasticsearch</code>-tjenesten
@@ -200,8 +196,14 @@ public class ElasticsearchIngestServiceTest {
                 point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build()
         );
         ingest("series", points.get(0), points.get(1), points.get(2));
+        elasticsearchHelper.refresh();
         TimeSeriesPoint lastPoint = last("series").getBody();
         assertEquals(now.plusMinutes(2), lastPoint.getTimestamp());
+    }
+
+    @Test
+    public void givenNoSeriesWhenRequestingLastPointThenNothingIsReturned() {
+        assertNull(last("series").getBody());
     }
 
     private void assertIngested(List<TimeSeriesPoint> points, IngestResponse response) {
@@ -265,7 +267,7 @@ public class ElasticsearchIngestServiceTest {
 
     private ResponseEntity<IngestResponse> ingest(String series, TimeSeriesPoint...points) {
         return restTemplate.postForEntity(
-                "/{owner}/{seriesName}/minutes",
+                "/{owner}/{seriesName}/minutes?bulk",
                 request(points, owner, password),
                 IngestResponse.class,
                 owner,

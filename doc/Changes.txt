@@ -1,3 +1,4 @@
+bugfix/PBLEID-12954: Bygget feiler pga. feilende tester
 feature/PBLEID-12870: Hent siste punkt med inndata-APIet
 bugfix/PBLEID-12929: Maven foreldre-pom inkluderer byggeplan for installering og utrulling
 feature/PBLEID-12865: Øyeblikksmåling på timesnivå
