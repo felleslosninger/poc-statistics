@@ -77,13 +77,17 @@ isIntegratable() {
     echo -n "Verifying that branch ${workBranch} is a bugfix/feature branch: "
     isWorkBranch && ok || die "${workBranch} is not a bugfix/feature branch"
     echo -n "Verifying that branch ${workBranch} has no unstaged changes: "
-    git diff-files --quiet && ok || die "Found unstaged changes."
+    git diff-files --quiet -- && ok || die "Found unstaged changes."
     echo -n "Verifying that branch ${workBranch} has no staged changes: "
     git diff-index --quiet --cached HEAD && ok || die "Found staged changes."
     echo -n "Verifying that branch ${workBranch} is synchronized with remote branch: "
-    [ -z "$(git diff --summary FETCH_HEAD)" ] && ok || die "Local branch and remote diverges"
+    isSynchronizedWithRemote && ok || die "Local branch and remote diverges"
     echo -n "Verifying that branch ${workBranch} contains origin/$(masterBranch): "
     git branch --contains origin/$(masterBranch) | grep ${workBranch} > /dev/null && ok || die "No. Please run 'git merge origin/$(masterBranch)'."
+}
+
+isSynchronizedWithRemote() {
+    [[ -z $(git --no-pager diff origin/$(currentBranch)) ]]
 }
 
 isWorkBranch() {

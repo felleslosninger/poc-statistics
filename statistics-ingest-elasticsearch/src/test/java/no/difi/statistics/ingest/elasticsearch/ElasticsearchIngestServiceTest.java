@@ -6,6 +6,8 @@ import no.difi.statistics.ingest.elasticsearch.config.ElasticsearchConfig;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
 import org.elasticsearch.client.Client;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -28,8 +30,9 @@ import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.IOException;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -37,6 +40,7 @@ import java.util.concurrent.ExecutionException;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.time.format.DateTimeFormatter.ofPattern;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Collections.singletonList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
@@ -79,7 +83,7 @@ public class ElasticsearchIngestServiceTest {
 
     }
 
-    private final ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
+    private final ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneOffset.UTC);
     private static GenericContainer backend;
 
     @Autowired
@@ -189,7 +193,7 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @Test
-    public void givenASeriesWhenRequestingLastPointThenLastPointIsReturned() {
+    public void givenASeriesWhenRequestingLastPointThenLastPointIsReturned() throws JSONException {
         List<TimeSeriesPoint> points = newArrayList(
                 point().timestamp(now).measurement("aMeasurement", 10546L).build(),
                 point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build(),
@@ -197,8 +201,8 @@ public class ElasticsearchIngestServiceTest {
         );
         ingest("series", points.get(0), points.get(1), points.get(2));
         elasticsearchHelper.refresh();
-        TimeSeriesPoint lastPoint = last("series").getBody();
-        assertEquals(now.plusMinutes(2), lastPoint.getTimestamp());
+        JSONObject lastPoint = new JSONObject(last("series").getBody());
+        assertEquals(now.plusMinutes(2).format(ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")), lastPoint.get("timestamp"));
     }
 
     @Test
@@ -275,10 +279,10 @@ public class ElasticsearchIngestServiceTest {
         );
     }
 
-    private ResponseEntity<TimeSeriesPoint> last(String series) {
+    private ResponseEntity<String> last(String series) {
         return restTemplate.getForEntity(
                 "/{owner}/{seriesName}/minutes/last",
-                TimeSeriesPoint.class,
+                String.class,
                 owner,
                 series
         );

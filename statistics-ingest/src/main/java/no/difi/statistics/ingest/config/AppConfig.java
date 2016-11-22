@@ -74,9 +74,9 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
                 // No authentication required for documentation paths used by Swagger
-                .antMatchers(GET, "/", "/swagger-ui.html", "/swagger-resources/**", "/v2/api-docs/**").permitAll()
-                // No authentication required for health check path
-                .antMatchers(GET, "/health").permitAll()
+                .antMatchers(GET, "/", "/swagger-ui.html", "/swagger-resources/**", "/v2/api-docs/**", "/webjars/**").permitAll()
+                // No authentication required for health check path or env
+                .antMatchers(GET, "/health", "/env/**").permitAll()
                 // Authentication required for ingest methods. Username must be equal to owner of series.
                 .antMatchers(POST, "/{owner}/{seriesName}/**").access("#owner == authentication.name")
                 // No authentication required for getting last point on a series
