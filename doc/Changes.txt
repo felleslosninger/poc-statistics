@@ -1,3 +1,4 @@
+feature/PBLEID-12748: Endret rekkefølge på URL-elementer i utdata-APIet
 bugfix/PBLEID-12993: Feil format på tidssempel i inndata-APIet sine 'hent siste punkt'-operasjoner
 feature/PBLEID-12875: Mer relevant eksempel i API-dokumentasjon (bedre håndtering av tidsstempel)
 bugfix/PBLEID-12954: Bygget feiler pga. feilende tester

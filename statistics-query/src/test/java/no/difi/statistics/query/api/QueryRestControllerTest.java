@@ -6,7 +6,6 @@ import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.config.BackendConfig;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +51,7 @@ public class QueryRestControllerTest {
         final String from = "2013-10-12T12:13:13.123+02:00";
         final String to = "2013-10-12T13:13:13.123+02:00";
         ResultActions result = mockMvc.perform(
-                get("/minutes/{owner}/{seriesName}/last", aSeriesOwner() ,timeSeries)
+                get("/{owner}/{seriesName}/minutes/last", aSeriesOwner() ,timeSeries)
                         .param("from", from)
                         .param("to", to)
                         .contentType(MediaType.APPLICATION_JSON_UTF8)
@@ -64,7 +63,7 @@ public class QueryRestControllerTest {
     @Test
     public void whenAskingForSeriesNamesThenServiceReceivesCorrespondingRequest() throws Exception {
         ResultActions result = mockMvc.perform(
-                get("/minutes/{owner}", aSeriesOwner())
+                get("/{owner}/minutes", aSeriesOwner())
                         .contentType(MediaType.APPLICATION_JSON_UTF8)
         );
         assertNormalResponse(result);
@@ -79,7 +78,7 @@ public class QueryRestControllerTest {
         TimeSeriesFilter filter = new TimeSeriesFilter(3, "anId");
         ResultActions result;
         result = mockMvc.perform(
-                post("/minutes/{owner}/{series}", aSeriesOwner(), timeSeries)
+                post("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries)
                         .param("from", from)
                         .param("to", to)
                         .content(json(filter))
@@ -96,10 +95,9 @@ public class QueryRestControllerTest {
     }
 
     @Test
-    @Ignore
     public void whenSendingRequestWithoutFromAndToThenExpectNormalResponseAndNoRangeInServiceCall() throws Exception {
         final String timeSeries = "test";
-        ResultActions result = mockMvc.perform(get("/minutes/{owner}/{series}", aSeriesOwner(), timeSeries));
+        ResultActions result = mockMvc.perform(get("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries));
         assertNormalResponse(result);
         verify(backendConfig.queryService()).minutes(
                 timeSeries,
@@ -110,11 +108,10 @@ public class QueryRestControllerTest {
     }
 
     @Test
-    @Ignore
     public void whenSendingRequestWithoutFromThenExpectNormalResponseAndLeftOpenRangeInServiceCall() throws Exception {
         final String endTime = "2013-10-12T13:13:13.123+02:00";
         final String timeSeries = "test";
-        ResultActions result = mockMvc.perform(get("/minutes/{owner}/{series}", aSeriesOwner(), timeSeries).param("to", endTime));
+        ResultActions result = mockMvc.perform(get("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries).param("to", endTime));
         assertNormalResponse(result);
         verify(backendConfig.queryService()).minutes(
                 timeSeries,
@@ -125,11 +122,10 @@ public class QueryRestControllerTest {
     }
 
     @Test
-    @Ignore
     public void whenSendingRequestWithoutToThenExpectNormalResponseAndRightOpenRangeInServiceCall() throws Exception {
         final String startTime = "2013-10-12T13:13:13.123+02:00";
         final String timeSeries = "test";
-        ResultActions result = mockMvc.perform(get("/minutes/{owner}/{series}", aSeriesOwner(), timeSeries).param("from", startTime));
+        ResultActions result = mockMvc.perform(get("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries).param("from", startTime));
         assertNormalResponse(result);
         verify(backendConfig.queryService()).minutes(
                 timeSeries,

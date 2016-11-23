@@ -1,5 +1,7 @@
 package no.difi.statistics;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import no.difi.statistics.elasticsearch.IndexNameResolver;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
@@ -17,9 +19,9 @@ import org.springframework.boot.test.util.EnvironmentTestUtils;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.testcontainers.containers.GenericContainer;
@@ -75,6 +77,8 @@ public class ElasticsearchQueryServiceTest {
     @Autowired
     private TestRestTemplate restTemplate;
     private ElasticsearchHelper elasticsearchHelper;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Before
     public void prepare() throws Exception {
@@ -451,167 +455,193 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(now.truncatedTo(DAYS).toInstant(), resultingPoint.getTimestamp().toInstant());
     }
 
-    private List<String> availableTimeSeries(String owner){
-        return restTemplate.exchange(
-                "/minutes/{owner}",
+    private List<String> availableTimeSeries(String owner) throws IOException {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/minutes",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<String>>(){},
+                String.class,
                 owner
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<String>>(){}).readValue(response.getBody());
     }
 
-    private TimeSeriesPoint last(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to){
-        return restTemplate.exchange(
-                "/minutes/{owner}/{seriesName}/last?from={from}&to={to}",
+    private TimeSeriesPoint last(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) throws IOException {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/minutes/last?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
-                TimeSeriesPoint.class,
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(TimeSeriesPoint.class).readValue(response.getBody());
     }
 
-    private TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return restTemplate.exchange(
-                "/point/{owner}/{seriesName}?from={from}&to={to}",
+    private TimeSeriesPoint point(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/point?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
-                TimeSeriesPoint.class,
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(TimeSeriesPoint.class).readValue(response.getBody());
     }
 
-    private List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) {
-        return restTemplate.exchange(
-                "/minutes/{owner}/{seriesName}?from={from}&to={to}",
+    private List<TimeSeriesPoint> minutes(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/minutes?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
-    private List<TimeSeriesPoint> minutesTo(String seriesName, ZonedDateTime to) {
-        return restTemplate.exchange(
-                "/minutes/{owner}/{seriesName}?to={to}",
+    private List<TimeSeriesPoint> minutesTo(String seriesName, ZonedDateTime to) throws IOException {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/minutes?to={to}",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
-    private List<TimeSeriesPoint> minutesFrom(String seriesName, ZonedDateTime from) {
-        return restTemplate.exchange(
-                "/minutes/{owner}/{seriesName}?from={from}",
+    private List<TimeSeriesPoint> minutesFrom(String seriesName, ZonedDateTime from) throws IOException {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/minutes?from={from}",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
-    private List<TimeSeriesPoint> minutes(String seriesName) {
-        return restTemplate.exchange(
-                "/minutes/{owner}/{seriesName}",
+    private List<TimeSeriesPoint> minutes(String seriesName) throws IOException {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/minutes",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
     private List<TimeSeriesPoint> hours(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        return restTemplate.exchange(
-                "/hours/{owner}/{seriesName}?from={from}&to={to}",
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/hours?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
     private List<TimeSeriesPoint> days(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        return restTemplate.exchange(
-                "/days/{owner}/{seriesName}?from={from}&to={to}",
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/days?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
     private List<TimeSeriesPoint> months(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        return restTemplate.exchange(
-                "/months/{owner}/{seriesName}?from={from}&to={to}",
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/months?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
     private List<TimeSeriesPoint> lastInMonth(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        return restTemplate.exchange(
-                "/months/{owner}/{seriesName}/last?from={from}&to={to}",
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/months/last?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
     private List<TimeSeriesPoint> years(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        return restTemplate.exchange(
-                "/years/{owner}/{seriesName}?from={from}&to={to}",
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/years?from={from}&to={to}",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
 
     private List<TimeSeriesPoint> minutesAbovePercentile(int percentile, String measurementId, String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        return restTemplate.exchange(
-                "/minutes/{owner}/{seriesName}?from={from}&to={to}",
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/{owner}/{seriesName}/minutes?from={from}&to={to}",
                 HttpMethod.POST,
                 new HttpEntity<>(new TimeSeriesFilter(percentile, measurementId)),
-                new ParameterizedTypeReference<List<TimeSeriesPoint>>(){},
+                String.class,
                 owner,
                 seriesName,
                 formatTimestamp(from),
                 formatTimestamp(to)
-        ).getBody();
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
     private void indexMinutePoints(List<TimeSeriesPoint> minutePoints) throws IOException {

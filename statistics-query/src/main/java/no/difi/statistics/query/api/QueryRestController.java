@@ -1,5 +1,6 @@
 package no.difi.statistics.query.api;
 
+import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
@@ -25,14 +26,14 @@ public class QueryRestController {
         return new RedirectView("swagger-ui.html");
     }
 
-    @GetMapping("minutes/{owner}")
+    @GetMapping("{owner}/minutes")
     public List<String> timeSeries(
         @PathVariable String owner)
     {
         return service.availableTimeSeries(owner);
     }
 
-    @GetMapping("minutes/{owner}/{seriesName}/last")
+    @GetMapping("{owner}/{seriesName}/minutes/last")
     public TimeSeriesPoint last(
             @PathVariable String owner,
             @PathVariable String seriesName,
@@ -43,17 +44,25 @@ public class QueryRestController {
         return service.last(seriesName, owner, from, to);
     }
 
-    @GetMapping("minutes/{owner}/{seriesName}")
-    public List<TimeSeriesPoint> minutes(
+    @GetMapping("{owner}/{seriesName}/{distance}")
+    public List<TimeSeriesPoint> query(
             @PathVariable String owner,
             @PathVariable String seriesName,
+            @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.minutes(seriesName, owner, from, to);
+        switch (distance) {
+            case minutes: return service.minutes(seriesName, owner, from, to);
+            case hours: return service.hours(seriesName, owner, from, to);
+            case days: return service.days(seriesName, owner, from, to);
+            case months: return service.months(seriesName, owner, from, to);
+            case years: return service.years(seriesName, owner, from, to);
+            default: throw new IllegalArgumentException(distance.toString());
+        }
     }
 
-    @PostMapping("minutes/{owner}/{seriesName}")
+    @PostMapping("{owner}/{seriesName}/minutes")
     public List<TimeSeriesPoint> minutesAbovePercentile(
             @PathVariable String owner,
             @PathVariable String seriesName,
@@ -64,37 +73,7 @@ public class QueryRestController {
         return service.minutes(seriesName, owner, from, to, filter);
     }
 
-    @GetMapping("hours/{owner}/{seriesName}")
-    public List<TimeSeriesPoint> hours(
-            @PathVariable String owner,
-            @PathVariable String seriesName,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
-    ) {
-        return service.hours(seriesName, owner, from, to);
-    }
-
-    @GetMapping("days/{owner}/{seriesName}")
-    public List<TimeSeriesPoint> days(
-            @PathVariable String owner,
-            @PathVariable String seriesName,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
-    ) {
-        return service.days(seriesName, owner, from, to);
-    }
-
-    @GetMapping("months/{owner}/{seriesName}")
-    public List<TimeSeriesPoint> months(
-            @PathVariable String owner,
-            @PathVariable String seriesName,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
-    ) {
-        return service.months(seriesName, owner, from, to);
-    }
-
-    @GetMapping("months/{owner}/{seriesName}/last")
+    @GetMapping("{owner}/{seriesName}/months/last")
     public List<TimeSeriesPoint> lastInMonths(
             @PathVariable String owner,
             @PathVariable String seriesName,
@@ -104,17 +83,7 @@ public class QueryRestController {
         return service.lastInMonths(seriesName, owner, from, to);
     }
 
-    @GetMapping("years/{owner}/{seriesName}")
-    public List<TimeSeriesPoint> years(
-            @PathVariable String owner,
-            @PathVariable String seriesName,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
-    ) {
-        return service.years(seriesName, owner, from, to);
-    }
-
-    @GetMapping("point/{owner}/{seriesName}")
+    @GetMapping("{owner}/{seriesName}/point")
     public TimeSeriesPoint point(
             @PathVariable String owner,
             @PathVariable String seriesName,
