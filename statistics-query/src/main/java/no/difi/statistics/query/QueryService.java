@@ -1,5 +1,6 @@
 package no.difi.statistics.query;
 
+import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 
@@ -26,6 +27,6 @@ public interface QueryService {
 
     List<TimeSeriesPoint> years(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 
-    TimeSeriesPoint point(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
+    TimeSeriesPoint sum(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to);
 
 }

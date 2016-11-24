@@ -2,6 +2,7 @@ package no.difi.statistics.query.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
 import no.difi.statistics.elasticsearch.ResultParser;
+import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
@@ -145,9 +146,9 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public TimeSeriesPoint point(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+    public TimeSeriesPoint sum(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to) {
         return sumAggregate(
-                resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
                 from, to
         );
     }

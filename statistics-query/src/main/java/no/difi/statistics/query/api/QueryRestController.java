@@ -83,14 +83,15 @@ public class QueryRestController {
         return service.lastInMonths(seriesName, owner, from, to);
     }
 
-    @GetMapping("{owner}/{seriesName}/point")
-    public TimeSeriesPoint point(
+    @GetMapping("{owner}/{seriesName}/{distance}/sum")
+    public TimeSeriesPoint sum(
             @PathVariable String owner,
             @PathVariable String seriesName,
+            @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.point(seriesName, owner, from, to);
+        return service.sum(seriesName, distance, owner, from, to);
     }
 
 }

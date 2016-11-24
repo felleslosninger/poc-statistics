@@ -2,6 +2,7 @@ package no.difi.statistics.test.utils;
 
 import com.tdunning.math.stats.TDigest;
 import no.difi.statistics.model.Measurement;
+import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesPoint;
 
 import java.io.IOException;
@@ -13,6 +14,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static java.time.temporal.ChronoUnit.*;
+import static java.time.temporal.ChronoUnit.YEARS;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
@@ -31,6 +34,10 @@ public class DataOperations {
         return timeSeries.get(i).getTimestamp();
     }
 
+    public static long value(int index, String measurementId, List<TimeSeriesPoint> timeSeriesPoints){
+        return timeSeriesPoints.get(index).getMeasurement(measurementId).map(Measurement::getValue).get();
+    }
+
     public static ZonedDateTime truncate(ZonedDateTime timestamp, ChronoUnit toUnit) {
         switch (toUnit) {
             case YEARS:
@@ -41,6 +48,17 @@ public class DataOperations {
                 return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), timestamp.getDayOfMonth(), 0, 0, 0, 0, timestamp.getZone());
         }
         return timestamp.truncatedTo(toUnit);
+    }
+
+    public static ChronoUnit unit(MeasurementDistance distance) {
+        switch (distance) {
+            case minutes: return MINUTES;
+            case hours: return HOURS;
+            case days: return DAYS;
+            case months: return MONTHS;
+            case years: return YEARS;
+            default: throw new IllegalArgumentException(distance.toString());
+        }
     }
 
     public static int percentileIndex(int percent, int dataSize) {
