@@ -1,5 +1,8 @@
 package no.difi.statistics.test.utils;
 
+import no.difi.statistics.model.Measurement;
+import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.TimeSeriesPoint;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -7,6 +10,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
@@ -16,12 +20,16 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static java.lang.String.format;
+import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
+import static no.difi.statistics.test.utils.DataOperations.unit;
 import static org.elasticsearch.cluster.health.ClusterHealthStatus.GREEN;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 
 public class ElasticsearchHelper {
@@ -29,6 +37,9 @@ public class ElasticsearchHelper {
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
     private static final String timeFieldName = "timestamp";
     private static final String defaultType = "default";
+    private final static String aMeasurementId = "count";
+    private final static String aSeries = "test";
+    private final static String anOwner = "test_owner"; // Index names must be lower case in Elasticsearch
 
     private Client client;
     private URL refreshUrl;
@@ -71,6 +82,42 @@ public class ElasticsearchHelper {
                 .get();
     }
 
+    public void indexPoints(MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
+        for (TimeSeriesPoint point : points)
+            indexPoint(indexNameForSeries(aSeries, distance, point.getTimestamp()), point);
+    }
+
+    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, MeasurementDistance distance, long... values) throws IOException {
+        List<TimeSeriesPoint> points = new ArrayList<>(values.length);
+        for (long value : values) {
+            points.add(indexPoint(indexNameForSeries(aSeries, distance, timestamp), timestamp, value));
+            timestamp = timestamp.plus(1, unit(distance));
+        }
+        return points;
+    }
+
+    public TimeSeriesPoint indexPoint(String seriesName, MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
+        return indexPoint(indexNameForSeries(seriesName, distance, timestamp), timestamp, value);
+    }
+
+    public TimeSeriesPoint indexPoint(MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
+        return indexPoint(aSeries, distance, timestamp, value);
+    }
+
+    private void indexPoint(String indexName, TimeSeriesPoint point) throws IOException {
+        XContentBuilder sourceBuilder = jsonBuilder().startObject()
+                .field("timestamp", formatTimestamp(point.getTimestamp()));
+        for (Measurement measurement : point.getMeasurements())
+            sourceBuilder.field(measurement.getId(), measurement.getValue());
+        index(indexName, "default", sourceBuilder.endObject().string());
+    }
+
+    private TimeSeriesPoint indexPoint(String indexName, ZonedDateTime timestamp, long value) throws IOException {
+        TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
+        indexPoint(indexName, point);
+        return point;
+    }
+
     public SearchResponse search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         return searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
@@ -111,6 +158,14 @@ public class ElasticsearchHelper {
         if (to != null)
             builder.to(dateTimeFormatter.format(to));
         return builder;
+    }
+
+    private String indexNameForSeries(String baseName, MeasurementDistance distance, ZonedDateTime timestamp) {
+        return resolveIndexName().seriesName(baseName).owner(anOwner).distance(distance).at(timestamp).single();
+    }
+
+    private String formatTimestamp(ZonedDateTime timestamp) {
+        return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(timestamp);
     }
 
 }

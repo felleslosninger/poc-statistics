@@ -154,9 +154,9 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public TimeSeriesPoint last(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
+    public TimeSeriesPoint last(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to) {
         return last(
-                resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
                 from, to
         );
     }

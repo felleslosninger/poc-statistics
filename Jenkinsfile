@@ -13,13 +13,13 @@ stage('Build') {
         env.commitId = readCommitId()
         env.commitMessage = readCommitMessage()
         stash includes: 'pipeline/*', name: 'pipeline'
-        currentBuild.description = "Commit: ${env.commitId}"
+        currentBuild.description = "Commit: " + env.commitId.take(6) + "\n" + "Feature: " + readChange();
         if (isDeployBuild()) {
-            currentBuild.displayName = "#${currentBuild.number}: Deploy build for version ${version}"
-            sh "pipeline/build.sh deliver ${version}"
+            currentBuild.displayName = "#${currentBuild.number}: Deploy build: version ${version}"
+            deliver(version)
         } else if (isQaBuild()) {
-            currentBuild.displayName = "#${currentBuild.number}: QA build for version ${version}"
-            sh "pipeline/build.sh deliver ${version}"
+            currentBuild.displayName = "#${currentBuild.number}: QA build: version ${version}"
+            deliver(version)
         } else if (isQuickBuild()) {
             currentBuild.displayName = "#${currentBuild.number}: Quick build"
             sh "pipeline/build.sh verify"
@@ -74,6 +74,18 @@ boolean isQaBuild() {
 
 boolean isQuickBuild() {
     return env.BRANCH_NAME.matches(/(feature|bugfix)\/(\w+-\w+)/)
+}
+
+void deliver(String version) {
+    sh(script: "pipeline/build.sh deliver ${version}")
+}
+
+void verify() {
+    sh(script: "pipeline/build.sh verify")
+}
+
+String readChange() {
+    return sh(returnStdout: true, script: 'pipeline/branch.sh change').trim()
 }
 
 String readCommitId() {

@@ -21,6 +21,7 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
+import static no.difi.statistics.model.MeasurementDistance.minutes;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -57,7 +58,7 @@ public class QueryRestControllerTest {
                         .contentType(MediaType.APPLICATION_JSON_UTF8)
         );
         assertNormalResponse(result);
-        verify(backendConfig.queryService()).last(timeSeries, aSeriesOwner(), parseTimestamp(from), parseTimestamp(to));
+        verify(backendConfig.queryService()).last(timeSeries, minutes, aSeriesOwner(), parseTimestamp(from), parseTimestamp(to));
     }
 
     @Test

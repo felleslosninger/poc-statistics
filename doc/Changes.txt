@@ -1,3 +1,4 @@
+feature/PBLEID-12751: Tidsintervall på operasjoner for å hente ut siste punkt skal ikke være påkrevd
 feature/PBLEID-12749: Intuitive navn på operasjoner for uthenting av sum
 feature/PBLEID-12748: Endret rekkefølge på URL-elementer i utdata-APIet
 bugfix/PBLEID-12993: Feil format på tidssempel i inndata-APIet sine 'hent siste punkt'-operasjoner

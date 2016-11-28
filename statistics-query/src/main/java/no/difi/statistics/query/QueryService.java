@@ -11,7 +11,7 @@ public interface QueryService {
 
     List<String> availableTimeSeries(String owner);
 
-    TimeSeriesPoint last(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
+    TimeSeriesPoint last(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to);
 
     List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 
