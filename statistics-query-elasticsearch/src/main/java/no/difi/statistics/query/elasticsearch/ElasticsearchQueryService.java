@@ -3,6 +3,7 @@ package no.difi.statistics.query.elasticsearch;
 import com.google.common.collect.ImmutableMap;
 import no.difi.statistics.elasticsearch.ResultParser;
 import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
@@ -11,6 +12,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
@@ -74,9 +76,9 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+    public List<TimeSeriesPoint> query(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
         return searchWithPercentileFilter(
-                resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
                 from, to, filter
         );
     }
@@ -298,7 +300,7 @@ public class ElasticsearchQueryService implements QueryService {
         logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .setPostFilter(rangeQuery(filter.getMeasurementId()).gt(percentileValue))
+                .setPostFilter(range(filter.getMeasurementId(), filter.getRelationalOperator(), percentileValue))
                 .setSize(10_000) // 10 000 is maximum
                 .execute().actionGet();
         List<TimeSeriesPoint> series = new ArrayList<>();
@@ -309,12 +311,30 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
+    private RangeQueryBuilder range(String measurementId, RelationalOperator operator, double percentileValue) {
+        RangeQueryBuilder builder = rangeQuery(measurementId);
+        switch (operator) {
+            case gt:
+            case gte:
+                builder.gt((long)percentileValue);
+                break;
+            case lt:
+            case lte:
+                builder.lt((long)percentileValue + 1);
+                break;
+            default: throw new IllegalArgumentException(operator.toString());
+        }
+        return builder;
+    }
+
     private double percentileValue(List<String> indexNames, String measurementId, int percentile, ZonedDateTime from, ZonedDateTime to) {
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
                 .setSize(0) // We are after aggregation and not the search hits
                 .addAggregation(percentiles("p").field(measurementId).percentiles(percentile).compression(10000))
                 .execute().actionGet();
+        if (response.getAggregations() == null)
+            return 0.0;
         return ((Percentiles)response.getAggregations().get("p")).percentile(percentile);
     }
 

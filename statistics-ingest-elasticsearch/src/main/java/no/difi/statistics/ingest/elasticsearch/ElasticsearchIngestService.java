@@ -22,16 +22,13 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.List;
 
-import static java.time.ZoneOffset.UTC;
-import static java.time.temporal.ChronoUnit.*;
-import static java.util.Arrays.stream;
+import static no.difi.statistics.elasticsearch.IdResolver.id;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.elasticsearch.QueryBuilders.lastAggregation;
 import static no.difi.statistics.elasticsearch.ResultParser.pointFromLastAggregation;
+import static no.difi.statistics.elasticsearch.Timestamp.normalize;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchIngestService implements IngestService {
@@ -77,7 +74,7 @@ public class ElasticsearchIngestService implements IngestService {
                             indexType,
                             id(point, seriesDefinition.getDistance())
                     )
-                            .setSource(document(point, seriesDefinition.getDistance()))
+                            .setSource(documentBytes(point, seriesDefinition.getDistance()))
                             .setCreate(true)
             );
         }
@@ -123,10 +120,6 @@ public class ElasticsearchIngestService implements IngestService {
         }
     }
 
-    private static String id(TimeSeriesPoint dataPoint, MeasurementDistance distance) {
-        return format(dataPoint.getTimestamp(), distance);
-    }
-
     private static byte[] documentBytes(TimeSeriesPoint dataPoint, MeasurementDistance distance) {
         return document(dataPoint, distance).bytes().toBytes();
     }
@@ -146,21 +139,6 @@ public class ElasticsearchIngestService implements IngestService {
 
     private static String format(ZonedDateTime timestamp, MeasurementDistance distance) {
         return normalize(timestamp, distance).toString();
-    }
-
-    private static ZonedDateTime normalize(ZonedDateTime timestamp, MeasurementDistance distance) {
-        return timestamp.truncatedTo(chronoUnit(distance)).withZoneSameInstant(UTC);
-    }
-
-    private static ChronoUnit chronoUnit(MeasurementDistance distance) {
-        switch (distance) {
-            case minutes: return MINUTES;
-            case hours: return HOURS;
-            case days: return DAYS;
-            case months: return MONTHS;
-            case years: return YEARS;
-            default: throw new IllegalArgumentException("Unsupported measurement distance: " + distance);
-        }
     }
 
     private SearchRequestBuilder searchBuilder(List<String> indexNames) {

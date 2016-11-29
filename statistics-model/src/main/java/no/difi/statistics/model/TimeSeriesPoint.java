@@ -9,9 +9,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.io.IOException;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 
 @XmlRootElement
@@ -44,6 +42,7 @@ public class TimeSeriesPoint {
 
     public static class Builder {
         private TimeSeriesPoint instance;
+        private Map<String, Measurement> measurements = new HashMap<>();
 
         Builder() {
             this.instance = new TimeSeriesPoint();
@@ -55,22 +54,26 @@ public class TimeSeriesPoint {
         }
 
         public Builder measurement(String measurementId, long measurement) {
-            instance.measurements.add(new Measurement(measurementId, measurement));
+            measurement(new Measurement(measurementId, measurement));
             return this;
         }
 
         public Builder measurement(Measurement measurement) {
-            instance.measurements.add(measurement);
+            Measurement oldMeasurement = measurements.get(measurement.getId());
+            if (oldMeasurement != null)
+                measurement = new Measurement(measurement.getId(), measurement.getValue() + oldMeasurement.getValue());
+            measurements.put(measurement.getId(), measurement);
             return this;
         }
 
         public Builder measurements(List<Measurement> measurements) {
-            instance.measurements.addAll(measurements);
+            measurements.forEach(this::measurement);
             return this;
         }
 
         public TimeSeriesPoint build() {
             if (instance.timestamp == null) throw new IllegalArgumentException("timestamp");
+            instance.measurements.addAll(measurements.values());
             return instance;
         }
 

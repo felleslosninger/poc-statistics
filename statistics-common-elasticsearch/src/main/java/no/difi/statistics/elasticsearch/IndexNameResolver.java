@@ -12,6 +12,7 @@ import java.util.List;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.*;
 import static java.util.Collections.singletonList;
+import static no.difi.statistics.elasticsearch.Timestamp.truncate;
 import static no.difi.statistics.model.MeasurementDistance.*;
 
 public class IndexNameResolver {
@@ -194,18 +195,6 @@ public class IndexNameResolver {
             );
         }
 
-    }
-
-    private static ZonedDateTime truncate(ZonedDateTime timestamp, ChronoUnit toUnit) {
-        switch (toUnit) {
-            case YEARS:
-                return ZonedDateTime.of(timestamp.getYear(), 1, 1, 0, 0, 0, 0, timestamp.getZone());
-            case MONTHS:
-                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), 1, 0, 0, 0, 0, timestamp.getZone());
-            case DAYS:
-                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), timestamp.getDayOfMonth(), 0, 0, 0, 0, timestamp.getZone());
-        }
-        return timestamp.truncatedTo(toUnit);
     }
 
     private static String measurementDistanceName(MeasurementDistance distance) {

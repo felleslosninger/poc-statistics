@@ -1,6 +1,7 @@
 package no.difi.statistics.query.api;
 
 import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
@@ -63,15 +64,18 @@ public class QueryRestController {
         }
     }
 
-    @PostMapping("{owner}/{seriesName}/minutes")
-    public List<TimeSeriesPoint> minutesAbovePercentile(
+    @GetMapping(path = "{owner}/{seriesName}/{distance}", params = {"percentile", "measurementId", "operator"})
+    public List<TimeSeriesPoint> relationalToPercentile(
             @PathVariable String owner,
             @PathVariable String seriesName,
+            @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
-            @RequestBody TimeSeriesFilter filter
+            @RequestParam int percentile,
+            @RequestParam String measurementId,
+            @RequestParam RelationalOperator operator
     ) {
-        return service.minutes(seriesName, owner, from, to, filter);
+        return service.query(seriesName, distance, owner, from, to, new TimeSeriesFilter(percentile, measurementId, operator));
     }
 
     @GetMapping("{owner}/{seriesName}/minutes/last/months")

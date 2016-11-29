@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import no.difi.statistics.model.RelationalOperator;
 
 import java.io.IOException;
 
@@ -13,10 +14,12 @@ public class TimeSeriesFilter {
 
     private int percentile;
     private String measurementId;
+    private RelationalOperator relationalOperator;
 
-    public TimeSeriesFilter(int percentile, String measurementId) {
+    public TimeSeriesFilter(int percentile, String measurementId, RelationalOperator relationalOperator) {
         this.percentile = percentile;
         this.measurementId = measurementId;
+        this.relationalOperator = relationalOperator;
     }
 
     public String getMeasurementId() {
@@ -27,6 +30,10 @@ public class TimeSeriesFilter {
         return percentile;
     }
 
+    public RelationalOperator getRelationalOperator() {
+        return relationalOperator;
+    }
+
     /**
      * Use custom deserializer to maintain immutability property
      */
@@ -35,7 +42,11 @@ public class TimeSeriesFilter {
         @Override
         public TimeSeriesFilter deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
             JsonNode node = parser.getCodec().readTree(parser);
-            return new TimeSeriesFilter(node.get("percentile").asInt(), node.get("measurementId").asText());
+            return new TimeSeriesFilter(
+                    node.get("percentile").asInt(),
+                    node.get("measurementId").asText(),
+                    RelationalOperator.valueOf(node.get("relationalOperator").asText())
+            );
         }
 
     }

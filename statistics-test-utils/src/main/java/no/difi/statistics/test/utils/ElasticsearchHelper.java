@@ -1,5 +1,6 @@
 package no.difi.statistics.test.utils;
 
+import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesPoint;
@@ -68,9 +69,10 @@ public class ElasticsearchHelper {
                 .getMetaData().concreteAllIndices();
     }
 
-    public void index(String indexName, String indexType, String document) {
-        client.prepareIndex(indexName, indexType)
+    public void index(String indexName, String indexType, String id, String document) {
+        client.prepareIndex(indexName, indexType, id)
                 .setSource(document)
+                .setCreate(true)
                 .setRefresh(true) // Make document immediately searchable for testing purposes
                 .get();
     }
@@ -83,39 +85,41 @@ public class ElasticsearchHelper {
     }
 
     public void indexPoints(MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
+        indexPoints(aSeries, distance, points);
+    }
+
+    public void indexPoints(String series, MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
         for (TimeSeriesPoint point : points)
-            indexPoint(indexNameForSeries(aSeries, distance, point.getTimestamp()), point);
+            indexPoint(indexNameForSeries(series, distance, point.getTimestamp()), IdResolver.id(point, distance), point);
     }
 
     public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, MeasurementDistance distance, long... values) throws IOException {
         List<TimeSeriesPoint> points = new ArrayList<>(values.length);
         for (long value : values) {
-            points.add(indexPoint(indexNameForSeries(aSeries, distance, timestamp), timestamp, value));
+            TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
+            points.add(point);
+            indexPoint(indexNameForSeries(aSeries, distance, timestamp), IdResolver.id(point, distance), point);
             timestamp = timestamp.plus(1, unit(distance));
         }
         return points;
     }
 
     public TimeSeriesPoint indexPoint(String seriesName, MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
-        return indexPoint(indexNameForSeries(seriesName, distance, timestamp), timestamp, value);
+        TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
+        indexPoint(indexNameForSeries(seriesName, distance, timestamp), IdResolver.id(point, distance), point);
+        return point;
     }
 
     public TimeSeriesPoint indexPoint(MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
         return indexPoint(aSeries, distance, timestamp, value);
     }
 
-    private void indexPoint(String indexName, TimeSeriesPoint point) throws IOException {
+    private void indexPoint(String indexName, String id, TimeSeriesPoint point) throws IOException {
         XContentBuilder sourceBuilder = jsonBuilder().startObject()
                 .field("timestamp", formatTimestamp(point.getTimestamp()));
         for (Measurement measurement : point.getMeasurements())
             sourceBuilder.field(measurement.getId(), measurement.getValue());
-        index(indexName, "default", sourceBuilder.endObject().string());
-    }
-
-    private TimeSeriesPoint indexPoint(String indexName, ZonedDateTime timestamp, long value) throws IOException {
-        TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
-        indexPoint(indexName, point);
-        return point;
+        index(indexName, "default", id, sourceBuilder.endObject().string());
     }
 
     public SearchResponse search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {

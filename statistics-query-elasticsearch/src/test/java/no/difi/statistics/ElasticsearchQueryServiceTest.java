@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.elasticsearch.config.ElasticsearchConfig;
 import no.difi.statistics.test.utils.DataOperations;
@@ -19,7 +18,6 @@ import org.springframework.boot.test.util.EnvironmentTestUtils;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ContextConfiguration;
@@ -32,10 +30,17 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.MONTHS;
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Stream.iterate;
+import static no.difi.statistics.elasticsearch.Timestamp.truncate;
 import static no.difi.statistics.model.MeasurementDistance.*;
 import static no.difi.statistics.test.utils.DataGenerator.createRandomTimeSeries;
 import static no.difi.statistics.test.utils.DataOperations.*;
@@ -66,7 +71,7 @@ public class ElasticsearchQueryServiceTest {
     private final static ZoneId UTC = ZoneId.of("UTC");
     private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, UTC);
     private final static String measurementId = "count";
-    private final static String timeSeriesName = "test";
+    private final static String series = "test";
     private final static String anotherTimeSeriesName = "anothertimeseriesname";
     private final static String owner = "test_owner"; // Index names must be lower case in Elasticsearch
 
@@ -102,19 +107,19 @@ public class ElasticsearchQueryServiceTest {
 
     @Test
     public void givenTimeSeriesWhenQueryingForAvailableTimeSeriesThenAvailableTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
-        helper.indexPoint(timeSeriesName, minutes, now.minusMinutes(2), 1002);
-        helper.indexPoint(timeSeriesName, minutes, now, 1003);
+        helper.indexPoint(series, minutes, now.minusMinutes(2), 1002);
+        helper.indexPoint(series, minutes, now, 1003);
         helper.indexPoint(anotherTimeSeriesName, minutes, now, 42);
         List<String> availableTimeSeries = availableTimeSeries(owner);
         assertEquals(2, availableTimeSeries.size());
-        assertTrue(availableTimeSeries.contains(timeSeriesName));
+        assertTrue(availableTimeSeries.contains(series));
         assertTrue(availableTimeSeries.contains(anotherTimeSeriesName));
     }
 
     @Test
     public void givenTimeSeriesWhenQueryingForAvailableTimeSeriesWithAnotherOwnerThenNoTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
-        helper.indexPoint(timeSeriesName, minutes, now.minusMinutes(2), 1002);
-        helper.indexPoint(timeSeriesName, minutes, now, 1003);
+        helper.indexPoint(series, minutes, now.minusMinutes(2), 1002);
+        helper.indexPoint(series, minutes, now, 1003);
         helper.indexPoint(anotherTimeSeriesName, minutes, now, 42);
         List<String> availableTimeSeries = availableTimeSeries("anotherOwner");
         assertEquals(0, availableTimeSeries.size());
@@ -173,22 +178,22 @@ public class ElasticsearchQueryServiceTest {
     private void givenSeriesWhenQueryingForLastPointWithinRangeThenThatPointIsReturned(MeasurementDistance distance) throws IOException, ExecutionException, InterruptedException {
         helper.indexPointsFrom(dateTime(2003, 1, 1, 11, 11), distance, 1, 2, 3, 4, 5, 6, 7, 8, 9); // Some random "old" points
         TimeSeriesPoint expectedLastPoint = helper.indexPoint(distance, dateTime(2016, 3, 3, 12, 12), 123L);
-        helper.indexPoint(distance, dateTime(2016, 3, 4, 1, 2), 5675L); // Point after last
-        TimeSeriesPoint actualLastPoint = requestLast(timeSeriesName, distance, owner, dateTime(2007, 1, 1, 0, 0), dateTime(2016, 3, 3, 13, 0));
+        helper.indexPoint(distance, dateTime(2017, 4, 4, 1, 2), 5675L); // Point after last
+        TimeSeriesPoint actualLastPoint = requestLast(series, distance, owner, dateTime(2007, 1, 1, 0, 0), dateTime(2016, 3, 3, 13, 0));
         assertEquals(expectedLastPoint, actualLastPoint);
     }
 
     private void givenSeriesWhenQueryingForLastPointWithoutRangeThenThatPointIsReturned(MeasurementDistance distance) throws IOException, ExecutionException, InterruptedException {
         helper.indexPointsFrom(dateTime(2003, 1, 1, 11, 11), distance, 1, 2, 3, 4, 5, 6, 7, 8, 9); // Some random "old" points
         TimeSeriesPoint expectedLastPoint = helper.indexPoint(distance, dateTime(2016, 3, 3, 12, 12), 123L);
-        TimeSeriesPoint actualLastPoint = requestLast(timeSeriesName, distance, owner);
+        TimeSeriesPoint actualLastPoint = requestLast(series, distance, owner);
         assertEquals(expectedLastPoint, actualLastPoint);
     }
 
     @Test
     public void givenMinuteSeriesWhenQueryingForRangeInsideSeriesThenCorrespondingDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusMinutes(1003), minutes, 1003, 1002, 1001, 1000);
-        List<TimeSeriesPoint> timeSeries = request(minutes, timeSeriesName, now.minusMinutes(1002), now.minusMinutes(1001));
+        List<TimeSeriesPoint> timeSeries = request(minutes, series, now.minusMinutes(1002), now.minusMinutes(1001));
         assertEquals(1002, measurementValue(measurementId, 0, timeSeries));
         assertEquals(1001, measurementValue(measurementId, 1, timeSeries));
     }
@@ -197,7 +202,7 @@ public class ElasticsearchQueryServiceTest {
     public void givenMinuteSeriesLastingTwoDaysWhenQueryingForRangeOverThoseDaysThenAllDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPoint(minutes, now.minusDays(1), 13);
         helper.indexPoint(minutes, now, 117);
-        List<TimeSeriesPoint> timeSeries = request(minutes, timeSeriesName, now.minusDays(1).minusHours(1), now);
+        List<TimeSeriesPoint> timeSeries = request(minutes, series, now.minusDays(1).minusHours(1), now);
         assertEquals(13, measurementValue(measurementId, 0, timeSeries));
         assertEquals(117, measurementValue(measurementId, 1, timeSeries));
     }
@@ -205,7 +210,7 @@ public class ElasticsearchQueryServiceTest {
     @Test
     public void givenMinuteSeriesWhenQueryingForRangeOutsideSeriesThenNoDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusMinutes(20), minutes, 20, 19, 18, 17);
-        List<TimeSeriesPoint> timeSeries = request(minutes, timeSeriesName, now.minusMinutes(9), now.minusMinutes(8));
+        List<TimeSeriesPoint> timeSeries = request(minutes, series, now.minusMinutes(9), now.minusMinutes(8));
         assertEquals(0, size(timeSeries));
     }
 
@@ -215,7 +220,7 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoint(minutes, now.minusMinutes(200), 200);
         helper.indexPoint(minutes, now.minusMinutes(300), 300);
         helper.indexPoint(minutes, now.minusMinutes(400), 400);
-        List<TimeSeriesPoint> timeSeries = request(minutes, timeSeriesName, now.minusYears(10), now.plusYears(10));
+        List<TimeSeriesPoint> timeSeries = request(minutes, series, now.minusYears(10), now.plusYears(10));
         assertEquals(4, size(timeSeries));
     }
 
@@ -225,7 +230,7 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoint(minutes, now.minusMinutes(200), 200);
         helper.indexPoint(minutes, now.minusMinutes(300), 300);
         helper.indexPoint(minutes, now.minusMinutes(400), 400);
-        List<TimeSeriesPoint> timeSeries = request(minutes, timeSeriesName);
+        List<TimeSeriesPoint> timeSeries = request(minutes, series);
         assertEquals(4, size(timeSeries));
     }
 
@@ -235,7 +240,7 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoint(minutes, now.minusMinutes(200), 200);
         helper.indexPoint(minutes, now.minusMinutes(300), 300);
         helper.indexPoint(minutes, now.minusMinutes(400), 400);
-        List<TimeSeriesPoint> timeSeries = requestTo(minutes, timeSeriesName, now.minusMinutes(101));
+        List<TimeSeriesPoint> timeSeries = requestTo(minutes, series, now.minusMinutes(101));
         assertEquals(3, size(timeSeries));
     }
 
@@ -245,14 +250,14 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoint(minutes, now.minusMinutes(200), 200);
         helper.indexPoint(minutes, now.minusMinutes(300), 300);
         helper.indexPoint(minutes, now.minusMinutes(400), 400);
-        List<TimeSeriesPoint> timeSeries = requestFrom(minutes, timeSeriesName, now.minusMinutes(101));
+        List<TimeSeriesPoint> timeSeries = requestFrom(minutes, series, now.minusMinutes(101));
         assertEquals(1, size(timeSeries));
     }
 
     @Test
     public void givenHourSeriesWhenQueryingForRangeInsideSeriesThenCorrespondingDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusHours(1003), hours, 1003, 1002, 1001, 1000);
-        List<TimeSeriesPoint> timeSeries = request(hours, timeSeriesName, now.minusHours(1002), now.minusHours(1001));
+        List<TimeSeriesPoint> timeSeries = request(hours, series, now.minusHours(1002), now.minusHours(1001));
         assertEquals(2, size(timeSeries));
         assertEquals(1002, measurementValue(measurementId, 0, timeSeries));
         assertEquals(1001, measurementValue(measurementId, 1, timeSeries));
@@ -261,7 +266,7 @@ public class ElasticsearchQueryServiceTest {
     @Test
     public void givenHourSeriesWhenQueryingForRangeOutsideSeriesThenNoDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusHours(20), hours, 20, 19, 18, 17);
-        List<TimeSeriesPoint> timeSeries = request(hours, timeSeriesName, now.minusHours(9), now.minusHours(8));
+        List<TimeSeriesPoint> timeSeries = request(hours, series, now.minusHours(9), now.minusHours(8));
         assertEquals(0, size(timeSeries));
     }
 
@@ -271,14 +276,14 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoint(hours, now.minusHours(200), 200);
         helper.indexPoint(hours, now.minusHours(300), 300);
         helper.indexPoint(hours, now.minusHours(400), 400);
-        List<TimeSeriesPoint> timeSeries = request(hours, timeSeriesName, now.minusYears(10), now.plusYears(10));
+        List<TimeSeriesPoint> timeSeries = request(hours, series, now.minusYears(10), now.plusYears(10));
         assertEquals(4, size(timeSeries));
     }
 
     @Test
     public void givenDaySeriesWhenQueryingForRangeInsideSeriesThenCorrespondingDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusDays(1003), days, 1003, 1002, 1001, 1000);
-        List<TimeSeriesPoint> timeSeries = request(days, timeSeriesName, now.minusDays(1002), now.minusDays(1001));
+        List<TimeSeriesPoint> timeSeries = request(days, series, now.minusDays(1002), now.minusDays(1001));
         assertEquals(2, size(timeSeries));
         assertEquals(1002, measurementValue(measurementId, 0, timeSeries));
         assertEquals(1001, measurementValue(measurementId, 1, timeSeries));
@@ -287,7 +292,7 @@ public class ElasticsearchQueryServiceTest {
     @Test
     public void givenDaySeriesWhenQueryingForRangeOutsideSeriesThenNoDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusDays(20), days, 20, 19, 18, 17);
-        List<TimeSeriesPoint> timeSeries = request(days, timeSeriesName, now.minusDays(9), now.minusDays(8));
+        List<TimeSeriesPoint> timeSeries = request(days, series, now.minusDays(9), now.minusDays(8));
         assertEquals(0, size(timeSeries));
     }
 
@@ -297,14 +302,14 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoint(days, now.minusDays(200), 200);
         helper.indexPoint(days, now.minusDays(300), 300);
         helper.indexPoint(days, now.minusDays(400), 400);
-        List<TimeSeriesPoint> timeSeries = request(days, timeSeriesName, now.minusYears(10), now.plusYears(10));
+        List<TimeSeriesPoint> timeSeries = request(days, series, now.minusYears(10), now.plusYears(10));
         assertEquals(4, size(timeSeries));
     }
 
     @Test
     public void givenMonthSeriesWhenQueryingForRangeInsideSeriesThenCorrespondingDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusMonths(1003), months, 1003, 1002, 1001, 1000);
-        List<TimeSeriesPoint> timeSeries = request(months, timeSeriesName, now.minusMonths(1002), now.minusMonths(1001));
+        List<TimeSeriesPoint> timeSeries = request(months, series, now.minusMonths(1002), now.minusMonths(1001));
         assertEquals(2, size(timeSeries));
         assertEquals(1002, measurementValue(measurementId, 0, timeSeries));
         assertEquals(1001, measurementValue(measurementId, 1, timeSeries));
@@ -313,7 +318,7 @@ public class ElasticsearchQueryServiceTest {
     @Test
     public void givenMonthSeriesWhenQueryingForRangeOutsideSeriesThenNoDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusMonths(20), months, 20, 19, 18, 17);
-        List<TimeSeriesPoint> timeSeries = request(months, timeSeriesName, now.minusMonths(9), now.minusMonths(8));
+        List<TimeSeriesPoint> timeSeries = request(months, series, now.minusMonths(9), now.minusMonths(8));
         assertEquals(0, size(timeSeries));
     }
 
@@ -323,14 +328,14 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoint(months, now.minusMonths(20), 200);
         helper.indexPoint(months, now.minusMonths(30), 300);
         helper.indexPoint(months, now.minusMonths(40), 400);
-        List<TimeSeriesPoint> timeSeries = request(months, timeSeriesName, now.minusYears(10), now.plusYears(10));
+        List<TimeSeriesPoint> timeSeries = request(months, series, now.minusYears(10), now.plusYears(10));
         assertEquals(4, size(timeSeries));
     }
 
     @Test
     public void givenYearSeriesWhenQueryingForRangeInsideSeriesThenCorrespondingDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusYears(4), years, 4, 3, 2, 1);
-        List<TimeSeriesPoint> timeSeries = request(years, timeSeriesName, now.minusYears(3), now.minusYears(2));
+        List<TimeSeriesPoint> timeSeries = request(years, series, now.minusYears(3), now.minusYears(2));
         assertEquals(2, size(timeSeries));
         assertEquals(3, measurementValue(measurementId, 0, timeSeries));
         assertEquals(2, measurementValue(measurementId, 1, timeSeries));
@@ -339,64 +344,97 @@ public class ElasticsearchQueryServiceTest {
     @Test
     public void givenYearSeriesWhenQueryingForRangeOutsideSeriesThenNoDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusYears(20), years, 20, 19, 18, 17);
-        List<TimeSeriesPoint> timeSeries = request(years, timeSeriesName, now.minusYears(9), now.minusYears(8));
+        List<TimeSeriesPoint> timeSeries = request(years, series, now.minusYears(9), now.minusYears(8));
         assertEquals(0, size(timeSeries));
     }
 
     @Test
     public void givenYearSeriesWhenQueryingForApproxUnlimitedRangeThenAllDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPointsFrom(now.minusYears(4), years, 4, 3, 2, 1);
-        List<TimeSeriesPoint> timeSeries = request(years, timeSeriesName, now.minusYears(10), now.plusYears(10));
+        List<TimeSeriesPoint> timeSeries = request(years, series, now.minusYears(10), now.plusYears(10));
         assertEquals(4, size(timeSeries));
     }
 
-    @Test // 1, 2, 3, 4, 5, 8, 21, 44, 55, 89, 131, 200, 700, 1000
-    public void givenMinuteSeriesWithSize14WhenQueryingForDataPointsWithMeasurementAbove92ndPercentileThenLargestMeasurementsFromPosition13AreReturned() throws IOException {
-        long[] points = {1000, 4, 700, 1, 2, 3, 5, 44, 8, 21, 200, 131, 55, 89};
-        helper.indexPointsFrom(now.minusMinutes(50), minutes, points);
-        List<TimeSeriesPoint> resultingPoints = minutesAbovePercentile(
-                92, measurementId, timeSeriesName,
-                now.minusMinutes(100), now.minusMinutes(0)
-        );
-        assertPercentileTDigest(92, points, measurementId, resultingPoints);
+    @Test
+    public void givenMinuteSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        givenSeries("series1").withDistance(minutes).withMeasurements("m1", "m2", "m3", "m4").end()
+            .when().request(points().from("series1").withDistance(minutes).withMeasurement("m1").lessThanPercentile(92))
+                .then().pointsAreReturned(lessThanPercentile(92).forMeasurement("m1"))
+            .when().request(points().from("series1").withDistance(minutes).withMeasurement("m2").greaterThanPercentile(43))
+                .then().pointsAreReturned(greaterThanPercentile(43).forMeasurement("m2"))
+            .when().request(points().from("series1").withDistance(minutes).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then().pointsAreReturned(lessThanOrEqualToPercentile(15).forMeasurement("m3"))
+            .when().request(points().from("series1").withDistance(minutes).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then().pointsAreReturned(greaterThanOrEqualToPercentile(57).forMeasurement("m4"));
     }
 
-    @Test // 3, 5, 11, 13, 56, 234, 235, 546, 566, 574, 674, 777, 1244, 3454, 3455, 5667, 9000, 547547
-    public void givenMinuteSeriesWithSize18WhenQueryingForDataPointsWithMeasurementAbove35thPercentileThenLargestMeasurementsFromPosition6AreReturned() throws IOException {
-        long[] points = {13, 11, 546, 234, 3455, 547547, 574, 3, 3454, 5, 1244, 674, 566, 5667, 56, 777, 235, 9000};
-        helper.indexPointsFrom(now.minusMinutes(300), minutes, points);
-        List<TimeSeriesPoint> resultingPoints = minutesAbovePercentile(
-                40, measurementId, timeSeriesName,
-                now.minusMinutes(301), now.minusMinutes(0)
-        );
-        assertPercentileTDigest(40, points, measurementId, resultingPoints);
+    @Test
+    public void givenHourSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        givenSeries("series2").withDistance(hours).withMeasurements("m1", "m2", "m3", "m4").end()
+            .when().request(points().from("series2").withDistance(hours).withMeasurement("m1").lessThanPercentile(92))
+                .then().pointsAreReturned(lessThanPercentile(92).forMeasurement("m1"))
+            .when().request(points().from("series2").withDistance(hours).withMeasurement("m2").greaterThanPercentile(43))
+                .then().pointsAreReturned(greaterThanPercentile(43).forMeasurement("m2"))
+            .when().request(points().from("series2").withDistance(hours).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then().pointsAreReturned(lessThanOrEqualToPercentile(15).forMeasurement("m3"))
+            .when().request(points().from("series2").withDistance(hours).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then().pointsAreReturned(greaterThanOrEqualToPercentile(57).forMeasurement("m4"));
+    }
+
+    @Test
+    public void givenDaySeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        givenSeries("series3").withDistance(days).withMeasurements("m1", "m2", "m3", "m4").end()
+            .when().request(points().from("series3").withDistance(days).withMeasurement("m1").lessThanPercentile(92))
+                .then().pointsAreReturned(lessThanPercentile(92).forMeasurement("m1"))
+            .when().request(points().from("series3").withDistance(days).withMeasurement("m2").greaterThanPercentile(43))
+                .then().pointsAreReturned(greaterThanPercentile(43).forMeasurement("m2"))
+            .when().request(points().from("series3").withDistance(days).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then().pointsAreReturned(lessThanOrEqualToPercentile(15).forMeasurement("m3"))
+            .when().request(points().from("series3").withDistance(days).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then().pointsAreReturned(greaterThanOrEqualToPercentile(57).forMeasurement("m4"));
+    }
+
+    @Test
+    public void givenMonthSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        givenSeries("series4").withDistance(months).withMeasurements("m1", "m2", "m3", "m4").end()
+            .when().request(points().from("series4").withDistance(months).withMeasurement("m1").lessThanPercentile(92))
+                .then().pointsAreReturned(lessThanPercentile(92).forMeasurement("m1"))
+            .when().request(points().from("series4").withDistance(months).withMeasurement("m2").greaterThanPercentile(43))
+                .then().pointsAreReturned(greaterThanPercentile(43).forMeasurement("m2"))
+            .when().request(points().from("series4").withDistance(months).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then().pointsAreReturned(lessThanOrEqualToPercentile(15).forMeasurement("m3"))
+            .when().request(points().from("series4").withDistance(months).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then().pointsAreReturned(greaterThanOrEqualToPercentile(57).forMeasurement("m4"));
+    }
+
+    @Test
+    public void givenYearSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        givenSeries("series5").withDistance(years).withMeasurements("m1", "m2", "m3", "m4").end()
+            .when().request(points().from("series5").withDistance(years).withMeasurement("m1").lessThanPercentile(92))
+                .then().pointsAreReturned(lessThanPercentile(92).forMeasurement("m1"))
+            .when().request(points().from("series5").withDistance(years).withMeasurement("m2").greaterThanPercentile(43))
+                .then().pointsAreReturned(greaterThanPercentile(43).forMeasurement("m2"))
+            .when().request(points().from("series5").withDistance(years).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then().pointsAreReturned(lessThanOrEqualToPercentile(15).forMeasurement("m3"))
+            .when().request(points().from("series5").withDistance(years).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then().pointsAreReturned(greaterThanOrEqualToPercentile(57).forMeasurement("m4"));
     }
 
     @Test
     public void givenMinuteSeriesWhenQueryingForMonthPointsThenSummarizedMinutesAreReturned() throws IOException {
-        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), minutes, 100, "measurementA", "measurementB");
-        helper.indexPoints(minutes, points);
-        List<TimeSeriesPoint> resultingPoints = request(
-                months,
-                timeSeriesName,
-                now.truncatedTo(DAYS),
-                now.truncatedTo(DAYS).plusMinutes(100)
-        );
-        assertEquals(1, size(resultingPoints));
-        assertEquals(DataOperations.sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
-        assertEquals(DataOperations.sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
-        assertEquals(truncate(now, MONTHS).toInstant(), timestamp(0, resultingPoints).toInstant());
+        givenSeries(series).withDistance(minutes).from(now.truncatedTo(DAYS)).withMeasurements("m1", "m2").end()
+            .when().request(points().from(series).withDistance(months).go())
+                .then().pointsAreReturned(sum(months));
     }
 
     @Test
     public void givenMinuteSeriesWhenQueryingForMonthSnapshotsThenLastPointInMonthAreReturned() throws IOException {
         List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), minutes, 100, "measurementA", "measurementB");
         helper.indexPoints(minutes, points);
-        List<TimeSeriesPoint> resultingPoints = requestLastInMonth(
-                timeSeriesName,
-                now.truncatedTo(DAYS),
-                now.truncatedTo(DAYS).plusMinutes(100)
-        );
+        List<TimeSeriesPoint> resultingPoints = points().from(series)
+                .from(now.truncatedTo(DAYS))
+                .to(now.truncatedTo(DAYS).plusMinutes(100))
+                .lastInMonth().get();
         assertEquals(1, size(resultingPoints));
 
         assertEquals(value(99, "measurementA", points), value(0, "measurementA", resultingPoints));
@@ -412,11 +450,10 @@ public class ElasticsearchQueryServiceTest {
         List<TimeSeriesPoint> pointsMonth2 = createRandomTimeSeries(now.truncatedTo(DAYS).plusMonths(1), minutes, 100, "measurementA", "measurementB");
         helper.indexPoints(minutes, pointsMonth2);
 
-        List<TimeSeriesPoint> resultingPoints = requestLastInMonth(
-                timeSeriesName,
-                now.truncatedTo(DAYS),
-                now.truncatedTo(DAYS).plusMonths(1).plusMinutes(100)
-        );
+        List<TimeSeriesPoint> resultingPoints = points().from(series)
+                .from(now.truncatedTo(DAYS))
+                .to(now.truncatedTo(DAYS).plusMonths(1).plusMinutes(100))
+                .lastInMonth().get();
 
         assertEquals(2, size(resultingPoints));
 
@@ -435,7 +472,7 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoints(minutes, points);
         List<TimeSeriesPoint> resultingPoints = request(
                 days,
-                timeSeriesName,
+                series,
                 now.truncatedTo(DAYS),
                 now.truncatedTo(DAYS).plusMinutes(100)
         );
@@ -451,7 +488,7 @@ public class ElasticsearchQueryServiceTest {
         helper.indexPoints(minutes, points);
         List<TimeSeriesPoint> resultingPoints = request(
                 days,
-                timeSeriesName,
+                series,
                 now.truncatedTo(DAYS),
                 now.truncatedTo(DAYS).plusMinutes(2000)
         );
@@ -499,7 +536,7 @@ public class ElasticsearchQueryServiceTest {
         List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), distance, 78, "measurementA", "measurementB");
         helper.indexPoints(distance, points);
         TimeSeriesPoint resultingPoint = requestSum(
-                timeSeriesName,
+                series,
                 distance,
                 now.truncatedTo(DAYS),
                 now.truncatedTo(DAYS).plus(100, unit(distance))
@@ -540,7 +577,7 @@ public class ElasticsearchQueryServiceTest {
         // overflow.
         List<TimeSeriesPoint> points = helper.indexPointsFrom(now.truncatedTo(DAYS), distance, (long)Math.pow(2, 51), (long)Math.pow(2, 51)+121);
         TimeSeriesPoint resultingPoint = requestSum(
-                timeSeriesName,
+                series,
                 distance,
                 now.truncatedTo(DAYS),
                 now.truncatedTo(DAYS).plus(100, unit(distance))
@@ -654,7 +691,7 @@ public class ElasticsearchQueryServiceTest {
         return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
     }
 
-    private List<TimeSeriesPoint> request(MeasurementDistance distance, String seriesName) throws IOException {
+    private List<TimeSeriesPoint> request(MeasurementDistance distance, String seriesName) {
         ResponseEntity<String> response = restTemplate.exchange(
                 "/{owner}/{seriesName}/{distance}",
                 HttpMethod.GET,
@@ -665,45 +702,129 @@ public class ElasticsearchQueryServiceTest {
                 distance
                 );
         assertEquals(200, response.getStatusCodeValue());
-        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
+        try {
+            return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private List<TimeSeriesPoint> requestLastInMonth(String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        ResponseEntity<String> response = restTemplate.exchange(
-                "/{owner}/{seriesName}/minutes/last/months?from={from}&to={to}",
-                HttpMethod.GET,
-                null,
-                String.class,
-                owner,
-                seriesName,
-                formatTimestamp(from),
-                formatTimestamp(to)
-        );
-        assertEquals(200, response.getStatusCodeValue());
-        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
-    }
-
-    private List<TimeSeriesPoint> minutesAbovePercentile(int percentile, String measurementId, String seriesName, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        ResponseEntity<String> response = restTemplate.exchange(
-                "/{owner}/{seriesName}/minutes?from={from}&to={to}",
-                HttpMethod.POST,
-                new HttpEntity<>(new TimeSeriesFilter(percentile, measurementId)),
-                String.class,
-                owner,
-                seriesName,
-                formatTimestamp(from),
-                formatTimestamp(to)
-        );
-        assertEquals(200, response.getStatusCodeValue());
-        return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
+    private RequestFunctionBuilder points() {
+        return new RequestFunctionBuilder(restTemplate, objectMapper);
     }
 
     private String formatTimestamp(ZonedDateTime timestamp) {
         return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(timestamp);
     }
 
-    private ZonedDateTime dateTime(int year, int month, int day, int hour, int minute) {
+    private static ZonedDateTime dateTime(int year, int month, int day, int hour, int minute) {
         return ZonedDateTime.of(year, month, day, hour, minute, 0, 0, UTC);
+    }
+
+    private static ZonedDateTime year(int year) {
+        return dateTime(year, 1, 1, 0, 0);
+    }
+
+    private Given givenSeries(String series) {
+        return new Given(series, helper);
+    }
+
+    private static class Given {
+
+        private String series;
+        private ZonedDateTime from = year(1977);
+        private int size = 100;
+        private MeasurementDistance distance;
+        private List<String> measurementIds;
+        private List<TimeSeriesPoint> points;
+        private ElasticsearchHelper helper;
+
+        private Given(String series, ElasticsearchHelper helper) {
+            this.series = series;
+            this.helper = helper;
+        }
+
+        private Given from(ZonedDateTime from) {
+            this.from = from;
+            return this;
+        }
+
+        private Given size(int size) {
+            this.size = size;
+            return this;
+        }
+
+        Given withDistance(MeasurementDistance distance) {
+            this.distance = distance;
+            return this;
+        }
+
+        Given withMeasurements(String...ids) {
+            this.measurementIds = asList(ids);
+            return this;
+        }
+
+        Given end() {
+            this.points = iterate(from, from -> from.plus(1, unit(distance)))
+                    .map(t -> TimeSeriesPoint.builder().timestamp(t).measurements(randomMeasurements(measurementIds)).build())
+                    .limit(size)
+                    .collect(toList());
+            try {
+                helper.indexPoints(this.series, this.distance, this.points);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return this;
+        }
+
+        private static Random random = new Random();
+
+        private static List<Measurement> randomMeasurements(List<String> ids) {
+            return ids.stream().map(id -> new Measurement(id, random.nextInt(1_000_000))).collect(toList());
+        }
+
+        When when() {
+            return new When(this, this);
+        }
+
+    }
+
+    private static class When {
+        private Given given;
+        private Supplier<List<TimeSeriesPoint>> requestFunction;
+        private List<TimeSeriesPoint> resultingPoints;
+
+        When(Given given, Given givenSeries) {
+            this.given = given;
+            this.given = givenSeries;
+        }
+
+        When request(Supplier<List<TimeSeriesPoint>> requestFunction) {
+            this.requestFunction = requestFunction;
+            return this;
+        }
+
+        Then then() {
+            this.resultingPoints = requestFunction.get();
+            return new Then(given, this);
+        }
+    }
+
+    private static class Then {
+        private Given given;
+        private When when;
+
+        Then(Given given, When when) {
+            this.given = given;
+            this.when = when;
+        }
+
+        Given pointsAreReturned(Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> verificationFunction) {
+            List<TimeSeriesPoint> expectedPoints = verificationFunction.apply(given.points);
+            assertEquals(expectedPoints, when.resultingPoints);
+            return given;
+        }
+
     }
 
 }

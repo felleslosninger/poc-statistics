@@ -1,24 +1,27 @@
 package no.difi.statistics.test.utils;
 
 import com.tdunning.math.stats.TDigest;
+import no.difi.statistics.elasticsearch.Timestamp;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesPoint;
+import org.hamcrest.Matcher;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static java.time.temporal.ChronoUnit.*;
-import static java.time.temporal.ChronoUnit.YEARS;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.toList;
+import static no.difi.statistics.model.RelationalOperator.*;
+import static org.hamcrest.Matchers.*;
 
 public class DataOperations {
 
@@ -35,19 +38,7 @@ public class DataOperations {
     }
 
     public static long value(int index, String measurementId, List<TimeSeriesPoint> timeSeriesPoints){
-        return timeSeriesPoints.get(index).getMeasurement(measurementId).map(Measurement::getValue).get();
-    }
-
-    public static ZonedDateTime truncate(ZonedDateTime timestamp, ChronoUnit toUnit) {
-        switch (toUnit) {
-            case YEARS:
-                return ZonedDateTime.of(timestamp.getYear(), 1, 1, 0, 0, 0, 0, timestamp.getZone());
-            case MONTHS:
-                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), 1, 0, 0, 0, 0, timestamp.getZone());
-            case DAYS:
-                return ZonedDateTime.of(timestamp.getYear(), timestamp.getMonthValue(), timestamp.getDayOfMonth(), 0, 0, 0, 0, timestamp.getZone());
-        }
-        return timestamp.truncatedTo(toUnit);
+        return timeSeriesPoints.get(index).getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(IllegalArgumentException::new);
     }
 
     public static ChronoUnit unit(MeasurementDistance distance) {
@@ -59,18 +50,6 @@ public class DataOperations {
             case years: return YEARS;
             default: throw new IllegalArgumentException(distance.toString());
         }
-    }
-
-    public static int percentileIndex(int percent, int dataSize) {
-        int index = new BigDecimal(percent).multiply(new BigDecimal(dataSize))
-                .divide(new BigDecimal(100), 0, RoundingMode.HALF_UP).intValue();
-        return index - 1; // Index is zero based
-    }
-
-    public static long[] sort(long[] src) {
-        long[] dst = src.clone();
-        Arrays.sort(dst);
-        return dst;
     }
 
     public static int size(List<TimeSeriesPoint> timeSeries) {
@@ -85,21 +64,73 @@ public class DataOperations {
         return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
-    public static void assertPercentile(int percent, long[] points, String measurementId, List<TimeSeriesPoint> resultingPoints) {
-        int percentileIndex = percentileIndex(percent, points.length);
-        long expectedPercentileValue = sort(points)[percentileIndex];
-        assertEquals(points.length - (percentileIndex + 1), size(resultingPoints));
-        resultingPoints.forEach(point -> assertThat(measurementValue(measurementId, point), greaterThanOrEqualTo(expectedPercentileValue)));
+    public static List<TimeSeriesPoint> sum(List<TimeSeriesPoint> points, MeasurementDistance distance) {
+        TimeSeriesPoint.Builder sumPoint = TimeSeriesPoint.builder().timestamp(Timestamp.truncate(points.get(0).getTimestamp(), distance));
+        points.forEach(point -> point.getMeasurements().forEach(sumPoint::measurement));
+        return singletonList(sumPoint.build());
     }
 
-    public static void assertPercentileTDigest(int percent, long[] points, String measurementId, List<TimeSeriesPoint> resultingPoints) {
-        TDigest tdigest = TDigest.createTreeDigest(100.0);
-        for (long point : points)
-            tdigest.add(point);
-        double expectedPercentileValue = tdigest.quantile(new BigDecimal(percent).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP).doubleValue());
-        resultingPoints.forEach(point ->
-                assertThat(Long.valueOf(measurementValue(measurementId, point)).doubleValue(), greaterThanOrEqualTo(expectedPercentileValue))
-        );
+    public static Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> sum(MeasurementDistance distance) {
+        return points -> sum(points, distance);
+    }
+
+    public static PercentileFilterBuilder lessThanOrEqualToPercentile(int percentile) {
+        return new PercentileFilterBuilder(percentile, lte);
+    }
+
+    public static PercentileFilterBuilder greaterThanOrEqualToPercentile(int percentile) {
+        return new PercentileFilterBuilder(percentile, gte);
+    }
+
+    public static PercentileFilterBuilder lessThanPercentile(int percentile) {
+        return new PercentileFilterBuilder(percentile, lt);
+    }
+
+    public static PercentileFilterBuilder greaterThanPercentile(int percentile) {
+        return new PercentileFilterBuilder(percentile, gt);
+    }
+
+    public static class PercentileFilterBuilder {
+
+        private RelationalOperator operator;
+        private int percentile;
+
+        private PercentileFilterBuilder(int percentile, RelationalOperator operator) {
+            this.percentile = percentile;
+            this.operator = operator;
+        }
+
+        public Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> forMeasurement(String measurementId) {
+            return relativeToPercentile(operator, measurementId, percentile);
+        }
+
+    }
+
+    public static Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> relativeToPercentile(RelationalOperator operator, String measurementId, int percentile) {
+        return points -> {
+            Double collectedValue = percentileValue(percentile, measurementId).apply(points);
+            return points.stream()
+                    .filter(point -> relationalMatcher(operator, collectedValue).matches(Long.valueOf(point.getMeasurement(measurementId).get().getValue()).doubleValue()))
+                    .collect(toList());
+        };
+    }
+
+    public static Function<List<TimeSeriesPoint>, Double> percentileValue(int percentile, String measurementId) {
+        return (points) -> {
+            TDigest tdigest = TDigest.createTreeDigest(100.0);
+            points.forEach(point -> tdigest.add(point.getMeasurement(measurementId).get().getValue()));
+            return tdigest.quantile(new BigDecimal(percentile).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP).doubleValue());
+        };
+    }
+
+    public static <T extends Comparable<T>> Matcher<T> relationalMatcher(RelationalOperator operator, T value) {
+        switch (operator) {
+            case gt: return greaterThan(value);
+            case gte: return greaterThanOrEqualTo(value);
+            case lt: return lessThan(value);
+            case lte: return lessThanOrEqualTo(value);
+            default: throw new IllegalArgumentException(operator.toString());
+        }
     }
 
 }

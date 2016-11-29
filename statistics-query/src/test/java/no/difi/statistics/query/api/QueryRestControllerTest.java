@@ -1,10 +1,11 @@
 package no.difi.statistics.query.api;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.config.BackendConfig;
+import org.apache.http.HttpStatus;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,7 +25,6 @@ import java.time.format.DateTimeFormatter;
 import static no.difi.statistics.model.MeasurementDistance.minutes;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -76,19 +76,24 @@ public class QueryRestControllerTest {
         final String timeSeries = "a_series";
         final String from = "2013-10-12T12:13:13.123+02:00";
         final String to = "2013-10-12T13:13:13.123+02:00";
-        TimeSeriesFilter filter = new TimeSeriesFilter(3, "anId");
+        final int percentile = 3;
+        final String measurementId = "anId";
+        final RelationalOperator operator = RelationalOperator.gt;
+        TimeSeriesFilter filter = new TimeSeriesFilter(percentile, measurementId, operator);
         ResultActions result;
         result = mockMvc.perform(
-                post("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries)
+                get("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries)
                         .param("from", from)
                         .param("to", to)
-                        .content(json(filter))
+                        .param("percentile", String.valueOf(percentile))
+                        .param("measurementId", measurementId)
+                        .param("operator", operator.toString())
                         .contentType(MediaType.APPLICATION_JSON_UTF8)
         );
         assertNormalResponse(result);
-        verify(backendConfig.queryService()).minutes(
+        verify(backendConfig.queryService()).query(
                 timeSeries,
-                aSeriesOwner(),
+                MeasurementDistance.minutes, aSeriesOwner(),
                 parseTimestamp(from),
                 parseTimestamp(to),
                 filter
@@ -144,12 +149,8 @@ public class QueryRestControllerTest {
         return ZonedDateTime.parse(timestamp, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
     }
 
-    private byte[] json(Object o) throws JsonProcessingException {
-        return new ObjectMapper().writeValueAsBytes(o);
-    }
-
     private void assertNormalResponse(ResultActions result) throws Exception {
-        result.andExpect(status().is(200));
+        result.andExpect(status().is(HttpStatus.SC_OK));
     }
 
 }
