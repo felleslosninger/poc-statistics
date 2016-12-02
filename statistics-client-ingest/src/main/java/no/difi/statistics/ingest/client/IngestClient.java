@@ -121,7 +121,7 @@ public class IngestClient implements IngestService {
                 .writerFor(TimeSeriesPoint.class);
     }
 
-    private String serviceUrlTemplate(String serviceName, String series) {
-        return String.format("%s/%s/%s/%s", this.baseUrl, this.owner, serviceName, series);
+    private String serviceUrlTemplate(String seriesName, String distance) {
+        return String.format("%s/%s/%s/%s", this.baseUrl, this.owner, seriesName, distance);
     }
 }

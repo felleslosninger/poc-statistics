@@ -27,7 +27,7 @@ public class IngestClientTest {
     private static final String CONTENTTYPE = "Content-Type";
     private static final String AUTHORIZATION = "Authorization";
     private static final String HOSTNAME = "localhost";
-    private static final String SERVICE = "/minute";
+    private static final String SERVICE = "/minutes";
     private static final String PROTOCOL = "http://";
     private static final String EXPECTED_JSON_STRING = "{\"timestamp\":\"2016-08-03T15:40:04+02:00\",\"measurements\":[{\"id\":\"id1\",\"value\":1},{\"id\":\"id2\",\"value\":2}]}";
 
