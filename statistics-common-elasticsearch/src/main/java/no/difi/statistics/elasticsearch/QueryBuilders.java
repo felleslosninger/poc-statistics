@@ -1,5 +1,6 @@
 package no.difi.statistics.elasticsearch;
 
+import no.difi.statistics.model.MeasurementDistance;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
@@ -40,8 +41,8 @@ public class QueryBuilders {
         return topHits("last").setSize(1).addSort(timestampField, SortOrder.DESC);
     }
 
-    public static DateHistogramBuilder lastHistogramAggregation(String name, DateHistogramInterval interval, List<String> measurementIds) {
-        DateHistogramBuilder builder = dateHistogram(name).field(timestampField).interval(interval);
+    public static DateHistogramBuilder lastHistogramAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
+        DateHistogramBuilder builder = dateHistogram(name).field(timestampField).interval(dateHistogramInterval(targetDistance));
         TopHitsBuilder topHitsBuilder = topHits(name).setSize(1).addSort(timestampField, SortOrder.DESC);
         measurementIds.forEach(topHitsBuilder::addField);
         return builder.subAggregation(topHitsBuilder);
@@ -56,6 +57,17 @@ public class QueryBuilders {
 
     private static String formatTimestamp(ZonedDateTime timestamp) {
         return dateTimeFormatter.format(timestamp);
+    }
+
+    private static DateHistogramInterval dateHistogramInterval(MeasurementDistance distance) {
+        switch (distance) {
+            case minutes: return DateHistogramInterval.MINUTE;
+            case hours: return DateHistogramInterval.HOUR;
+            case days: return DateHistogramInterval.DAY;
+            case months: return DateHistogramInterval.MONTH;
+            case years: return DateHistogramInterval.YEAR;
+            default: throw new IllegalArgumentException(distance.toString());
+        }
     }
 
 }

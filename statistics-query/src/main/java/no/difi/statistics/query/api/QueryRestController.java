@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+import static java.lang.String.format;
+
 @RestController
 public class QueryRestController {
 
@@ -20,6 +22,12 @@ public class QueryRestController {
 
     public QueryRestController(QueryService service) {
         this.service = service;
+    }
+
+    @ExceptionHandler
+    @ResponseStatus
+    public String handle(Exception e) {
+        return e.getMessage();
     }
 
     @GetMapping("/")
@@ -78,14 +86,18 @@ public class QueryRestController {
         return service.query(seriesName, distance, owner, from, to, new TimeSeriesFilter(percentile, measurementId, operator));
     }
 
-    @GetMapping("{owner}/{seriesName}/minutes/last/months")
-    public List<TimeSeriesPoint> lastInMonths(
+    @GetMapping("{owner}/{seriesName}/{distance}/last/{targetDistance}")
+    public List<TimeSeriesPoint> lastPerDistance(
             @PathVariable String owner,
             @PathVariable String seriesName,
+            @PathVariable MeasurementDistance distance,
+            @PathVariable MeasurementDistance targetDistance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.lastInMonths(seriesName, owner, from, to);
+        if (distance.ordinal() > targetDistance.ordinal())
+            throw new IllegalArgumentException(format("Distance %s is greater than target distance %s", distance, targetDistance));
+        return service.lastPerDistance(seriesName, distance, targetDistance, owner, from, to);
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/sum")

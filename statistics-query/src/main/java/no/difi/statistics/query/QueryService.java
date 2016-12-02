@@ -23,7 +23,7 @@ public interface QueryService {
 
     List<TimeSeriesPoint> months(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> lastInMonths(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> lastPerDistance(String seriesName, MeasurementDistance distance, MeasurementDistance targetDistance, String owner, ZonedDateTime from, ZonedDateTime to);
 
     List<TimeSeriesPoint> years(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
 

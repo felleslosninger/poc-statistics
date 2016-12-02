@@ -39,8 +39,6 @@ public class ElasticsearchHelper {
     private static final String timeFieldName = "timestamp";
     private static final String defaultType = "default";
     private final static String aMeasurementId = "count";
-    private final static String aSeries = "test";
-    private final static String anOwner = "test_owner"; // Index names must be lower case in Elasticsearch
 
     private Client client;
     private URL refreshUrl;
@@ -85,33 +83,41 @@ public class ElasticsearchHelper {
     }
 
     public void indexPoints(MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
-        indexPoints(aSeries, distance, points);
+        indexPoints("test_owner", "test", distance, points);
     }
 
-    public void indexPoints(String series, MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
+    public void indexPoints(String owner, String series, MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
         for (TimeSeriesPoint point : points)
-            indexPoint(indexNameForSeries(series, distance, point.getTimestamp()), IdResolver.id(point, distance), point);
+            indexPoint(indexNameForSeries(owner, series, distance, point.getTimestamp()), IdResolver.id(point, distance), point);
     }
 
-    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, MeasurementDistance distance, long... values) throws IOException {
+    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, MeasurementDistance distance, long...values) throws IOException {
+        return indexPointsFrom(timestamp, "test_owner", "test", distance, values);
+    }
+
+    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, String owner, String series, MeasurementDistance distance, long... values) throws IOException {
         List<TimeSeriesPoint> points = new ArrayList<>(values.length);
         for (long value : values) {
             TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
             points.add(point);
-            indexPoint(indexNameForSeries(aSeries, distance, timestamp), IdResolver.id(point, distance), point);
+            indexPoint(indexNameForSeries(owner, series, distance, timestamp), IdResolver.id(point, distance), point);
             timestamp = timestamp.plus(1, unit(distance));
         }
         return points;
     }
 
-    public TimeSeriesPoint indexPoint(String seriesName, MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
-        TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
-        indexPoint(indexNameForSeries(seriesName, distance, timestamp), IdResolver.id(point, distance), point);
-        return point;
+    public TimeSeriesPoint indexPoint(String series, MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
+        return indexPoint("test_owner", series, distance, timestamp, value);
     }
 
     public TimeSeriesPoint indexPoint(MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
-        return indexPoint(aSeries, distance, timestamp, value);
+        return indexPoint("test_owner", "test", distance, timestamp, value);
+    }
+
+    public TimeSeriesPoint indexPoint(String owner, String series, MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
+        TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
+        indexPoint(indexNameForSeries(owner, series, distance, timestamp), IdResolver.id(point, distance), point);
+        return point;
     }
 
     private void indexPoint(String indexName, String id, TimeSeriesPoint point) throws IOException {
@@ -164,8 +170,8 @@ public class ElasticsearchHelper {
         return builder;
     }
 
-    private String indexNameForSeries(String baseName, MeasurementDistance distance, ZonedDateTime timestamp) {
-        return resolveIndexName().seriesName(baseName).owner(anOwner).distance(distance).at(timestamp).single();
+    private String indexNameForSeries(String owner, String series, MeasurementDistance distance, ZonedDateTime timestamp) {
+        return resolveIndexName().seriesName(series).owner(owner).distance(distance).at(timestamp).single();
     }
 
     private String formatTimestamp(ZonedDateTime timestamp) {

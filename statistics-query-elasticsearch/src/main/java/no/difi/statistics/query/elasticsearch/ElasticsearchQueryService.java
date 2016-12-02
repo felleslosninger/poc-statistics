@@ -124,19 +124,19 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> lastInMonths(String seriesName, String owner, ZonedDateTime from , ZonedDateTime to){
-        List<TimeSeriesPoint> result = search(
-                resolveIndexName().seriesName(seriesName).owner(owner).months().from(from).to(to).list(),
-                from, to
-        );
-        if (result.isEmpty()) {
-            logger.info("Empty result for month series search. Attempting to aggregate minute series...");
-            result = lastInMonth(
-                    resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
-                    from, to
-            );
-        }
-        return result;
+    public List<TimeSeriesPoint> lastPerDistance(
+            String seriesName,
+            MeasurementDistance distance,
+            MeasurementDistance targetDistance,
+            String owner,
+            ZonedDateTime from,
+            ZonedDateTime to
+    ){
+        return lastPerDistance(
+                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
+                targetDistance,
+                from,
+                to);
     }
 
     @Override
@@ -261,10 +261,11 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
-    private List<TimeSeriesPoint> lastInMonth(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+    private List<TimeSeriesPoint> lastPerDistance(List<String> indexNames, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
-                    "Executing last point per month:\nIndexes: %s\nFrom: %s\nTo: %s\n",
+                    "Executing last point per %s:\nIndexes: %s\nFrom: %s\nTo: %s\n",
+                    targetDistance,
                     indexNames.stream().collect(joining(",\n  ")),
                     from,
                     to
@@ -272,7 +273,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .addAggregation(lastHistogramAggregation("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
+                .addAggregation(lastHistogramAggregation("a", targetDistance, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -280,7 +281,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
-            Histogram histogram = response.getAggregations().get("per_month");
+            Histogram histogram = response.getAggregations().get("a");
             series.addAll(histogram.getBuckets().stream().map(ResultParser::point).collect(toList()));
         }
         return series;

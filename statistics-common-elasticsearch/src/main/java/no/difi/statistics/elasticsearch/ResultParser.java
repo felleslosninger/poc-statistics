@@ -65,14 +65,16 @@ public class ResultParser {
 
     private static List<Measurement> measurements(Aggregations aggregations) {
         List<Measurement> measurements = new ArrayList<>();
-        for (Aggregation agg : aggregations) {
-            if(agg instanceof Sum) {
-                measurements.add(new Measurement(agg.getName(), (long) ((Sum) agg).getValue()));
-            }else if(agg instanceof InternalTopHits){
-                Map<String, SearchHitField> fieldsMap = ((InternalTopHits) agg).getHits().getAt(0).fields();
+        for (Aggregation aggregation : aggregations) {
+            if (aggregation instanceof Sum) {
+                measurements.add(new Measurement(aggregation.getName(), (long) ((Sum) aggregation).getValue()));
+            } else if (aggregation instanceof InternalTopHits) {
+                long numHits = ((InternalTopHits)aggregation).getHits().hits().length;
+                if (numHits != 1) throw new IllegalArgumentException("Expected 1 top hit but found " + numHits);
+                Map<String, SearchHitField> fieldsMap = ((InternalTopHits) aggregation).getHits().getAt(0).fields();
                 for (String s : fieldsMap.keySet()) {
-                    Long value = (long) fieldsMap.get(s).getValues().get(0);
-                    measurements.add(new Measurement(s, value));
+                    Number value = (Number) fieldsMap.get(s).getValues().get(0);
+                    measurements.add(new Measurement(s, value.longValue()));
                 }
             }
         }

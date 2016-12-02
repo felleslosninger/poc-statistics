@@ -1,7 +1,6 @@
 package no.difi.statistics.test.utils;
 
 import com.tdunning.math.stats.TDigest;
-import no.difi.statistics.elasticsearch.Timestamp;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
@@ -13,13 +12,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 
 import static java.time.temporal.ChronoUnit.*;
 import static java.util.Collections.singletonList;
+import static java.util.Collections.sort;
 import static java.util.stream.Collectors.toList;
+import static no.difi.statistics.elasticsearch.Timestamp.truncate;
 import static no.difi.statistics.model.RelationalOperator.*;
 import static org.hamcrest.Matchers.*;
 
@@ -64,46 +64,23 @@ public class DataOperations {
         return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
+
     public static List<TimeSeriesPoint> sum(List<TimeSeriesPoint> points, MeasurementDistance distance) {
-        TimeSeriesPoint.Builder sumPoint = TimeSeriesPoint.builder().timestamp(Timestamp.truncate(points.get(0).getTimestamp(), distance));
+        TimeSeriesPoint.Builder sumPoint = TimeSeriesPoint.builder().timestamp(truncate(points.get(0).getTimestamp(), distance));
         points.forEach(point -> point.getMeasurements().forEach(sumPoint::measurement));
         return singletonList(sumPoint.build());
     }
 
-    public static Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> sum(MeasurementDistance distance) {
-        return points -> sum(points, distance);
+    public static List<TimeSeriesPoint> lastPer(List<TimeSeriesPoint> points, MeasurementDistance distance) {
+        Map<ZonedDateTime,TimeSeriesPoint> unitMap = new HashMap<>();
+        points.forEach(point -> unitMap.put(truncate(point.getTimestamp(), distance), normalizeTimestamp(point, distance)));
+        List<TimeSeriesPoint> result = new ArrayList<>(unitMap.values());
+        result.sort(null);
+        return result;
     }
 
-    public static PercentileFilterBuilder lessThanOrEqualToPercentile(int percentile) {
-        return new PercentileFilterBuilder(percentile, lte);
-    }
-
-    public static PercentileFilterBuilder greaterThanOrEqualToPercentile(int percentile) {
-        return new PercentileFilterBuilder(percentile, gte);
-    }
-
-    public static PercentileFilterBuilder lessThanPercentile(int percentile) {
-        return new PercentileFilterBuilder(percentile, lt);
-    }
-
-    public static PercentileFilterBuilder greaterThanPercentile(int percentile) {
-        return new PercentileFilterBuilder(percentile, gt);
-    }
-
-    public static class PercentileFilterBuilder {
-
-        private RelationalOperator operator;
-        private int percentile;
-
-        private PercentileFilterBuilder(int percentile, RelationalOperator operator) {
-            this.percentile = percentile;
-            this.operator = operator;
-        }
-
-        public Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> forMeasurement(String measurementId) {
-            return relativeToPercentile(operator, measurementId, percentile);
-        }
-
+    private static TimeSeriesPoint normalizeTimestamp(TimeSeriesPoint point, MeasurementDistance distance) {
+        return TimeSeriesPoint.builder().timestamp(truncate(point.getTimestamp(), distance)).measurements(point.getMeasurements()).build();
     }
 
     public static Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> relativeToPercentile(RelationalOperator operator, String measurementId, int percentile) {
@@ -115,7 +92,7 @@ public class DataOperations {
         };
     }
 
-    public static Function<List<TimeSeriesPoint>, Double> percentileValue(int percentile, String measurementId) {
+    private static Function<List<TimeSeriesPoint>, Double> percentileValue(int percentile, String measurementId) {
         return (points) -> {
             TDigest tdigest = TDigest.createTreeDigest(100.0);
             points.forEach(point -> tdigest.add(point.getMeasurement(measurementId).get().getValue()));
@@ -123,7 +100,7 @@ public class DataOperations {
         };
     }
 
-    public static <T extends Comparable<T>> Matcher<T> relationalMatcher(RelationalOperator operator, T value) {
+    private static <T extends Comparable<T>> Matcher<T> relationalMatcher(RelationalOperator operator, T value) {
         switch (operator) {
             case gt: return greaterThan(value);
             case gte: return greaterThanOrEqualTo(value);

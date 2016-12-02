@@ -13,7 +13,7 @@ import java.util.*;
 
 
 @XmlRootElement
-public class TimeSeriesPoint {
+public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
 
     private ZonedDateTime timestamp;
     private List<Measurement> measurements = new ArrayList<>();
@@ -38,6 +38,11 @@ public class TimeSeriesPoint {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    @Override
+    public int compareTo(TimeSeriesPoint other) {
+        return timestamp.compareTo(other.timestamp);
     }
 
     public static class Builder {

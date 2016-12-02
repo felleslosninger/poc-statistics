@@ -1,3 +1,4 @@
+feature/PBLEID-12867: Siste punkt per dag av en minuttserie
 feature/PBLEID-12750: Generaliserte persentil-operasjoner for uthenting
 feature/PBLEID-12751: Tidsintervall på operasjoner for å hente ut siste punkt skal ikke være påkrevd
 feature/PBLEID-12749: Intuitive navn på operasjoner for uthenting av sum
