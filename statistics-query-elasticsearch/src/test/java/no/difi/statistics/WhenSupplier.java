@@ -18,12 +18,18 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static java.util.stream.Collectors.joining;
-import static no.difi.statistics.WhenSupplier.Type.*;
-import static no.difi.statistics.model.RelationalOperator.*;
+import static no.difi.statistics.WhenSupplier.Type.lastPer;
+import static no.difi.statistics.WhenSupplier.Type.normal;
+import static no.difi.statistics.WhenSupplier.Type.relativeToPercentile;
+import static no.difi.statistics.WhenSupplier.Type.sumPer;
+import static no.difi.statistics.model.RelationalOperator.gt;
+import static no.difi.statistics.model.RelationalOperator.gte;
+import static no.difi.statistics.model.RelationalOperator.lt;
+import static no.difi.statistics.model.RelationalOperator.lte;
 
 public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
 
-    enum Type {normal, relativeToPercentile, lastPer}
+    enum Type {normal, relativeToPercentile, sumPer, lastPer}
 
     private String owner = "test_owner"; // Index names must be lower case in Elasticsearch
     private String series = "test";
@@ -99,6 +105,12 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
         return this;
     }
 
+    public WhenSupplier sumPer(MeasurementDistance targetDistance) {
+        this.targetDistance = targetDistance;
+        this.type = sumPer;
+        return this;
+    }
+
     @Override
     public synchronized List<TimeSeriesPoint> get() {
         if (points == null && failure == null)
@@ -140,6 +152,8 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
             case normal:
             case relativeToPercentile:
                 return "/{owner}/{series}/{distance}" + queryUrl();
+            case sumPer:
+                return "/{owner}/{series}/{distance}/sum/{targetDistance}" + queryUrl();
             case lastPer:
                 return "/{owner}/{series}/{distance}/last/{targetDistance}" + queryUrl();
             default:

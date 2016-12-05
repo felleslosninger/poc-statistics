@@ -12,16 +12,24 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
-import static java.time.temporal.ChronoUnit.*;
-import static java.util.Collections.singletonList;
-import static java.util.Collections.sort;
+import static java.time.temporal.ChronoUnit.DAYS;
+import static java.time.temporal.ChronoUnit.HOURS;
+import static java.time.temporal.ChronoUnit.MINUTES;
+import static java.time.temporal.ChronoUnit.MONTHS;
+import static java.time.temporal.ChronoUnit.YEARS;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.Timestamp.truncate;
-import static no.difi.statistics.model.RelationalOperator.*;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 public class DataOperations {
 
@@ -64,11 +72,27 @@ public class DataOperations {
         return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
-
-    public static List<TimeSeriesPoint> sum(List<TimeSeriesPoint> points, MeasurementDistance distance) {
-        TimeSeriesPoint.Builder sumPoint = TimeSeriesPoint.builder().timestamp(truncate(points.get(0).getTimestamp(), distance));
-        points.forEach(point -> point.getMeasurements().forEach(sumPoint::measurement));
-        return singletonList(sumPoint.build());
+    public static List<TimeSeriesPoint> sumPer(List<TimeSeriesPoint> points, MeasurementDistance distance) {
+        List<TimeSeriesPoint> sums = new ArrayList<>();
+        TimeSeriesPoint.Builder sumPoint = null;
+        ZonedDateTime sumTimestamp = null;
+        for (TimeSeriesPoint point : points) {
+            ZonedDateTime truncatedTimestamp = truncate(point.getTimestamp(), distance);
+            if (sumPoint == null) {
+                sumTimestamp = truncatedTimestamp;
+                sumPoint = TimeSeriesPoint.builder().timestamp(sumTimestamp);
+                sumPoint.plus(point);
+            } else if (!sumTimestamp.toInstant().equals(truncatedTimestamp.toInstant())) {
+                sums.add(sumPoint.build());
+                sumTimestamp = truncatedTimestamp;
+                sumPoint = TimeSeriesPoint.builder().timestamp(sumTimestamp);
+                sumPoint.plus(point);
+            } else {
+                sumPoint.plus(point);
+            }
+        }
+        sums.add(sumPoint.build());
+        return sums;
     }
 
     public static List<TimeSeriesPoint> lastPer(List<TimeSeriesPoint> points, MeasurementDistance distance) {

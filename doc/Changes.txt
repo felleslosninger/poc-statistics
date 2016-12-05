@@ -1,3 +1,4 @@
+feature/PBLEID-12443: Sum per måned av en timeserie
 feature/PBLEID-12867: Siste punkt per dag av en minuttserie
 feature/PBLEID-12750: Generaliserte persentil-operasjoner for uthenting
 feature/PBLEID-12751: Tidsintervall på operasjoner for å hente ut siste punkt skal ikke være påkrevd

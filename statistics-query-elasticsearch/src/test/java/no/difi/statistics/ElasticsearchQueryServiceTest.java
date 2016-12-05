@@ -465,6 +465,30 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
+    public void givenSeriesWhenQueryingForSumPerMeasurementDistanceThenSumPointPerMeasurementDistanceIsReturned() throws IOException {
+        Given given = given(
+                existingSeries().withDistance(minutes),
+                existingSeries().withDistance(hours),
+                existingSeries().withDistance(days),
+                existingSeries().withDistance(months),
+                existingSeries().withDistance(years)
+        );
+        for (MeasurementDistance distance : MeasurementDistance.values()) {
+            for (MeasurementDistance targetDistance : MeasurementDistance.values()) {
+                if (distance.ordinal() <= targetDistance.ordinal()) {
+                    given.when(requestingPoints().sumPer(targetDistance).withDistance(distance))
+                            .then().sumPointPer(targetDistance).withDistance(distance).isReturned();
+                } else {
+                    given.when(requestingPoints().lastPer(targetDistance).withDistance(distance))
+                            .then().withDistance(distance).requestFails(
+                            String.format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                    );
+                }
+            }
+        }
+    }
+
+    @Test
     public void givenMinuteSeriesOverMoreThanOneMonthWhenQueryingForMonthSnapshotsThenLastPointInEveryMonthAreReturned() throws IOException {
         List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), minutes, 100, "measurementA", "measurementB");
         helper.indexPoints(minutes, points);
@@ -790,7 +814,7 @@ public class ElasticsearchQueryServiceTest {
         }
 
         Then sumPointPer(MeasurementDistance distance) {
-            this.function = points -> DataOperations.sum(points, distance);
+            this.function = points -> DataOperations.sumPer(points, distance);
             return this;
         }
 

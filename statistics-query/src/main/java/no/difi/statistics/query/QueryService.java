@@ -29,4 +29,5 @@ public interface QueryService {
 
     TimeSeriesPoint sum(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to);
 
+    List<TimeSeriesPoint> sumPerDistance(String seriesName, MeasurementDistance distance, MeasurementDistance targetDistance, String owner, ZonedDateTime from, ZonedDateTime to);
 }

@@ -30,8 +30,8 @@ public class QueryBuilders {
         return builder;
     }
 
-    public static DateHistogramBuilder sumHistogramAggregation(String name, DateHistogramInterval interval, List<String> measurementIds) {
-        DateHistogramBuilder builder = dateHistogram(name).field(timestampField).interval(interval);
+    public static DateHistogramBuilder sumHistogramAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
+        DateHistogramBuilder builder = dateHistogram(name).field(timestampField).interval(dateHistogramInterval(targetDistance));
         for (String measurementId : measurementIds)
             builder.subAggregation(sum(measurementId).field(measurementId));
         return builder;

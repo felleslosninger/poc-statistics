@@ -76,6 +76,11 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
             return this;
         }
 
+        public Builder plus(TimeSeriesPoint other) {
+            measurements(other.measurements);
+            return this;
+        }
+
         public TimeSeriesPoint build() {
             if (instance.timestamp == null) throw new IllegalArgumentException("timestamp");
             instance.measurements.addAll(measurements.values());
@@ -121,4 +126,5 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
         result = 31 * result + measurements.hashCode();
         return result;
     }
+
 }

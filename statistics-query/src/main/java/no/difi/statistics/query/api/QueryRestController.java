@@ -111,4 +111,16 @@ public class QueryRestController {
         return service.sum(seriesName, distance, owner, from, to);
     }
 
+    @GetMapping("{owner}/{seriesName}/{distance}/sum/{targetDistance}")
+    public List<TimeSeriesPoint> sumPerDistance(
+            @PathVariable String owner,
+            @PathVariable String seriesName,
+            @PathVariable MeasurementDistance distance,
+            @PathVariable MeasurementDistance targetDistance,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+    ) {
+        return service.sumPerDistance(seriesName, distance, targetDistance, owner, from, to);
+    }
+
 }

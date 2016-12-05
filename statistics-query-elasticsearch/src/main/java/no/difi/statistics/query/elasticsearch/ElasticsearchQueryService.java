@@ -32,6 +32,8 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.elasticsearch.QueryBuilders.*;
+import static no.difi.statistics.model.MeasurementDistance.days;
+import static no.difi.statistics.model.MeasurementDistance.months;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
 
@@ -99,8 +101,9 @@ public class ElasticsearchQueryService implements QueryService {
         );
         if (result.isEmpty()) {
             logger.info("Empty result for day series search. Attempting to aggregate minute series...");
-            result = sumAggregatePerDay(
+            result = sumPerDistance(
                     resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                    days,
                     from, to
             );
         }
@@ -115,8 +118,9 @@ public class ElasticsearchQueryService implements QueryService {
         );
         if (result.isEmpty()) {
             logger.info("Empty result for month series search. Attempting to aggregate minute series...");
-            result = sumAggregatePerMonth(
+            result = sumPerDistance(
                     resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                    months,
                     from, to
             );
         }
@@ -153,6 +157,15 @@ public class ElasticsearchQueryService implements QueryService {
                 resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
                 from, to
         );
+    }
+
+    @Override
+    public List<TimeSeriesPoint> sumPerDistance(String seriesName, MeasurementDistance distance, MeasurementDistance targetDistance, String owner, ZonedDateTime from, ZonedDateTime to) {
+        return sumPerDistance(
+                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
+                targetDistance,
+                from,
+                to);
     }
 
     @Override
@@ -211,10 +224,11 @@ public class ElasticsearchQueryService implements QueryService {
         return ResultParser.point(range.getBuckets().get(0));
     }
 
-    private List<TimeSeriesPoint> sumAggregatePerMonth(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+    private List<TimeSeriesPoint> sumPerDistance(List<String> indexNames, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
-                    "Executing sum aggregate per month:\nIndexes: %s\nFrom: %s\nTo: %s\n",
+                    "Executing sum point per %s:\nIndexes: %s\nFrom: %s\nTo: %s\n",
+                    targetDistance,
                     indexNames.stream().collect(joining(",\n  ")),
                     from,
                     to
@@ -222,7 +236,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .addAggregation(sumHistogramAggregation("per_month", DateHistogramInterval.MONTH, measurementIds(indexNames)))
+                .addAggregation(sumHistogramAggregation("a", targetDistance, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -230,32 +244,7 @@ public class ElasticsearchQueryService implements QueryService {
         }
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
-            Histogram histogram = response.getAggregations().get("per_month");
-            series.addAll(histogram.getBuckets().stream().map(ResultParser::point).collect(toList()));
-        }
-        return series;
-    }
-
-    private List<TimeSeriesPoint> sumAggregatePerDay(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
-        if (logger.isDebugEnabled()) {
-            logger.debug(format(
-                    "Executing sum aggregate per day:\nIndexes: %s\nFrom: %s\nTo: %s\n",
-                    indexNames.stream().collect(joining(",\n  ")),
-                    from,
-                    to
-            ));
-        }
-        SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .addAggregation(sumHistogramAggregation("per_day", DateHistogramInterval.DAY, measurementIds(indexNames)))
-                .setSize(0) // We are after aggregation and not the search hits
-                .execute().actionGet();
-        if (logger.isDebugEnabled()) {
-            logger.debug("Search result:\n" + response);
-        }
-        List<TimeSeriesPoint> series = new ArrayList<>();
-        if (response.getAggregations() != null) {
-            Histogram histogram = response.getAggregations().get("per_day");
+            Histogram histogram = response.getAggregations().get("a");
             series.addAll(histogram.getBuckets().stream().map(ResultParser::point).collect(toList()));
         }
         return series;
