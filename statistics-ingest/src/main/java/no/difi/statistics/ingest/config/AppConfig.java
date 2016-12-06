@@ -8,13 +8,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.core.env.Environment;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.handler.SimpleUrlHandlerMapping;
+import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
@@ -24,6 +29,8 @@ import java.time.ZonedDateTime;
 import java.util.Date;
 
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.singletonMap;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static springfox.documentation.builders.PathSelectors.any;
@@ -107,6 +114,21 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
                         )
                         .build()
                 );
+    }
+
+    @Bean
+    public HandlerMapping specificWebjarHandlerMappingForSwaggerWithPrecedenceToAvoidClashWithControllerRequestMapping() {
+        SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
+        mapping.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        mapping.setUrlMap(singletonMap("/webjars/**", webjarRequestHandler()));
+        return mapping;
+    }
+
+    @Bean
+    public ResourceHttpRequestHandler webjarRequestHandler() {
+        ResourceHttpRequestHandler requestHandler = new ResourceHttpRequestHandler();
+        requestHandler.setLocations(singletonList(new ClassPathResource("META-INF/resources/webjars/")));
+        return requestHandler;
     }
 
 }

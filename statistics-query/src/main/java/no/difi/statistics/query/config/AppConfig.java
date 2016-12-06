@@ -5,6 +5,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.handler.SimpleUrlHandlerMapping;
+import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
@@ -13,6 +18,8 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 import java.time.ZonedDateTime;
 
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.singletonMap;
 import static springfox.documentation.builders.PathSelectors.any;
 import static springfox.documentation.builders.RequestHandlerSelectors.basePackage;
 
@@ -48,6 +55,21 @@ public class AppConfig {
                         )
                         .build()
                 );
+    }
+
+    @Bean
+    public HandlerMapping specificWebjarHandlerMappingForSwaggerWithPrecedenceToAvoidClashWithControllerRequestMapping() {
+        SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
+        mapping.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        mapping.setUrlMap(singletonMap("/webjars/**", webjarRequestHandler()));
+        return mapping;
+    }
+
+    @Bean
+    public ResourceHttpRequestHandler webjarRequestHandler() {
+        ResourceHttpRequestHandler requestHandler = new ResourceHttpRequestHandler();
+        requestHandler.setLocations(singletonList(new ClassPathResource("META-INF/resources/webjars/")));
+        return requestHandler;
     }
 
 }
