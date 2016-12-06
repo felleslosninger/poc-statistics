@@ -1,3 +1,4 @@
+feature/PBLEID-13095: Innlegging av tidsserier med tilfeldige data på forskjellige måleavstander
 bugfix/PBLEID-13086: Swagger feiler i å laste ressursene sine
 feature/PBLEID-12443: Sum per måned av en timeserie
 feature/PBLEID-12867: Siste punkt per dag av en minuttserie

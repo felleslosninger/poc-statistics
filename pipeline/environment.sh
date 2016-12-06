@@ -195,7 +195,7 @@ createSecurityGroup() {
             "IpProtocol=UDP,FromPort=7946,ToPort=7946,IpRanges=[{CidrIp=0.0.0.0/0}]" \
             "IpProtocol=TCP,FromPort=9200,ToPort=9201,IpRanges=[{CidrIp=0.0.0.0/0}]" \
             "IpProtocol=TCP,FromPort=9300,ToPort=9301,IpRanges=[{CidrIp=0.0.0.0/0}]" \
-            "IpProtocol=TCP,FromPort=8080,ToPort=8082,IpRanges=[{CidrIp=0.0.0.0/0}]" \
+            "IpProtocol=TCP,FromPort=8080,ToPort=8083,IpRanges=[{CidrIp=0.0.0.0/0}]" \
             ) || fail "Failed to add ingress rules to security group"
     echo -n "Adding tag... "
     tag ${id} $(systemId ${version})
