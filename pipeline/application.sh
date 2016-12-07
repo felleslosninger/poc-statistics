@@ -66,8 +66,8 @@ createService() {
             --constraint 'node.role == manager' \
             --stop-grace-period 5m \
             --name ${service} \
-            -p 9201:9201 -p 9301:9301 \
-            ${image} -Des.http.port=9201 -Des.transport.tcp.port=9301 -Des.node.data=false) \
+            -p 9201:9200 -p 9301:9301 \
+            ${image} -Des.transport.tcp.port=9301 -Des.node.data=false) \
             || fail "Failed to create service ${service}"
         ;;
     elasticsearch)
@@ -188,7 +188,7 @@ indexExists() {
     index=${1}
     host=${2-'localhost'}
     echo -n "Checking existence of index \"${index}\"... "
-    curl -s -f --head http://${host}:8082/${index} > /dev/null \
+    curl -sS -f --head http://${host}:8082/${index} > /dev/null \
         && ok || fail
 }
 
@@ -202,31 +202,31 @@ createTestData() {
         [ ! ${ret} -eq 7 -a ! ${ret} -eq 22 ] && break # Stop retry if neither connect error nor server failure
         dotSleep
     done
-    [ ${ret} ] && ok || fail
+    [ ${ret} -eq 0 ] && ok || fail
     echo -n "Creating test data with credentials ${user}/${password}... "
     for i in $(seq 1 600); do
-        doCreateTestData ${user} ${password} ${host}
+        doCreateTestData "${user}" "${password}" "${host}"
         ret=$?
         [ ! ${ret} -eq 7 -a ! ${ret} -eq 22 ] && break # Stop retry if neither connect error nor server failure
         dotSleep
     done
-    [ ${ret} ] && ok || fail
+    [ ${ret} -eq 0 ] && ok || fail
 }
 
 doCreateTestData() {
-    user=$1
-    password=$2
+    user="${1}"
+    password="${2}"
     requireArgument 'user'
     requireArgument 'password'
     host=${3-'localhost'}
-    owner=${user}
+    owner="${user}"
     curl \
         -sS \
         -f \
-        -u ${user}:${password} \
+        -u "${user}":"${password}" \
         -H "Content-Type: application/json;charset=UTF-8" \
         -XPOST \
-        http://${host}:8081/${owner}/test/minutes\?from=2016-01-01T00:00:00.000Z\&to=2016-01-03T00:00:00.000Z
+        http://${host}:8081/${owner}/test/minutes\?random\&from=2016-01-01T00:00:00.000Z\&to=2016-01-03T00:00:00.000Z
 }
 
 doCreateCredentials() {
@@ -343,6 +343,7 @@ verify() {
     version=${1-'latest'}
     waitForServiceToBeAvailable 'elasticsearch' || return $?
     waitForServiceToBeAvailable 'ingest' || return $?
+    waitForServiceToBeAvailable 'authenticate' || return $?
     createTestData || return $?
     waitForGreenStatus || return $?
     update ${version} || return $?
