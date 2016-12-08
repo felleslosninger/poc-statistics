@@ -19,6 +19,8 @@ public class BackendConfigURL implements BackendConfig {
     public IngestService ingestService() throws MalformedUrl {
         return new IngestClient(
                 environment.getRequiredProperty("service.url"),
+                5000,
+                15000,
                 environment.getRequiredProperty("owner"),
                 environment.getRequiredProperty("user"),
                 environment.getRequiredProperty("pwd"));
