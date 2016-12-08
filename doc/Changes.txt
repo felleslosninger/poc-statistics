@@ -1,4 +1,6 @@
 bugfix/PBLEID-13093: Alle data forsvinner etter en oppgradering
+bugfix/PBLEID-13089: Ingest client feiler overforing av statistikk
+bugfix/PBLEID-13093: Alle data forsvinner etter en oppgradering
 feature/PBLEID-13095: Innlegging av tidsserier med tilfeldige data på forskjellige måleavstander
 bugfix/PBLEID-13086: Swagger feiler i å laste ressursene sine
 feature/PBLEID-12443: Sum per måned av en timeserie

@@ -5,8 +5,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import no.difi.statistics.ingest.client.exception.CommunicationError;
-import no.difi.statistics.ingest.client.exception.MalformedUrl;
+import no.difi.statistics.ingest.client.exception.*;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
 import java.io.IOException;
@@ -16,15 +15,16 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Base64;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+
 public class IngestClient implements IngestService {
     private static final String CONTENT_TYPE_KEY = "Content-Type";
     private static final String JSON_CONTENT_TYPE = "application/json";
     private static final String REQUEST_METHOD_POST = "POST";
     private static final String AUTHORIZATION_KEY = "Authorization";
     private static final String AUTH_METHOD = "Basic";
-
-    private static final String EXCEPTION_MESSAGE_MALFORMED_URL = "Could not create URL to IngestService";
-    private static final String EXCEPTION_MESSAGE_IO_EXCEPTION = "Could not call IngestService";
 
     private final ObjectMapper objectMapper;
     private final JavaTimeModule javaTimeModule;
@@ -34,12 +34,16 @@ public class IngestClient implements IngestService {
     private final String password;
     private final String baseUrl;
     private final String owner;
+    private final int readTimeoutMillis;
+    private final int connectionTimeoutMillis;
 
-    public IngestClient(String baseURL, String owner, String username, String password) throws MalformedUrl {
+    public IngestClient(String baseURL, int readTimeoutMillis, int connectionTimeoutMillis, String owner, String username, String password) throws MalformedUrl {
         objectMapper = new ObjectMapper();
         javaTimeModule = new JavaTimeModule();
         iso8601DateFormat = new ISO8601DateFormat();
         this.baseUrl = baseURL;
+        this.connectionTimeoutMillis = connectionTimeoutMillis;
+        this.readTimeoutMillis = readTimeoutMillis;
         this.owner = owner;
         this.username = username;
         this.password = password;
@@ -58,42 +62,50 @@ public class IngestClient implements IngestService {
         URL url;
         try {
             url = new URL(serviceUrlTemplate(seriesName, Distance.minute.getValue()));
-            datapoint(timeSeriesPoint, url);
-
-        } catch(MalformedURLException e){
-            throw new MalformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);
-        } catch (IOException e) {
-            throw new CommunicationError(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
-        }
-    }
-
-    private void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MalformedUrl {
-        URL url;
-        try {
-            url = new URL(serviceUrlTemplate(seriesName, Distance.hour.getValue()));
-            datapoint(timeSeriesPoint, url);
+            dataPoint(timeSeriesPoint, url);
         } catch(MalformedURLException e) {
-            throw new MalformedUrl(EXCEPTION_MESSAGE_MALFORMED_URL, e);
-        } catch (IOException e) {
-            throw new CommunicationError(EXCEPTION_MESSAGE_IO_EXCEPTION, e);
+            throw new MalformedUrl("Could not create URL to IngestService", e);
         }
     }
 
-    private void datapoint(TimeSeriesPoint timeSeriesPoint, URL url) throws IOException {
-        HttpURLConnection conn = getConnection(url);
-        OutputStream outputStream = writeJsonToOutputStream(timeSeriesPoint, conn);
-        outputStream.flush();
-        if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
-            throw new CommunicationError("Could not post to Ingest Service.");
+    private void hour(String seriesName, TimeSeriesPoint timeSeriesPoint) {
+        try {
+            URL url = new URL(serviceUrlTemplate(seriesName, Distance.hour.getValue()));
+            dataPoint(timeSeriesPoint, url);
+        } catch(MalformedURLException e) {
+            throw new MalformedUrl("Could not create URL to IngestService", e);
         }
-        conn.disconnect();
+    }
+
+    private void dataPoint(TimeSeriesPoint timeSeriesPoint, URL url) {
+        HttpURLConnection connection = null;
+        try {
+            connection = getConnection(url);
+            writeJsonToOutputStream(timeSeriesPoint, connection);
+            switch (connection.getResponseCode()) {
+                case HTTP_OK:
+                    break;
+                case HTTP_CONFLICT:
+                    throw new DataPointAlreadyExists();
+                case HTTP_UNAUTHORIZED:
+                    throw new Unauthorized("Failed to authorize Ingest service");
+                default:
+                    throw new IngestFailed("Could not post to Ingest Service");
+            }
+        } catch (IOException e) {
+            throw new IngestFailed("Could not call IngestService", e);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
     }
 
     private HttpURLConnection getConnection(URL url) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setDoOutput(true);
-        conn.setConnectTimeout(5000);
-        conn.setReadTimeout(5000);
+        conn.setConnectTimeout(connectionTimeoutMillis);
+        conn.setReadTimeout(readTimeoutMillis);
         conn.setRequestMethod(REQUEST_METHOD_POST);
         conn.setRequestProperty(CONTENT_TYPE_KEY, JSON_CONTENT_TYPE);
         conn.setRequestProperty(AUTHORIZATION_KEY, AUTH_METHOD + " " + createBase64EncodedCredentials());
@@ -110,6 +122,7 @@ public class IngestClient implements IngestService {
         ObjectWriter objectWriter = getObjectWriter();
         String jsonString = objectWriter.writeValueAsString(timeSeriesPoint);
         outputStream.write(jsonString.getBytes());
+        outputStream.flush();
         return outputStream;
     }
 
