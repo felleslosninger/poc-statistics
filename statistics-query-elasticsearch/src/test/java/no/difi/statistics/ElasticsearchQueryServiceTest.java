@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
-import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.elasticsearch.config.ElasticsearchConfig;
@@ -41,13 +40,26 @@ import static java.time.temporal.ChronoUnit.MONTHS;
 import static java.util.Arrays.stream;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.*;
+import static no.difi.statistics.PercentileFilterBuilder.pointsGreaterThanPercentile;
+import static no.difi.statistics.PercentileFilterBuilder.pointsGreaterThanOrEqualToPercentile;
+import static no.difi.statistics.PercentileFilterBuilder.pointsLessThanPercentile;
+import static no.difi.statistics.PercentileFilterBuilder.pointsLessThanOrEqualToPercentile;
+import static no.difi.statistics.SumFunctionBuilder.sumOfPoints;
 import static no.difi.statistics.elasticsearch.Timestamp.truncate;
-import static no.difi.statistics.model.MeasurementDistance.*;
-import static no.difi.statistics.model.RelationalOperator.*;
+import static no.difi.statistics.model.MeasurementDistance.days;
+import static no.difi.statistics.model.MeasurementDistance.hours;
+import static no.difi.statistics.model.MeasurementDistance.minutes;
+import static no.difi.statistics.model.MeasurementDistance.months;
+import static no.difi.statistics.model.MeasurementDistance.years;
 import static no.difi.statistics.test.utils.DataGenerator.createRandomTimeSeries;
-import static no.difi.statistics.test.utils.DataOperations.*;
-import static org.junit.Assert.*;
+import static no.difi.statistics.test.utils.DataOperations.measurementValue;
+import static no.difi.statistics.test.utils.DataOperations.size;
+import static no.difi.statistics.test.utils.DataOperations.timestamp;
+import static no.difi.statistics.test.utils.DataOperations.unit;
+import static no.difi.statistics.test.utils.DataOperations.value;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(webEnvironment = RANDOM_PORT)
@@ -359,85 +371,32 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
-    public void givenMinuteSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
-        given(existingSeries().withDistance(minutes).withMeasurements("m1", "m2", "m3", "m4"))
-            .when(requestingPoints().withDistance(minutes).withMeasurement("m1").lessThanPercentile(92))
-                .then().percentile(lessThan(92).forMeasurement("m1")).isReturned()
-            .when(requestingPoints().withDistance(minutes).withMeasurement("m2").greaterThanPercentile(43))
-                .then().percentile(greaterThan(43).forMeasurement("m2")).isReturned()
-            .when(requestingPoints().withDistance(minutes).withMeasurement("m3").lessThanOrEqualToPercentile(15))
-                .then().percentile(lessThanOrEqualTo(15).forMeasurement("m3")).isReturned()
-            .when(requestingPoints().withDistance(minutes).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
-                .then().percentile(greaterThanOrEqualTo(57).forMeasurement("m4")).isReturned();
-    }
-
-    @Test
-    public void givenHourSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
-        given(existingSeries().withDistance(hours).withMeasurements("m1", "m2", "m3", "m4"))
-            .when(requestingPoints().withDistance(hours).withMeasurement("m1").lessThanPercentile(92))
-                .then().percentile(lessThan(92).forMeasurement("m1")).isReturned()
-            .when(requestingPoints().withDistance(hours).withMeasurement("m2").greaterThanPercentile(43))
-                .then().percentile(greaterThan(43).forMeasurement("m2")).isReturned()
-            .when(requestingPoints().withDistance(hours).withMeasurement("m3").lessThanOrEqualToPercentile(15))
-                .then().percentile(lessThanOrEqualTo(15).forMeasurement("m3")).isReturned()
-            .when(requestingPoints().withDistance(hours).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
-                .then().percentile(greaterThanOrEqualTo(57).forMeasurement("m4")).isReturned();
-    }
-
-    @Test
-    public void givenDaySeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
-        given(existingSeries().withDistance(days).withMeasurements("m1", "m2", "m3", "m4"))
-            .when(requestingPoints().withDistance(days).withMeasurement("m1").lessThanPercentile(92))
-                .then().percentile(lessThan(92).forMeasurement("m1")).isReturned()
-            .when(requestingPoints().withDistance(days).withMeasurement("m2").greaterThanPercentile(43))
-                .then().percentile(greaterThan(43).forMeasurement("m2")).isReturned()
-            .when(requestingPoints().withDistance(days).withMeasurement("m3").lessThanOrEqualToPercentile(15))
-                .then().percentile(lessThanOrEqualTo(15).forMeasurement("m3")).isReturned()
-            .when(requestingPoints().withDistance(days).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
-                .then().percentile(greaterThanOrEqualTo(57).forMeasurement("m4")).isReturned();
-    }
-
-    @Test
-    public void givenMonthSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
-        given(existingSeries().withDistance(months).withMeasurements("m1", "m2", "m3", "m4"))
-            .when(requestingPoints().withDistance(months).withMeasurement("m1").lessThanPercentile(92))
-                .then().percentile(lessThan(92).forMeasurement("m1")).isReturned()
-            .when(requestingPoints().withDistance(months).withMeasurement("m2").greaterThanPercentile(43))
-                .then().percentile(greaterThan(43).forMeasurement("m2")).isReturned()
-            .when(requestingPoints().withDistance(months).withMeasurement("m3").lessThanOrEqualToPercentile(15))
-                .then().percentile(lessThanOrEqualTo(15).forMeasurement("m3")).isReturned()
-            .when(requestingPoints().withDistance(months).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
-                .then().percentile(greaterThanOrEqualTo(57).forMeasurement("m4")).isReturned();
-    }
-
-    @Test
-    public void givenYearSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
-        given(existingSeries().withDistance(years).withMeasurements("m1", "m2", "m3", "m4"))
-            .when(requestingPoints().withDistance(years).withMeasurement("m1").lessThanPercentile(92))
-                .then().percentile(lessThan(92).forMeasurement("m1")).isReturned()
-            .when(requestingPoints().withDistance(years).withMeasurement("m2").greaterThanPercentile(43))
-                .then().percentile(greaterThan(43).forMeasurement("m2")).isReturned()
-            .when(requestingPoints().withDistance(years).withMeasurement("m3").lessThanOrEqualToPercentile(15))
-                .then().percentile(lessThanOrEqualTo(15).forMeasurement("m3")).isReturned()
-            .when(requestingPoints().withDistance(years).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
-                .then().percentile(greaterThanOrEqualTo(57).forMeasurement("m4")).isReturned();
+    public void givenSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        Given given = given(
+                existingSeries().withDistance(minutes),
+                existingSeries().withDistance(hours),
+                existingSeries().withDistance(days),
+                existingSeries().withDistance(months),
+                existingSeries().withDistance(years)
+        );
+        for (MeasurementDistance distance : MeasurementDistance.values()) {
+            given
+                    .when(requesting().pointsLessThanPercentile(92).forDistance(distance).forMeasurement("m1"))
+                    .then().verifyThat(pointsLessThanPercentile(92).forMeasurement("m1")).forDistance(distance).isReturned()
+                    .when(requesting().pointsGreaterThanPercentile(43).forDistance(distance).forMeasurement("m2"))
+                    .then().verifyThat(pointsGreaterThanPercentile(43).forMeasurement("m2")).forDistance(distance).isReturned()
+                    .when(requesting().pointsLessThanOrEqualToPercentile(15).forDistance(distance).forMeasurement("m3"))
+                    .then().verifyThat(pointsLessThanOrEqualToPercentile(15).forMeasurement("m3")).forDistance(distance).isReturned()
+                    .when(requesting().pointsGreaterThanOrEqualToPercentile(57).forDistance(distance).forMeasurement("m4"))
+                    .then().verifyThat(pointsGreaterThanOrEqualToPercentile(57).forMeasurement("m4")).forDistance(distance).isReturned();
+        }
     }
 
     @Test
     public void givenMinuteSeriesWhenQueryingForMonthPointsThenSummarizedMinutesAreReturned() throws IOException {
         given(existingSeries().withDistance(minutes))
-            .when(requestingPoints().withDistance(months))
+            .when(requesting().forDistance(months))
                 .then().sumPointPer(months).isReturned();
-    }
-
-    @Test
-    public void givenMinuteSeriesWhenQueryingForLastPerMeasurementDistanceThenLastPointPerMeasurementDistanceIsReturned() throws IOException {
-        given(existingSeries().withDistance(minutes))
-            .when(requestingPoints().withDistance(minutes).lastPer(minutes)).then().lastPointPer(minutes).isReturned()
-            .when(requestingPoints().withDistance(minutes).lastPer(hours)).then().lastPointPer(hours).isReturned()
-            .when(requestingPoints().withDistance(minutes).lastPer(days)).then().lastPointPer(days).isReturned()
-            .when(requestingPoints().withDistance(minutes).lastPer(months)).then().lastPointPer(months).isReturned()
-            .when(requestingPoints().withDistance(minutes).lastPer(years)).then().lastPointPer(years).isReturned();
     }
 
     @Test
@@ -452,11 +411,11 @@ public class ElasticsearchQueryServiceTest {
         for (MeasurementDistance distance : MeasurementDistance.values()) {
             for (MeasurementDistance targetDistance : MeasurementDistance.values()) {
                 if (distance.ordinal() <= targetDistance.ordinal()) {
-                    given.when(requestingPoints().lastPer(targetDistance).withDistance(distance))
-                        .then().lastPointPer(targetDistance).withDistance(distance).isReturned();
+                    given.when(requesting().lastPointPer(targetDistance).forDistance(distance))
+                        .then().lastPointPer(targetDistance).forDistance(distance).isReturned();
                 } else {
-                    given.when(requestingPoints().lastPer(targetDistance).withDistance(distance))
-                            .then().withDistance(distance).requestFails(
+                    given.when(requesting().lastPointPer(targetDistance).forDistance(distance))
+                            .then().requestFails(
                                     String.format("500/Distance %s is greater than target distance %s", distance, targetDistance)
                     );
                 }
@@ -476,11 +435,11 @@ public class ElasticsearchQueryServiceTest {
         for (MeasurementDistance distance : MeasurementDistance.values()) {
             for (MeasurementDistance targetDistance : MeasurementDistance.values()) {
                 if (distance.ordinal() <= targetDistance.ordinal()) {
-                    given.when(requestingPoints().sumPer(targetDistance).withDistance(distance))
-                            .then().sumPointPer(targetDistance).withDistance(distance).isReturned();
+                    given.when(requesting().sumPointPer(targetDistance).forDistance(distance))
+                            .then().sumPointPer(targetDistance).forDistance(distance).isReturned();
                 } else {
-                    given.when(requestingPoints().lastPer(targetDistance).withDistance(distance))
-                            .then().withDistance(distance).requestFails(
+                    given.when(requesting().lastPointPer(targetDistance).forDistance(distance))
+                            .then().requestFails(
                             String.format("500/Distance %s is greater than target distance %s", distance, targetDistance)
                     );
                 }
@@ -495,10 +454,10 @@ public class ElasticsearchQueryServiceTest {
         List<TimeSeriesPoint> pointsMonth2 = createRandomTimeSeries(now.truncatedTo(DAYS).plusMonths(1), minutes, 100, "measurementA", "measurementB");
         helper.indexPoints(minutes, pointsMonth2);
 
-        List<TimeSeriesPoint> resultingPoints = requestingPoints().from(series).withDistance(minutes)
+        List<TimeSeriesPoint> resultingPoints = requesting().from(series).forDistance(minutes)
                 .from(now.truncatedTo(DAYS))
                 .to(now.truncatedTo(DAYS).plusMonths(1).plusMinutes(100))
-                .lastPer(months).get();
+                .lastPointPer(months).get();
 
         assertEquals(2, size(resultingPoints));
 
@@ -553,43 +512,50 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
-    public void givenRandomMinuteSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenRandomSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned(minutes);
-    }
-
-    @Test
-    public void givenRandomHourSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenRandomSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned(hours);
-    }
-
-    @Test
-    public void givenRandomDaysSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenRandomSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned(days);
-    }
-
-    @Test
-    public void givenRandomMonthsSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenRandomSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned(months);
-    }
-
-    @Test
-    public void givenRandomYearSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenRandomSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned(years);
-    }
-
-    private void givenRandomSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned(MeasurementDistance distance) throws IOException {
-        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), distance, 78, "measurementA", "measurementB");
-        helper.indexPoints(distance, points);
-        TimeSeriesPoint resultingPoint = requestSum(
-                series,
-                distance,
-                now.truncatedTo(DAYS),
-                now.truncatedTo(DAYS).plus(100, unit(distance))
+    public void givenSeriesWhenRequestingUnboundedSumThenSingleSummarizedPointIsReturned() {
+        Given given = given(
+                existingSeries().withDistance(minutes),
+                existingSeries().withDistance(hours),
+                existingSeries().withDistance(days),
+                existingSeries().withDistance(months),
+                existingSeries().withDistance(years)
         );
-        assertNotNull(resultingPoint);
-        assertEquals(DataOperations.sum("measurementA", points), measurementValue("measurementA", resultingPoint));
-        assertEquals(DataOperations.sum("measurementB", points), measurementValue("measurementB", resultingPoint));
-        assertEquals(now.truncatedTo(DAYS).toInstant(), resultingPoint.getTimestamp().toInstant());
+        for (MeasurementDistance distance : MeasurementDistance.values()) {
+            given.when(requesting().sumPoint().forDistance(distance))
+                    .then().verifyThat(sumOfPoints()).forDistance(distance).isReturned();
+        }
+    }
+
+    @Test
+    public void givenSeriesWhenRequestingLeftUnboundedSumThenSingleSummarizedPointIsReturned() {
+        Given given = given(
+                existingSeries().withDistance(minutes),
+                existingSeries().withDistance(hours),
+                existingSeries().withDistance(days),
+                existingSeries().withDistance(months),
+                existingSeries().withDistance(years)
+        );
+        ZonedDateTime timestampOfLastPoint = ZonedDateTime.now();
+        for (MeasurementDistance distance : MeasurementDistance.values()) {
+            given.when(requesting().sumPoint().forDistance(distance).to(timestampOfLastPoint))
+                    .then().verifyThat(sumOfPoints().to(timestampOfLastPoint)).forDistance(distance).isReturned();
+        }
+    }
+
+    @Test
+    public void givenSeriesWhenRequestingRightUnboundedSumThenSingleSummarizedPointIsReturned() {
+        Given givenExistingSeries= given(
+                existingSeries().withDistance(minutes),
+                existingSeries().withDistance(hours),
+                existingSeries().withDistance(days),
+                existingSeries().withDistance(months),
+                existingSeries().withDistance(years)
+        );
+        ZonedDateTime timestampOfFirstPoint = ZonedDateTime.now().minusYears(200);
+        for (MeasurementDistance distance : MeasurementDistance.values()) {
+            givenExistingSeries.when(requesting().sumPoint().forDistance(distance).from(timestampOfFirstPoint))
+                    .then().verifyThat(sumOfPoints().from(timestampOfFirstPoint)).forDistance(distance).isReturned();
+        }
     }
 
     @Test
@@ -629,7 +595,7 @@ public class ElasticsearchQueryServiceTest {
         );
         assertNotNull(resultingPoint);
         assertEquals(DataOperations.sum(measurementId, points), measurementValue(measurementId, resultingPoint));
-        assertEquals(now.truncatedTo(DAYS).toInstant(), resultingPoint.getTimestamp().toInstant());
+        assertEquals(now.truncatedTo(DAYS).plus(1, unit(distance)).toInstant(), resultingPoint.getTimestamp().toInstant());
     }
 
     private List<String> availableTimeSeries(String owner) throws IOException {
@@ -754,7 +720,7 @@ public class ElasticsearchQueryServiceTest {
         }
     }
 
-    private WhenSupplier requestingPoints() {
+    private WhenSupplier requesting() {
         return new WhenSupplier(restTemplate, objectMapper);
     }
 
@@ -823,24 +789,24 @@ public class ElasticsearchQueryServiceTest {
             return this;
         }
 
-        Then percentile(PercentileFilterBuilder function) {
+        Then verifyThat(Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> function) {
             this.function = function;
             return this;
         }
 
-        Then withDistance(MeasurementDistance distance) {
+        Then forDistance(MeasurementDistance distance) {
             this.distance = distance;
             return this;
         }
 
         Given requestFails(String message) {
-            givenSupplier().get();
             assertEquals(message, when.supplier.failure());
             return given;
         }
 
         Given isReturned() {
             assertEquals(
+                    "Expectation failed for distance " + distance,
                     function.apply(givenSupplier().get()),
                     when.supplier.get()
             );
@@ -849,49 +815,6 @@ public class ElasticsearchQueryServiceTest {
 
         private GivenSupplier givenSupplier() {
             return given.suppliers.size() == 1 ? given.suppliers.values().iterator().next() : given.suppliers.get(distance.toString());
-        }
-
-    }
-
-    public static class PercentileFilterBuilder implements Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> {
-
-        private RelationalOperator operator;
-        private int percentile;
-        private String measurementId;
-
-        PercentileFilterBuilder(RelationalOperator operator) {
-            this.operator = operator;
-        }
-
-        static PercentileFilterBuilder lessThan(int percentile) {
-            return new PercentileFilterBuilder(lt).percentile(percentile);
-        }
-
-        static PercentileFilterBuilder greaterThan(int percentile) {
-            return new PercentileFilterBuilder(gt).percentile(percentile);
-        }
-
-        static PercentileFilterBuilder lessThanOrEqualTo(int percentile) {
-            return new PercentileFilterBuilder(lte).percentile(percentile);
-        }
-
-        static PercentileFilterBuilder greaterThanOrEqualTo(int percentile) {
-            return new PercentileFilterBuilder(gte).percentile(percentile);
-        }
-
-        PercentileFilterBuilder percentile(int percentile) {
-            this.percentile = percentile;
-            return this;
-        }
-
-        PercentileFilterBuilder forMeasurement(String measurementId) {
-            this.measurementId = measurementId;
-            return this;
-        }
-
-        @Override
-        public List<TimeSeriesPoint> apply(List<TimeSeriesPoint> points) {
-            return relativeToPercentile(operator, measurementId, percentile).apply(points);
         }
 
     }

@@ -14,9 +14,8 @@ import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
-import org.elasticsearch.search.aggregations.bucket.range.Range;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
@@ -210,9 +209,11 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private TimeSeriesPoint sumAggregate(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+        if (from == null && to == null)
+            return sumAggregateUnbounded(indexNames);
         SearchResponse response = searchBuilder(indexNames)
                 .setQuery(timeRangeQuery(from, to))
-                .addAggregation(dateRangeAggregation("a", from, to, measurementIds(indexNames)))
+                .addAggregation(sumAggregation("a", from, to, measurementIds(indexNames)))
                 .setSize(0) // We are after aggregation and not the search hits
                 .execute().actionGet();
         if (logger.isDebugEnabled()) {
@@ -220,8 +221,20 @@ public class ElasticsearchQueryService implements QueryService {
         }
         if (response.getAggregations() == null)
             return null;
-        Range range = response.getAggregations().get("a");
-        return ResultParser.point(range.getBuckets().get(0));
+        return ResultParser.sumPointFromRangeBucket(response.getAggregations().get("a"));
+    }
+
+    private TimeSeriesPoint sumAggregateUnbounded(List<String> indexNames) {
+        SearchRequestBuilder searchBuilder = searchBuilder(indexNames)
+                .setQuery(timeRangeQuery(null, null))
+                .setSize(0); // We are after aggregation and not the search hits
+        measurementIds(indexNames).forEach(mid -> searchBuilder.addAggregation(AggregationBuilders.sum(mid).field(mid)));
+        searchBuilder.addAggregation(lastAggregation());
+        SearchResponse response = searchBuilder.execute().actionGet();
+        if (logger.isDebugEnabled()) {
+            logger.debug("Search result:\n" + response);
+        }
+        return ResultParser.sumPoint(response.getAggregations());
     }
 
     private List<TimeSeriesPoint> sumPerDistance(List<String> indexNames, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to) {

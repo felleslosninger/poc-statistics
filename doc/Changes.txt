@@ -1,4 +1,4 @@
-bugfix/PBLEID-13093: Alle data forsvinner etter en oppgradering
+bugfix/PBLEID-13113: Sum-operasjonen feiler dersom fra/til ikke er angitt
 bugfix/PBLEID-13089: Ingest client feiler overforing av statistikk
 bugfix/PBLEID-13093: Alle data forsvinner etter en oppgradering
 feature/PBLEID-13095: Innlegging av tidsserier med tilfeldige data på forskjellige måleavstander

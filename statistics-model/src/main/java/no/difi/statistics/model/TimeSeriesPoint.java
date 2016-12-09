@@ -10,6 +10,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.function.Function;
 
 
 @XmlRootElement
@@ -48,6 +49,7 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
     public static class Builder {
         private TimeSeriesPoint instance;
         private Map<String, Measurement> measurements = new HashMap<>();
+        private Function<ZonedDateTime, ZonedDateTime> timestampModifier;
 
         Builder() {
             this.instance = new TimeSeriesPoint();
@@ -55,6 +57,11 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
 
         public Builder timestamp(ZonedDateTime timestamp) {
             instance.timestamp = timestamp;
+            return this;
+        }
+
+        public Builder timestampModifier(Function<ZonedDateTime, ZonedDateTime> modifier) {
+            timestampModifier = modifier;
             return this;
         }
 
@@ -76,13 +83,16 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
             return this;
         }
 
-        public Builder plus(TimeSeriesPoint other) {
+        public Builder add(TimeSeriesPoint other) {
             measurements(other.measurements);
+            instance.timestamp = other.timestamp;
             return this;
         }
 
         public TimeSeriesPoint build() {
             if (instance.timestamp == null) throw new IllegalArgumentException("timestamp");
+            if (timestampModifier != null)
+                instance.timestamp = timestampModifier.apply(instance.timestamp);
             instance.measurements.addAll(measurements.values());
             return instance;
         }

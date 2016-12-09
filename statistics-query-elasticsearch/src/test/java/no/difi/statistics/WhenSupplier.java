@@ -17,11 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;
-import static no.difi.statistics.WhenSupplier.Type.lastPer;
-import static no.difi.statistics.WhenSupplier.Type.normal;
-import static no.difi.statistics.WhenSupplier.Type.relativeToPercentile;
-import static no.difi.statistics.WhenSupplier.Type.sumPer;
+import static no.difi.statistics.WhenSupplier.Type.*;
 import static no.difi.statistics.model.RelationalOperator.gt;
 import static no.difi.statistics.model.RelationalOperator.gte;
 import static no.difi.statistics.model.RelationalOperator.lt;
@@ -29,7 +27,18 @@ import static no.difi.statistics.model.RelationalOperator.lte;
 
 public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
 
-    enum Type {normal, relativeToPercentile, sumPer, lastPer}
+    enum Type {
+        normal(true), relativeToPercentile(true), sum(false), sumPer(true), lastPer(true);
+        private boolean list;
+
+        Type(boolean list) {
+            this.list = list;
+        }
+
+        public boolean isList() {
+            return list;
+        }
+    }
 
     private String owner = "test_owner"; // Index names must be lower case in Elasticsearch
     private String series = "test";
@@ -66,48 +75,53 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
         return this;
     }
 
-    public WhenSupplier withDistance(MeasurementDistance distance) {
+    public WhenSupplier forDistance(MeasurementDistance distance) {
         this.distance = distance;
         return this;
     }
 
-    public WhenSupplier withMeasurement(String measurementId) {
+    public WhenSupplier forMeasurement(String measurementId) {
         this.measurementId = measurementId;
         return this;
     }
 
-    public WhenSupplier lessThanPercentile(int percentile) {
-        return relationalToPercentile(percentile, lt);
+    public WhenSupplier pointsLessThanPercentile(int percentile) {
+        return pointsRelationalToPercentile(percentile, lt);
     }
 
-    public WhenSupplier greaterThanPercentile(int percentile) {
-        return relationalToPercentile(percentile, gt);
+    public WhenSupplier pointsGreaterThanPercentile(int percentile) {
+        return pointsRelationalToPercentile(percentile, gt);
     }
 
-    public WhenSupplier lessThanOrEqualToPercentile(int percentile) {
-        return relationalToPercentile(percentile, lte);
+    public WhenSupplier pointsLessThanOrEqualToPercentile(int percentile) {
+        return pointsRelationalToPercentile(percentile, lte);
     }
 
-    public WhenSupplier greaterThanOrEqualToPercentile(int percentile) {
-        return relationalToPercentile(percentile, gte);
+    public WhenSupplier pointsGreaterThanOrEqualToPercentile(int percentile) {
+        return pointsRelationalToPercentile(percentile, gte);
     }
 
-    public WhenSupplier relationalToPercentile(int percentile, RelationalOperator operator) {
+    private WhenSupplier pointsRelationalToPercentile(int percentile, RelationalOperator operator) {
         this.percentile = percentile;
         this.operator = operator;
         this.type = relativeToPercentile;
         return this;
     }
 
-    public WhenSupplier lastPer(MeasurementDistance targetDistance) {
+    public WhenSupplier lastPointPer(MeasurementDistance targetDistance) {
         this.targetDistance = targetDistance;
         this.type = lastPer;
         return this;
     }
 
-    public WhenSupplier sumPer(MeasurementDistance targetDistance) {
+    public WhenSupplier sumPointPer(MeasurementDistance targetDistance) {
         this.targetDistance = targetDistance;
         this.type = sumPer;
+        return this;
+    }
+
+    public WhenSupplier sumPoint() {
+        this.type = sum;
         return this;
     }
 
@@ -140,7 +154,11 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
             failure = response.getStatusCodeValue() + (response.getBody() != null ? "/" + response.getBody() : "");
         else {
             try {
-                this.points = objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
+                if (type.isList()) {
+                    this.points = objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
+                } else {
+                    this.points = singletonList(objectMapper.readerFor(TimeSeriesPoint.class).readValue(response.getBody()));
+                }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -152,6 +170,8 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
             case normal:
             case relativeToPercentile:
                 return "/{owner}/{series}/{distance}" + queryUrl();
+            case sum:
+                return "/{owner}/{series}/{distance}/sum" + queryUrl();
             case sumPer:
                 return "/{owner}/{series}/{distance}/sum/{targetDistance}" + queryUrl();
             case lastPer:

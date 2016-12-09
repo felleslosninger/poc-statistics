@@ -12,24 +12,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 
-import static java.time.temporal.ChronoUnit.DAYS;
-import static java.time.temporal.ChronoUnit.HOURS;
-import static java.time.temporal.ChronoUnit.MINUTES;
-import static java.time.temporal.ChronoUnit.MONTHS;
-import static java.time.temporal.ChronoUnit.YEARS;
+import static java.time.temporal.ChronoUnit.*;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.Timestamp.truncate;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.lessThan;
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static no.difi.statistics.test.utils.TimeSeriesSumCollector.summarize;
+import static org.hamcrest.Matchers.*;
 
 public class DataOperations {
 
@@ -73,25 +64,13 @@ public class DataOperations {
     }
 
     public static List<TimeSeriesPoint> sumPer(List<TimeSeriesPoint> points, MeasurementDistance distance) {
-        List<TimeSeriesPoint> sums = new ArrayList<>();
-        TimeSeriesPoint.Builder sumPoint = null;
-        ZonedDateTime sumTimestamp = null;
-        for (TimeSeriesPoint point : points) {
-            ZonedDateTime truncatedTimestamp = truncate(point.getTimestamp(), distance);
-            if (sumPoint == null) {
-                sumTimestamp = truncatedTimestamp;
-                sumPoint = TimeSeriesPoint.builder().timestamp(sumTimestamp);
-                sumPoint.plus(point);
-            } else if (!sumTimestamp.toInstant().equals(truncatedTimestamp.toInstant())) {
-                sums.add(sumPoint.build());
-                sumTimestamp = truncatedTimestamp;
-                sumPoint = TimeSeriesPoint.builder().timestamp(sumTimestamp);
-                sumPoint.plus(point);
-            } else {
-                sumPoint.plus(point);
-            }
-        }
-        sums.add(sumPoint.build());
+        List<TimeSeriesPoint> sums = new ArrayList<>(
+                points.stream()
+                        .collect(groupingBy(point -> truncate(point.getTimestamp(), distance),
+                                summarize(timestamp -> truncate(timestamp, distance)))
+                        )
+                .values());
+        sums.sort(null);
         return sums;
     }
 

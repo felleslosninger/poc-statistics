@@ -26,7 +26,7 @@ public class ResultParser {
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     public static TimeSeriesPoint point(SearchHit hit) {
-        return TimeSeriesPoint.builder().timestamp(time(hit)).measurements(measurements(hit)).build();
+        return TimeSeriesPoint.builder().timestamp(timestamp(hit)).measurements(measurements(hit)).build();
     }
 
     public static TimeSeriesPoint pointFromLastAggregation(SearchResponse response) {
@@ -38,19 +38,15 @@ public class ResultParser {
         return point(bucket.getKeyAsString(), bucket);
     }
 
-    public static TimeSeriesPoint point(Range.Bucket bucket) {
-        return point(bucket.getFromAsString(), bucket);
-    }
-
     private static TimeSeriesPoint point(String timestamp, MultiBucketsAggregation.Bucket bucket) {
-        return TimeSeriesPoint.builder().timestamp(time(timestamp)).measurements(measurements(bucket.getAggregations())).build();
+        return TimeSeriesPoint.builder().timestamp(timestamp(timestamp)).measurements(measurements(bucket.getAggregations())).build();
     }
 
-    private static ZonedDateTime time(SearchHit hit) {
-        return time(hit.getSource().get(timeFieldName).toString());
+    private static ZonedDateTime timestamp(SearchHit hit) {
+        return timestamp(hit.getSource().get(timeFieldName).toString());
     }
 
-    private static ZonedDateTime time(String value) {
+    private static ZonedDateTime timestamp(String value) {
         return ZonedDateTime.parse(value, dateTimeFormatter);
     }
 
@@ -79,6 +75,21 @@ public class ResultParser {
             }
         }
         return measurements;
+    }
+
+    public static TimeSeriesPoint sumPoint(Aggregations aggregations) {
+        if (aggregations == null)
+            return null;
+        ZonedDateTime timestamp = timestamp(aggregations.<TopHits>get("last").getHits().getAt(0));
+        return TimeSeriesPoint.builder().timestamp(timestamp).measurements(measurements(aggregations)).build();
+    }
+
+    public static TimeSeriesPoint sumPointFromRangeBucket(Range range) {
+        if (range == null)
+            return null;
+        Range.Bucket bucket = range.getBuckets().get(0);
+        return sumPoint(bucket.getAggregations());
+
     }
 
 }

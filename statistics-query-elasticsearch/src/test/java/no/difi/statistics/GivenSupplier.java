@@ -25,8 +25,9 @@ public class GivenSupplier implements Supplier<List<TimeSeriesPoint>> {
     private String series = "test";
     private List<String> measurementIds = asList("m1", "m2", "m3", "m4");
     private MeasurementDistance distance;
-    private ZonedDateTime from = ZonedDateTime.of(1977, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
-    private int size = 100;
+    private ZonedDateTime from = null;
+    private ZonedDateTime to = null;
+    private Long size = null;
     private List<TimeSeriesPoint> points;
     private ElasticsearchHelper helper;
 
@@ -49,6 +50,11 @@ public class GivenSupplier implements Supplier<List<TimeSeriesPoint>> {
         return this;
     }
 
+    public GivenSupplier to(ZonedDateTime to) {
+        this.to = to;
+        return this;
+    }
+
     public GivenSupplier withMeasurements(String...measurements) {
         this.measurementIds = asList(measurements);
         return this;
@@ -67,6 +73,18 @@ public class GivenSupplier implements Supplier<List<TimeSeriesPoint>> {
     }
 
     private List<TimeSeriesPoint> supply() {
+        if (from != null && to != null && size == null) {
+            size = unit(distance).between(from, to);
+        } else if (from == null && to != null && size != null) {
+            from = to.minus(size, unit(distance));
+        } else if (from != null && to == null && size != null) {
+            // We're good
+        } else if (from == null && to == null && size == null) {
+            from = ZonedDateTime.of(1977, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
+            size = 100L;
+        } else {
+            throw new IllegalArgumentException("Invalid time bounds specified");
+        }
         this.points = iterate(from, from -> from.plus(1, unit(distance)))
                 .map(t -> TimeSeriesPoint.builder().timestamp(t).measurements(randomMeasurements(measurementIds)).build())
                 .limit(size)

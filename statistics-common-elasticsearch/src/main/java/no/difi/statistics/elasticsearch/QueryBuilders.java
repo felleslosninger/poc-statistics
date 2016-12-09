@@ -48,10 +48,19 @@ public class QueryBuilders {
         return builder.subAggregation(topHitsBuilder);
     }
 
-    public static DateRangeBuilder dateRangeAggregation(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
-        DateRangeBuilder builder = dateRange(name).field(timestampField).addRange(formatTimestamp(from), formatTimestamp(to));
+    public static DateRangeBuilder sumAggregation(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
+        DateRangeBuilder builder = dateRange(name).field(timestampField);
+        if (from == null && to == null)
+            throw new IllegalArgumentException("from or to required");
+        else if (from == null)
+            builder.addUnboundedTo(formatTimestamp(to));
+        else if (to == null)
+            builder.addUnboundedFrom(formatTimestamp(from));
+        else
+            builder.addRange(formatTimestamp(from), formatTimestamp(to));
         for (String measurementId : measurementIds)
             builder.subAggregation(sum(measurementId).field(measurementId));
+        builder.subAggregation(lastAggregation()); // For timestamp on sum point
         return builder;
     }
 
