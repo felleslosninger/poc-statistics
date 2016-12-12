@@ -74,6 +74,9 @@
                                 </healthCheck>
                             </build>
                             <run>
+                                <ports>
+                                    <port>8081:8080</port>
+                                </ports>
                                 <links>
                                     <link>elasticsearch</link>
                                 </links>
@@ -89,6 +92,10 @@
                             <alias>elasticsearch</alias>
                             <run>
                                 <namingStrategy>alias</namingStrategy>
+                                <ports>
+                                    <port>9300:9300</port>
+                                    <port>9200:9200</port>
+                                </ports>
                             </run>
                         </image>
                     </images>

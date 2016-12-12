@@ -9,7 +9,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -44,8 +43,6 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
     private BackendConfig backendConfig;
-    @Autowired
-    private Environment environment;
 
     @Bean
     public IngestRestController api() {
@@ -100,6 +97,7 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
         return new Docket(DocumentationType.SWAGGER_2)
                 .groupName("statistikk-inndata")
                 .directModelSubstitute(ZonedDateTime.class, Date.class)
+                .enableUrlTemplating(true)
                 .select()
                     .apis(basePackage(IngestRestController.class.getPackage().getName()))
                     .paths(any())

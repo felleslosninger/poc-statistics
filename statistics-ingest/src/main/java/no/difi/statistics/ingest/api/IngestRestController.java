@@ -51,7 +51,7 @@ public class IngestRestController {
             params = "bulk",
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
-    public IngestResponse ingest(
+    public IngestResponse bulkIngest(
             @PathVariable String owner,
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
