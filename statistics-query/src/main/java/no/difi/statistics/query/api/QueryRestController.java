@@ -2,6 +2,7 @@ package no.difi.statistics.query.api;
 
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
@@ -35,11 +36,9 @@ public class QueryRestController {
         return new RedirectView("swagger-ui.html");
     }
 
-    @GetMapping("{owner}/minutes")
-    public List<String> timeSeries(
-        @PathVariable String owner)
-    {
-        return service.availableTimeSeries(owner);
+    @GetMapping("/meta")
+    public List<TimeSeriesDefinition> available() {
+        return service.availableTimeSeries();
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/last")

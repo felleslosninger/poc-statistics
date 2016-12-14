@@ -1,4 +1,4 @@
-package no.difi.statistics;
+package no.difi.statistics.query.elasticsearch.helpers;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,7 +19,11 @@ import java.util.function.Supplier;
 
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;
-import static no.difi.statistics.WhenSupplier.Type.*;
+import static no.difi.statistics.query.elasticsearch.helpers.WhenSupplier.Type.lastPer;
+import static no.difi.statistics.query.elasticsearch.helpers.WhenSupplier.Type.normal;
+import static no.difi.statistics.query.elasticsearch.helpers.WhenSupplier.Type.relativeToPercentile;
+import static no.difi.statistics.query.elasticsearch.helpers.WhenSupplier.Type.sum;
+import static no.difi.statistics.query.elasticsearch.helpers.WhenSupplier.Type.sumPer;
 import static no.difi.statistics.model.RelationalOperator.gt;
 import static no.difi.statistics.model.RelationalOperator.gte;
 import static no.difi.statistics.model.RelationalOperator.lt;
@@ -52,8 +56,6 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
     private Type type = normal;
     private TestRestTemplate restTemplate;
     private ObjectMapper objectMapper;
-    private List<TimeSeriesPoint> points;
-    private String failure;
 
     public WhenSupplier(TestRestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
@@ -75,46 +77,46 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
         return this;
     }
 
-    public WhenSupplier forDistance(MeasurementDistance distance) {
+    public WhenSupplier withDistance(MeasurementDistance distance) {
         this.distance = distance;
         return this;
     }
 
-    public WhenSupplier forMeasurement(String measurementId) {
+    public WhenSupplier withMeasurement(String measurementId) {
         this.measurementId = measurementId;
         return this;
     }
 
-    public WhenSupplier pointsLessThanPercentile(int percentile) {
-        return pointsRelationalToPercentile(percentile, lt);
+    public WhenSupplier lessThanPercentile(int percentile) {
+        return relationalToPercentile(percentile, lt);
     }
 
-    public WhenSupplier pointsGreaterThanPercentile(int percentile) {
-        return pointsRelationalToPercentile(percentile, gt);
+    public WhenSupplier greaterThanPercentile(int percentile) {
+        return relationalToPercentile(percentile, gt);
     }
 
-    public WhenSupplier pointsLessThanOrEqualToPercentile(int percentile) {
-        return pointsRelationalToPercentile(percentile, lte);
+    public WhenSupplier lessThanOrEqualToPercentile(int percentile) {
+        return relationalToPercentile(percentile, lte);
     }
 
-    public WhenSupplier pointsGreaterThanOrEqualToPercentile(int percentile) {
-        return pointsRelationalToPercentile(percentile, gte);
+    public WhenSupplier greaterThanOrEqualToPercentile(int percentile) {
+        return relationalToPercentile(percentile, gte);
     }
 
-    private WhenSupplier pointsRelationalToPercentile(int percentile, RelationalOperator operator) {
+    public WhenSupplier relationalToPercentile(int percentile, RelationalOperator operator) {
         this.percentile = percentile;
         this.operator = operator;
         this.type = relativeToPercentile;
         return this;
     }
 
-    public WhenSupplier lastPointPer(MeasurementDistance targetDistance) {
+    public WhenSupplier lastPer(MeasurementDistance targetDistance) {
         this.targetDistance = targetDistance;
         this.type = lastPer;
         return this;
     }
 
-    public WhenSupplier sumPointPer(MeasurementDistance targetDistance) {
+    public WhenSupplier sumPer(MeasurementDistance targetDistance) {
         this.targetDistance = targetDistance;
         this.type = sumPer;
         return this;
@@ -127,22 +129,6 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
 
     @Override
     public synchronized List<TimeSeriesPoint> get() {
-        if (points == null && failure == null)
-            supply();
-        if (failure != null)
-            throw new RuntimeException("Supplier failed: " + failure);
-        return points;
-    }
-
-    public String failure() {
-        if (points == null && failure == null)
-            supply();
-        if (points != null)
-            throw new RuntimeException("Wrong failure expectation for " + this);
-        return failure;
-    }
-
-    private void supply() {
         ResponseEntity<String> response = restTemplate.exchange(
                 url(),
                 HttpMethod.GET,
@@ -151,13 +137,13 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
                 parameters()
         );
         if (response.getStatusCodeValue() != 200)
-            failure = response.getStatusCodeValue() + (response.getBody() != null ? "/" + response.getBody() : "");
+            throw new RuntimeException(response.getStatusCodeValue() + (response.getBody() != null ? "/" + response.getBody() : ""));
         else {
             try {
                 if (type.isList()) {
-                    this.points = objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
+                    return objectMapper.readerFor(new TypeReference<List<TimeSeriesPoint>>(){}).readValue(response.getBody());
                 } else {
-                    this.points = singletonList(objectMapper.readerFor(TimeSeriesPoint.class).readValue(response.getBody()));
+                    return singletonList(objectMapper.readerFor(TimeSeriesPoint.class).readValue(response.getBody()));
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);

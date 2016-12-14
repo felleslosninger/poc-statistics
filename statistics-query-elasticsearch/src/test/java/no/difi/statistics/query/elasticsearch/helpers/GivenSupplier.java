@@ -1,8 +1,6 @@
-package no.difi.statistics;
+package no.difi.statistics.query.elasticsearch.helpers;
 
-import no.difi.statistics.model.Measurement;
-import no.difi.statistics.model.MeasurementDistance;
-import no.difi.statistics.model.TimeSeriesPoint;
+import no.difi.statistics.model.*;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
 
 import java.io.IOException;
@@ -17,18 +15,18 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.iterate;
 import static no.difi.statistics.test.utils.DataOperations.unit;
 
-public class GivenSupplier implements Supplier<List<TimeSeriesPoint>> {
+public class GivenSupplier implements Supplier<TimeSeries> {
 
     private static final Random random = new Random();
 
     private String owner = "test_owner"; // Index names must be lower case in Elasticsearch
-    private String series = "test";
+    private String seriesName = "test";
     private List<String> measurementIds = asList("m1", "m2", "m3", "m4");
     private MeasurementDistance distance;
     private ZonedDateTime from = null;
     private ZonedDateTime to = null;
     private Long size = null;
-    private List<TimeSeriesPoint> points;
+    private TimeSeries series;
     private ElasticsearchHelper helper;
 
     public GivenSupplier(ElasticsearchHelper helper) {
@@ -36,12 +34,17 @@ public class GivenSupplier implements Supplier<List<TimeSeriesPoint>> {
     }
 
     public GivenSupplier withName(String name) {
-        this.series = name;
+        this.seriesName = name;
         return this;
     }
 
     public GivenSupplier withDistance(MeasurementDistance distance) {
         this.distance = distance;
+        return this;
+    }
+
+    public GivenSupplier withOwner(String owner) {
+        this.owner = owner;
         return this;
     }
 
@@ -65,14 +68,14 @@ public class GivenSupplier implements Supplier<List<TimeSeriesPoint>> {
     }
 
     @Override
-    public List<TimeSeriesPoint> get() {
-        if (this.points != null)
-            return this.points; // Use cache
+    public TimeSeries get() {
+        if (this.series != null)
+            return this.series; // Use cache
         supply();
-        return this.points;
+        return this.series;
     }
 
-    private List<TimeSeriesPoint> supply() {
+    private TimeSeries supply() {
         if (from != null && to != null && size == null) {
             size = unit(distance).between(from, to);
         } else if (from == null && to != null && size != null) {
@@ -85,16 +88,19 @@ public class GivenSupplier implements Supplier<List<TimeSeriesPoint>> {
         } else {
             throw new IllegalArgumentException("Invalid time bounds specified");
         }
-        this.points = iterate(from, from -> from.plus(1, unit(distance)))
-                .map(t -> TimeSeriesPoint.builder().timestamp(t).measurements(randomMeasurements(measurementIds)).build())
-                .limit(size)
-                .collect(toList());
+        this.series = new TimeSeries(
+                TimeSeriesDefinition.builder().name(this.seriesName).distance(this.distance).owner(this.owner),
+                iterate(from, from -> from.plus(1, unit(distance)))
+                        .map(t -> TimeSeriesPoint.builder().timestamp(t).measurements(randomMeasurements(measurementIds)).build())
+                        .limit(size)
+                        .collect(toList())
+        );
         try {
-            helper.indexPoints(this.owner, this.series, this.distance, this.points);
+            helper.indexPoints(this.owner, this.seriesName, this.distance, this.series.getPoints());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return points;
+        return series;
     }
 
     private static List<Measurement> randomMeasurements(List<String> ids) {

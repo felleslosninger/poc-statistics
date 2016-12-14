@@ -1,10 +1,7 @@
 package no.difi.statistics.test.utils;
 
 import com.tdunning.math.stats.TDigest;
-import no.difi.statistics.model.Measurement;
-import no.difi.statistics.model.MeasurementDistance;
-import no.difi.statistics.model.RelationalOperator;
-import no.difi.statistics.model.TimeSeriesPoint;
+import no.difi.statistics.model.*;
 import org.hamcrest.Matcher;
 
 import java.io.IOException;
@@ -63,9 +60,9 @@ public class DataOperations {
         return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
-    public static List<TimeSeriesPoint> sumPer(List<TimeSeriesPoint> points, MeasurementDistance distance) {
+    public static List<TimeSeriesPoint> sumPer(TimeSeries series, MeasurementDistance distance) {
         List<TimeSeriesPoint> sums = new ArrayList<>(
-                points.stream()
+                series.getPoints().stream()
                         .collect(groupingBy(point -> truncate(point.getTimestamp(), distance),
                                 summarize(timestamp -> truncate(timestamp, distance)))
                         )
@@ -74,9 +71,9 @@ public class DataOperations {
         return sums;
     }
 
-    public static List<TimeSeriesPoint> lastPer(List<TimeSeriesPoint> points, MeasurementDistance distance) {
+    public static List<TimeSeriesPoint> lastPer(TimeSeries series, MeasurementDistance distance) {
         Map<ZonedDateTime,TimeSeriesPoint> unitMap = new HashMap<>();
-        points.forEach(point -> unitMap.put(truncate(point.getTimestamp(), distance), normalizeTimestamp(point, distance)));
+        series.getPoints().forEach(point -> unitMap.put(truncate(point.getTimestamp(), distance), normalizeTimestamp(point, distance)));
         List<TimeSeriesPoint> result = new ArrayList<>(unitMap.values());
         result.sort(null);
         return result;
@@ -86,19 +83,23 @@ public class DataOperations {
         return TimeSeriesPoint.builder().timestamp(truncate(point.getTimestamp(), distance)).measurements(point.getMeasurements()).build();
     }
 
-    public static Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> relativeToPercentile(RelationalOperator operator, String measurementId, int percentile) {
-        return points -> {
-            Double collectedValue = percentileValue(percentile, measurementId).apply(points);
-            return points.stream()
+    public static Function<TimeSeries, List<TimeSeriesPoint>> relativeToPercentile(
+            RelationalOperator operator,
+            String measurementId,
+            int percentile
+    ) {
+        return series -> {
+            Double collectedValue = percentileValue(percentile, measurementId).apply(series);
+            return series.getPoints().stream()
                     .filter(point -> relationalMatcher(operator, collectedValue).matches(Long.valueOf(point.getMeasurement(measurementId).get().getValue()).doubleValue()))
                     .collect(toList());
         };
     }
 
-    private static Function<List<TimeSeriesPoint>, Double> percentileValue(int percentile, String measurementId) {
-        return (points) -> {
+    private static Function<TimeSeries, Double> percentileValue(int percentile, String measurementId) {
+        return (series) -> {
             TDigest tdigest = TDigest.createTreeDigest(100.0);
-            points.forEach(point -> tdigest.add(point.getMeasurement(measurementId).get().getValue()));
+            series.getPoints().forEach(point -> tdigest.add(point.getMeasurement(measurementId).get().getValue()));
             return tdigest.quantile(new BigDecimal(percentile).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP).doubleValue());
         };
     }

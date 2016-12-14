@@ -1,9 +1,11 @@
 package no.difi.statistics.model;
 
+import static java.lang.String.format;
+
 /**
  * Definition for a time series
  */
-public class TimeSeriesDefinition {
+public class TimeSeriesDefinition implements Comparable<TimeSeriesDefinition> {
 
     private String name;
     private MeasurementDistance distance;
@@ -30,12 +32,12 @@ public class TimeSeriesDefinition {
     }
 
     public interface NameEntry { DistanceEntry name(String name); }
+
     public interface DistanceEntry { OwnerEntry distance(MeasurementDistance distance); }
     public interface OwnerEntry { TimeSeriesDefinition owner(String owner); }
-
     public static class Builder implements NameEntry, DistanceEntry, OwnerEntry {
-        private TimeSeriesDefinition instance = new TimeSeriesDefinition();
 
+        private TimeSeriesDefinition instance = new TimeSeriesDefinition();
         @Override
         public DistanceEntry name(String name) {
             instance.name = name;
@@ -72,4 +74,15 @@ public class TimeSeriesDefinition {
         result = 31 * result + owner.hashCode();
         return result;
     }
+
+    @Override
+    public String toString() {
+        return format("%s:%s:%s", owner, name, distance);
+    }
+
+    @Override
+    public int compareTo(TimeSeriesDefinition other) {
+        return toString().compareTo(other.toString());
+    }
+
 }

@@ -3,6 +3,7 @@ package no.difi.statistics.query.elasticsearch.config;
 import no.difi.statistics.query.QueryService;
 import no.difi.statistics.query.config.BackendConfig;
 import no.difi.statistics.query.elasticsearch.ElasticsearchQueryService;
+import no.difi.statistics.query.elasticsearch.ListAvailableTimeSeries;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -23,7 +24,15 @@ public class ElasticsearchConfig implements BackendConfig {
     @Override
     @Bean
     public QueryService queryService() {
-        return new ElasticsearchQueryService(elasticSearchClient());
+        return new ElasticsearchQueryService(
+                elasticSearchClient(),
+                listAvailableTimeSeriesCommand()
+        );
+    }
+
+    @Bean
+    public ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand() {
+        return ListAvailableTimeSeries.builder().elasticsearchClient(elasticSearchClient());
     }
 
     @Bean(destroyMethod = "close")

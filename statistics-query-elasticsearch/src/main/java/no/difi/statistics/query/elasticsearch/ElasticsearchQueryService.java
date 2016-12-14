@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import no.difi.statistics.elasticsearch.ResultParser;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
@@ -22,15 +23,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.ZonedDateTime;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
-import static no.difi.statistics.elasticsearch.QueryBuilders.*;
+import static no.difi.statistics.elasticsearch.QueryBuilders.lastAggregation;
+import static no.difi.statistics.elasticsearch.QueryBuilders.lastHistogramAggregation;
+import static no.difi.statistics.elasticsearch.QueryBuilders.sumAggregation;
+import static no.difi.statistics.elasticsearch.QueryBuilders.sumHistogramAggregation;
+import static no.difi.statistics.elasticsearch.QueryBuilders.timeRangeQuery;
 import static no.difi.statistics.model.MeasurementDistance.days;
 import static no.difi.statistics.model.MeasurementDistance.months;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
@@ -43,32 +48,16 @@ public class ElasticsearchQueryService implements QueryService {
     private static final String indexType = "default";
 
     private Client elasticSearchClient;
+    private ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand;
 
-    public ElasticsearchQueryService(Client elasticSearchClient) {
+    public ElasticsearchQueryService(Client elasticSearchClient, ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand) {
         this.elasticSearchClient = elasticSearchClient;
+        this.listAvailableTimeSeriesCommand = listAvailableTimeSeriesCommand;
     }
 
-    public List<String> availableTimeSeries(String owner) {
-
-        final String pattern = owner + ":(.*):minute.*";
-        String[] timeseries = elasticSearchClient.admin().cluster()
-                .prepareState().execute()
-                .actionGet().getState()
-                .getMetaData().concreteAllIndices();
-
-        Set<String> seriesNames = new HashSet<>();
-        Pattern p = Pattern.compile(pattern);
-        for (String serie : timeseries) {
-            Matcher m = p.matcher(serie);
-            if(m.find())
-            seriesNames.add(m.group(1));
-        }
-
-        List<String> availableTimeSeries = new ArrayList<>();
-        availableTimeSeries.addAll(seriesNames);
-        Collections.sort(availableTimeSeries);
-
-        return availableTimeSeries;
+    @Override
+    public List<TimeSeriesDefinition> availableTimeSeries() {
+        return listAvailableTimeSeriesCommand.execute();
     }
 
     @Override

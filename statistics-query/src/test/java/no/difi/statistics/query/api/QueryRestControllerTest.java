@@ -62,16 +62,6 @@ public class QueryRestControllerTest {
     }
 
     @Test
-    public void whenAskingForSeriesNamesThenServiceReceivesCorrespondingRequest() throws Exception {
-        ResultActions result = mockMvc.perform(
-                get("/{owner}/minutes", aSeriesOwner())
-                        .contentType(MediaType.APPLICATION_JSON_UTF8)
-        );
-        assertNormalResponse(result);
-        verify(backendConfig.queryService()).availableTimeSeries(aSeriesOwner());
-    }
-
-    @Test
     public void whenSendingRequestWithFilterThenServiceReceivesCorrespondingRequest() throws Exception {
         final String timeSeries = "a_series";
         final String from = "2013-10-12T12:13:13.123+02:00";

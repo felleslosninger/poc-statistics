@@ -1,6 +1,7 @@
 package no.difi.statistics.query;
 
 import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 
@@ -9,7 +10,7 @@ import java.util.List;
 
 public interface QueryService {
 
-    List<String> availableTimeSeries(String owner);
+    List<TimeSeriesDefinition> availableTimeSeries();
 
     TimeSeriesPoint last(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to);
 

@@ -2,11 +2,12 @@ package no.difi.statistics;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import no.difi.statistics.model.Measurement;
-import no.difi.statistics.model.MeasurementDistance;
-import no.difi.statistics.model.TimeSeriesPoint;
+import no.difi.statistics.model.*;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.elasticsearch.config.ElasticsearchConfig;
+import no.difi.statistics.query.elasticsearch.helpers.Given;
+import no.difi.statistics.query.elasticsearch.helpers.GivenSupplier;
+import no.difi.statistics.query.elasticsearch.helpers.WhenSupplier;
 import no.difi.statistics.test.utils.DataOperations;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
 import org.elasticsearch.client.Client;
@@ -29,37 +30,42 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
+import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.MONTHS;
-import static java.util.Arrays.stream;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
-import static no.difi.statistics.PercentileFilterBuilder.pointsGreaterThanPercentile;
-import static no.difi.statistics.PercentileFilterBuilder.pointsGreaterThanOrEqualToPercentile;
-import static no.difi.statistics.PercentileFilterBuilder.pointsLessThanPercentile;
-import static no.difi.statistics.PercentileFilterBuilder.pointsLessThanOrEqualToPercentile;
-import static no.difi.statistics.SumFunctionBuilder.sumOfPoints;
+import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.greaterThan;
+import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.greaterThanOrEqualTo;
+import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.lessThan;
+import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.lessThanOrEqualTo;
 import static no.difi.statistics.elasticsearch.Timestamp.truncate;
 import static no.difi.statistics.model.MeasurementDistance.days;
 import static no.difi.statistics.model.MeasurementDistance.hours;
 import static no.difi.statistics.model.MeasurementDistance.minutes;
 import static no.difi.statistics.model.MeasurementDistance.months;
 import static no.difi.statistics.model.MeasurementDistance.years;
+import static no.difi.statistics.model.RelationalOperator.gt;
+import static no.difi.statistics.model.RelationalOperator.gte;
+import static no.difi.statistics.model.RelationalOperator.lt;
+import static no.difi.statistics.model.RelationalOperator.lte;
+import static no.difi.statistics.query.elasticsearch.helpers.Given.given;
+import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.availableSeries;
+import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.lastPoint;
+import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.percentile;
+import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.sum;
+import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.sumHistogram;
 import static no.difi.statistics.test.utils.DataGenerator.createRandomTimeSeries;
 import static no.difi.statistics.test.utils.DataOperations.measurementValue;
+import static no.difi.statistics.test.utils.DataOperations.relativeToPercentile;
 import static no.difi.statistics.test.utils.DataOperations.size;
 import static no.difi.statistics.test.utils.DataOperations.timestamp;
 import static no.difi.statistics.test.utils.DataOperations.unit;
 import static no.difi.statistics.test.utils.DataOperations.value;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(webEnvironment = RANDOM_PORT)
@@ -87,7 +93,6 @@ public class ElasticsearchQueryServiceTest {
     private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, UTC);
     private final static String measurementId = "count";
     private final static String series = "test";
-    private final static String anotherTimeSeriesName = "anothertimeseriesname";
     private final static String owner = "test_owner"; // Index names must be lower case in Elasticsearch
 
     private static GenericContainer backend;
@@ -122,22 +127,15 @@ public class ElasticsearchQueryServiceTest {
 
     @Test
     public void givenTimeSeriesWhenQueryingForAvailableTimeSeriesThenAvailableTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
-        helper.indexPoint(series, minutes, now.minusMinutes(2), 1002);
-        helper.indexPoint(series, minutes, now, 1003);
-        helper.indexPoint(anotherTimeSeriesName, minutes, now, 42);
-        List<String> availableTimeSeries = availableTimeSeries(owner);
-        assertEquals(2, availableTimeSeries.size());
-        assertTrue(availableTimeSeries.contains(series));
-        assertTrue(availableTimeSeries.contains(anotherTimeSeriesName));
-    }
-
-    @Test
-    public void givenTimeSeriesWhenQueryingForAvailableTimeSeriesWithAnotherOwnerThenNoTimeSeriesAreReturned() throws IOException, ExecutionException, InterruptedException {
-        helper.indexPoint(series, minutes, now.minusMinutes(2), 1002);
-        helper.indexPoint(series, minutes, now, 1003);
-        helper.indexPoint(anotherTimeSeriesName, minutes, now, 42);
-        List<String> availableTimeSeries = availableTimeSeries("anotherOwner");
-        assertEquals(0, availableTimeSeries.size());
+        given(
+                existingSeries().withName("series1").withDistance(minutes).withOwner("owner1"),
+                existingSeries().withName("series1").withDistance(hours).withOwner("owner2"),
+                existingSeries().withName("series1").withDistance(days).withOwner("owner3"),
+                existingSeries().withName("series1").withDistance(months).withOwner("owner4"),
+                existingSeries().withName("series1").withDistance(years).withOwner("owner5")
+        )
+                .when(this::requestingAvailableTimeSeries)
+                .then(availableSeries()).isReturned();
     }
 
     @Test
@@ -371,6 +369,58 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
+    public void givenMinuteSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        given(existingSeries().withDistance(minutes).withMeasurements("m1", "m2", "m3", "m4"))
+            .when(requestingPoints().withDistance(minutes).withMeasurement("m1").lessThanPercentile(92))
+                .then(percentile().as(lessThan(92).forMeasurement("m1"))).isReturned()
+            .when(requestingPoints().withDistance(minutes).withMeasurement("m2").greaterThanPercentile(43))
+                .then(percentile().as(greaterThan(43).forMeasurement("m2"))).isReturned()
+            .when(requestingPoints().withDistance(minutes).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then(percentile().as(lessThanOrEqualTo(15).forMeasurement("m3"))).isReturned()
+            .when(requestingPoints().withDistance(minutes).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then(percentile().as(greaterThanOrEqualTo(57).forMeasurement("m4"))).isReturned();
+    }
+
+    @Test
+    public void givenHourSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        given(existingSeries().withDistance(hours).withMeasurements("m1", "m2", "m3", "m4"))
+            .when(requestingPoints().withDistance(hours).withMeasurement("m1").lessThanPercentile(92))
+                .then(percentile().as(lessThan(92).forMeasurement("m1"))).isReturned()
+            .when(requestingPoints().withDistance(hours).withMeasurement("m2").greaterThanPercentile(43))
+                .then(percentile().as(greaterThan(43).forMeasurement("m2"))).isReturned()
+            .when(requestingPoints().withDistance(hours).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then(percentile().as(lessThanOrEqualTo(15).forMeasurement("m3"))).isReturned()
+            .when(requestingPoints().withDistance(hours).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then(percentile().as(greaterThanOrEqualTo(57).forMeasurement("m4"))).isReturned();
+    }
+
+    @Test
+    public void givenDaySeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        given(existingSeries().withDistance(days).withMeasurements("m1", "m2", "m3", "m4"))
+            .when(requestingPoints().withDistance(days).withMeasurement("m1").lessThanPercentile(92))
+                .then(percentile().as(lessThan(92).forMeasurement("m1")).fromSeriesWithDistance(days)).isReturned()
+            .when(requestingPoints().withDistance(days).withMeasurement("m2").greaterThanPercentile(43))
+                .then(percentile().as(greaterThan(43).forMeasurement("m2")).fromSeriesWithDistance(days)).isReturned()
+            .when(requestingPoints().withDistance(days).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then(percentile().as(lessThanOrEqualTo(15).forMeasurement("m3")).fromSeriesWithDistance(days)).isReturned()
+            .when(requestingPoints().withDistance(days).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then(percentile().as(greaterThanOrEqualTo(57).forMeasurement("m4")).fromSeriesWithDistance(days)).isReturned();
+    }
+
+    @Test
+    public void givenMonthSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
+        given(existingSeries().withDistance(months).withMeasurements("m1", "m2", "m3", "m4"))
+            .when(requestingPoints().withDistance(months).withMeasurement("m1").lessThanPercentile(92))
+                .then(percentile().as(lessThan(92).forMeasurement("m1"))).isReturned()
+            .when(requestingPoints().withDistance(months).withMeasurement("m2").greaterThanPercentile(43))
+                .then(percentile().as(greaterThan(43).forMeasurement("m2"))).isReturned()
+            .when(requestingPoints().withDistance(months).withMeasurement("m3").lessThanOrEqualToPercentile(15))
+                .then(percentile().as(lessThanOrEqualTo(15).forMeasurement("m3"))).isReturned()
+            .when(requestingPoints().withDistance(months).withMeasurement("m4").greaterThanOrEqualToPercentile(57))
+                .then(percentile().as(greaterThanOrEqualTo(57).forMeasurement("m4"))).isReturned();
+    }
+
+    @Test
     public void givenSeriesWhenRequestingPointsWithAMeasurementRelativeToAPercentileThenThosePointsAreReturned() throws IOException {
         Given given = given(
                 existingSeries().withDistance(minutes),
@@ -381,22 +431,32 @@ public class ElasticsearchQueryServiceTest {
         );
         for (MeasurementDistance distance : MeasurementDistance.values()) {
             given
-                    .when(requesting().pointsLessThanPercentile(92).forDistance(distance).forMeasurement("m1"))
-                    .then().verifyThat(pointsLessThanPercentile(92).forMeasurement("m1")).forDistance(distance).isReturned()
-                    .when(requesting().pointsGreaterThanPercentile(43).forDistance(distance).forMeasurement("m2"))
-                    .then().verifyThat(pointsGreaterThanPercentile(43).forMeasurement("m2")).forDistance(distance).isReturned()
-                    .when(requesting().pointsLessThanOrEqualToPercentile(15).forDistance(distance).forMeasurement("m3"))
-                    .then().verifyThat(pointsLessThanOrEqualToPercentile(15).forMeasurement("m3")).forDistance(distance).isReturned()
-                    .when(requesting().pointsGreaterThanOrEqualToPercentile(57).forDistance(distance).forMeasurement("m4"))
-                    .then().verifyThat(pointsGreaterThanOrEqualToPercentile(57).forMeasurement("m4")).forDistance(distance).isReturned();
+                    .when(requestingPoints().lessThanPercentile(92).withDistance(distance).withMeasurement("m1"))
+                    .then(percentile().as(lessThan(92).forMeasurement("m1")).fromSeriesWithDistance(distance)).isReturned()
+                    .when(requestingPoints().greaterThanPercentile(43).withDistance(distance).withMeasurement("m2"))
+                    .then(percentile().as(greaterThan(43).forMeasurement("m2")).fromSeriesWithDistance(distance)).isReturned()
+                    .when(requestingPoints().lessThanOrEqualToPercentile(15).withDistance(distance).withMeasurement("m3"))
+                    .then(percentile().as(lessThanOrEqualTo(15).forMeasurement("m3")).fromSeriesWithDistance(distance)).isReturned()
+                    .when(requestingPoints().greaterThanOrEqualToPercentile(57).withDistance(distance).withMeasurement("m4"))
+                    .then(percentile().as(greaterThanOrEqualTo(57).forMeasurement("m4")).fromSeriesWithDistance(distance)).isReturned();
         }
     }
 
     @Test
     public void givenMinuteSeriesWhenQueryingForMonthPointsThenSummarizedMinutesAreReturned() throws IOException {
         given(existingSeries().withDistance(minutes))
-            .when(requesting().forDistance(months))
-                .then().sumPointPer(months).isReturned();
+            .when(requestingPoints().withDistance(months))
+                .then(sumHistogram().per(months).fromSeriesWithDistance(minutes)).isReturned();
+    }
+
+    @Test
+    public void givenMinuteSeriesWhenQueryingForLastPerMeasurementDistanceThenLastPointPerMeasurementDistanceIsReturned() throws IOException {
+        given(existingSeries().withDistance(minutes))
+            .when(requestingPoints().withDistance(minutes).lastPer(minutes)).then(lastPoint().per(minutes)).isReturned()
+            .when(requestingPoints().withDistance(minutes).lastPer(hours)).then(lastPoint().per(hours)).isReturned()
+            .when(requestingPoints().withDistance(minutes).lastPer(days)).then(lastPoint().per(days)).isReturned()
+            .when(requestingPoints().withDistance(minutes).lastPer(months)).then(lastPoint().per(months)).isReturned()
+            .when(requestingPoints().withDistance(minutes).lastPer(years)).then(lastPoint().per(years)).isReturned();
     }
 
     @Test
@@ -411,12 +471,12 @@ public class ElasticsearchQueryServiceTest {
         for (MeasurementDistance distance : MeasurementDistance.values()) {
             for (MeasurementDistance targetDistance : MeasurementDistance.values()) {
                 if (distance.ordinal() <= targetDistance.ordinal()) {
-                    given.when(requesting().lastPointPer(targetDistance).forDistance(distance))
-                        .then().lastPointPer(targetDistance).forDistance(distance).isReturned();
+                    given.when(requestingPoints().lastPer(targetDistance).withDistance(distance))
+                        .then(lastPoint().per(targetDistance).fromSeriesWithDistance(distance)).isReturned();
                 } else {
-                    given.when(requesting().lastPointPer(targetDistance).forDistance(distance))
-                            .then().requestFails(
-                                    String.format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                    given.when(requestingPoints().lastPer(targetDistance).withDistance(distance))
+                            .then(null).requestFails(
+                                    format("500/Distance %s is greater than target distance %s", distance, targetDistance)
                     );
                 }
             }
@@ -435,12 +495,12 @@ public class ElasticsearchQueryServiceTest {
         for (MeasurementDistance distance : MeasurementDistance.values()) {
             for (MeasurementDistance targetDistance : MeasurementDistance.values()) {
                 if (distance.ordinal() <= targetDistance.ordinal()) {
-                    given.when(requesting().sumPointPer(targetDistance).forDistance(distance))
-                            .then().sumPointPer(targetDistance).forDistance(distance).isReturned();
+                    given.when(requestingPoints().sumPer(targetDistance).withDistance(distance))
+                            .then(sumHistogram().per(targetDistance).fromSeriesWithDistance(distance)).isReturned();
                 } else {
-                    given.when(requesting().lastPointPer(targetDistance).forDistance(distance))
-                            .then().requestFails(
-                            String.format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                    given.when(requestingPoints().lastPer(targetDistance).withDistance(distance))
+                            .then(null).requestFails(
+                            format("500/Distance %s is greater than target distance %s", distance, targetDistance)
                     );
                 }
             }
@@ -454,10 +514,10 @@ public class ElasticsearchQueryServiceTest {
         List<TimeSeriesPoint> pointsMonth2 = createRandomTimeSeries(now.truncatedTo(DAYS).plusMonths(1), minutes, 100, "measurementA", "measurementB");
         helper.indexPoints(minutes, pointsMonth2);
 
-        List<TimeSeriesPoint> resultingPoints = requesting().from(series).forDistance(minutes)
+        List<TimeSeriesPoint> resultingPoints = requestingPoints().from(series).withDistance(minutes)
                 .from(now.truncatedTo(DAYS))
                 .to(now.truncatedTo(DAYS).plusMonths(1).plusMinutes(100))
-                .lastPointPer(months).get();
+                .lastPer(months).get();
 
         assertEquals(2, size(resultingPoints));
 
@@ -521,8 +581,8 @@ public class ElasticsearchQueryServiceTest {
                 existingSeries().withDistance(years)
         );
         for (MeasurementDistance distance : MeasurementDistance.values()) {
-            given.when(requesting().sumPoint().forDistance(distance))
-                    .then().verifyThat(sumOfPoints()).forDistance(distance).isReturned();
+            given.when(requestingPoints().sumPoint().withDistance(distance))
+                    .then(sum().fromSeriesWithDistance(distance)).isReturned();
         }
     }
 
@@ -537,8 +597,8 @@ public class ElasticsearchQueryServiceTest {
         );
         ZonedDateTime timestampOfLastPoint = ZonedDateTime.now();
         for (MeasurementDistance distance : MeasurementDistance.values()) {
-            given.when(requesting().sumPoint().forDistance(distance).to(timestampOfLastPoint))
-                    .then().verifyThat(sumOfPoints().to(timestampOfLastPoint)).forDistance(distance).isReturned();
+            given.when(requestingPoints().sumPoint().withDistance(distance).to(timestampOfLastPoint))
+                    .then(sum().fromSeriesWithDistance(distance).to(timestampOfLastPoint)).isReturned();
         }
     }
 
@@ -553,8 +613,8 @@ public class ElasticsearchQueryServiceTest {
         );
         ZonedDateTime timestampOfFirstPoint = ZonedDateTime.now().minusYears(200);
         for (MeasurementDistance distance : MeasurementDistance.values()) {
-            givenExistingSeries.when(requesting().sumPoint().forDistance(distance).from(timestampOfFirstPoint))
-                    .then().verifyThat(sumOfPoints().from(timestampOfFirstPoint)).forDistance(distance).isReturned();
+            givenExistingSeries.when(requestingPoints().sumPoint().withDistance(distance).from(timestampOfFirstPoint))
+                    .then(sum().fromSeriesWithDistance(distance).from(timestampOfFirstPoint)).isReturned();
         }
     }
 
@@ -596,18 +656,6 @@ public class ElasticsearchQueryServiceTest {
         assertNotNull(resultingPoint);
         assertEquals(DataOperations.sum(measurementId, points), measurementValue(measurementId, resultingPoint));
         assertEquals(now.truncatedTo(DAYS).plus(1, unit(distance)).toInstant(), resultingPoint.getTimestamp().toInstant());
-    }
-
-    private List<String> availableTimeSeries(String owner) throws IOException {
-        ResponseEntity<String> response = restTemplate.exchange(
-                "/{owner}/minutes",
-                HttpMethod.GET,
-                null,
-                String.class,
-                owner
-        );
-        assertEquals(200, response.getStatusCodeValue());
-        return objectMapper.readerFor(new TypeReference<List<String>>(){}).readValue(response.getBody());
     }
 
     private TimeSeriesPoint requestLast(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to) throws IOException {
@@ -720,7 +768,22 @@ public class ElasticsearchQueryServiceTest {
         }
     }
 
-    private WhenSupplier requesting() {
+    private List<TimeSeriesDefinition> requestingAvailableTimeSeries() {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/meta",
+                HttpMethod.GET,
+                null,
+                String.class
+        );
+        assertEquals(200, response.getStatusCodeValue());
+        try {
+            return objectMapper.readerFor(new TypeReference<List<TimeSeriesDefinition>>(){}).readValue(response.getBody());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private WhenSupplier requestingPoints() {
         return new WhenSupplier(restTemplate, objectMapper);
     }
 
@@ -736,85 +799,45 @@ public class ElasticsearchQueryServiceTest {
         return ZonedDateTime.of(year, month, day, hour, minute, 0, 0, UTC);
     }
 
-    private Given given(GivenSupplier...givenSuppliers) {
-        return new Given(givenSuppliers);
-    }
+    public static class PercentileFilterBuilder implements Function<TimeSeries, List<TimeSeriesPoint>> {
 
-    private static class Given {
+        private RelationalOperator operator;
+        private int percentile;
+        private String measurementId;
 
-        private Map<String, GivenSupplier> suppliers = new HashMap<>();
-
-        Given(GivenSupplier...givenSuppliers) {
-            this.suppliers = stream(givenSuppliers).collect(toMap(GivenSupplier::id, identity()));
+        PercentileFilterBuilder(RelationalOperator operator) {
+            this.operator = operator;
         }
 
-        When when(WhenSupplier whenSupplier) {
-            return new When(this, whenSupplier);
+        static PercentileFilterBuilder lessThan(int percentile) {
+            return new PercentileFilterBuilder(lt).percentile(percentile);
         }
 
-    }
-
-    private static class When {
-        private Given given;
-        private WhenSupplier supplier;
-
-        When(Given given, WhenSupplier whenSupplier) {
-            this.given = given;
-            this.supplier = whenSupplier;
+        static PercentileFilterBuilder greaterThan(int percentile) {
+            return new PercentileFilterBuilder(gt).percentile(percentile);
         }
 
-        Then then() {
-            return new Then(given, this);
-        }
-    }
-
-    private static class Then {
-        private Given given;
-        private When when;
-        private Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> function;
-        private MeasurementDistance distance;
-
-        Then(Given given, When when) {
-            this.given = given;
-            this.when = when;
+        static PercentileFilterBuilder lessThanOrEqualTo(int percentile) {
+            return new PercentileFilterBuilder(lte).percentile(percentile);
         }
 
-        Then sumPointPer(MeasurementDistance distance) {
-            this.function = points -> DataOperations.sumPer(points, distance);
+        static PercentileFilterBuilder greaterThanOrEqualTo(int percentile) {
+            return new PercentileFilterBuilder(gte).percentile(percentile);
+        }
+
+        PercentileFilterBuilder percentile(int percentile) {
+            this.percentile = percentile;
             return this;
         }
 
-        Then lastPointPer(MeasurementDistance distance) {
-            function = points -> DataOperations.lastPer(points, distance);
+        PercentileFilterBuilder forMeasurement(String measurementId) {
+            this.measurementId = measurementId;
             return this;
         }
 
-        Then verifyThat(Function<List<TimeSeriesPoint>, List<TimeSeriesPoint>> function) {
-            this.function = function;
-            return this;
-        }
-
-        Then forDistance(MeasurementDistance distance) {
-            this.distance = distance;
-            return this;
-        }
-
-        Given requestFails(String message) {
-            assertEquals(message, when.supplier.failure());
-            return given;
-        }
-
-        Given isReturned() {
-            assertEquals(
-                    "Expectation failed for distance " + distance,
-                    function.apply(givenSupplier().get()),
-                    when.supplier.get()
-            );
-            return given;
-        }
-
-        private GivenSupplier givenSupplier() {
-            return given.suppliers.size() == 1 ? given.suppliers.values().iterator().next() : given.suppliers.get(distance.toString());
+        @Override
+        public List<TimeSeriesPoint> apply(TimeSeries series) {
+            return relativeToPercentile(operator, measurementId, percentile).apply(series);
         }
 
     }
