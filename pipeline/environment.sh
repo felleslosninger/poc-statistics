@@ -40,10 +40,32 @@ tag() {
     output=$(aws ec2 create-tags --resources ${id} --tags Key=Name,Value=${system_id}) || fail "Failed to set name on VPC"
 }
 
+nameTag() {
+    nodeName=$1
+    requireArgument 'nodeName'
+    echo "Key=Name,Value=${nodeName}"
+}
+
+systemIdTag() {
+    version=$1
+    requireArgument 'version'
+    echo "Key=SystemId,Value=$(systemId ${version})"
+}
+
 filter() {
     version=$1
     requireArgument 'version'
     echo "Name=tag-key,Values=SystemId Name=tag-value,Values=$(systemId ${version})"
+}
+
+nameFilter() {
+    name=$1
+    requireArgument 'name'
+    echo "Name=tag-key,Values=Name Name=tag-value,Values=${name}"
+}
+
+runningFilter() {
+    echo "Name=instance-state-name,Values=running"
 }
 
 systemId() {
@@ -221,7 +243,7 @@ deleteRunningInstances() {
     version=$1
     requireArgument 'version'
     echo -n "Deleting running EC2 instances: "
-    output=$(aws ec2 describe-instances --filter $(filter ${version}) Name=instance-state-name,Values=running) || fail "Failed to find running EC2 instances"
+    output=$(aws ec2 describe-instances --filter $(filter ${version}) $(runningFilter)) || fail "Failed to find running EC2 instances"
     ids=$(echo ${output} | jq -r ".Reservations[].Instances[].InstanceId" | paste -s -d ' ' -) || fail "Failed to get ids of running EC2 instances"
     if [ ! -z "${ids}" ]; then
         echo -n "(${ids}) "
@@ -280,6 +302,63 @@ virtualBoxDockerParams() {
         -d virtualbox"
 }
 
+createKeyPairOnAws() {
+    version=$1
+    requireArgument 'version'
+    mkdir -p .environment
+    key_name=$(systemId ${version})
+    key_file=.environment/key_${key_name}
+    aws ec2 create-key-pair --key-name ${key_name} --query 'KeyMaterial' --output text > ${key_file}
+    chmod 0400 ${key_file}
+    echo ${key_name}
+}
+
+findPublicIp() {
+    nodeName=$1
+    requireArgument 'nodeName'
+    local i
+    for i in {1..100}; do
+        output=$(aws ec2 describe-instances --filter $(nameFilter ${nodeName}) $(runningFilter)) || fail "Failed to describe ${node_name}"
+        public_ip=$(echo ${output} | jq -r ".Reservations[].Instances[].PublicIpAddress") || fail "Failed to get IP of node ${node_name}"
+        [[ ! -z ${public_ip} ]] && break;
+        sleep 3
+    done
+    echo ${public_ip}
+}
+
+createDockerMachinesOnAws() {
+    version=$1
+    requireArgument 'version'
+    count=3
+    output=$(aws ec2 describe-subnets --filters $(vpcFilter ${version})) || fail "Failed to find subnet"
+    subnet_id=$(echo ${output} | jq -r ".Subnets[].SubnetId") || fail "Failed to get subnet id"
+    output=$(aws ec2 describe-security-groups --filters $(filter ${version})) || fail "Failed to find security group"
+    sg_id=$(echo ${output} | jq -r ".SecurityGroups[].GroupId") || fail "Failed to get security group id"
+    key_name=$(createKeyPairOnAws ${version})
+    output=$(aws ec2 run-instances \
+	    --image-id ami-a61a10b1 \
+	    --security-group-ids ${sg_id} \
+	    --instance-type c4.large \
+	    --subnet-id ${subnet_id} \
+	    --count ${count} \
+	    --associate-public-ip-address \
+	    --key-name ${key_name})
+    local i
+	for (( i=0; i<${count}; i++ )); do
+        node_names[$i]=$(nodeName ${version} $((i + 1)))
+	    instance_ids[$i]=$(echo ${output} | jq -r ".Instances[${i}].InstanceId" | sed 's/"//g')
+        echo "aws_instance_id=${instance_ids[$i]}" >> .environment/${node_names[$i]}
+        aws ec2 create-tags --resources ${instance_ids[$i]} --tags $(nameTag ${node_names[$i]}) $(systemIdTag ${version}) &
+    done
+    for (( i=0; i<${count}; i++ )); do
+        node_name=${node_names[$i]}
+        publicIp=$(findPublicIp ${node_name})
+        echo "Node ${node_name} has address ${publicIp}"
+        echo "address=${publicIp}" >> .environment/${node_name}
+        echo "ssh_key_file=$(pwd)/.environment/key_${key_name}" >> .environment/${node_name}
+    done
+}
+
 createDockerMachines() {
     version=$1
     requireArgument 'version'
@@ -287,24 +366,33 @@ createDockerMachines() {
     echo "Creating Docker machines..."
     case ${driver} in
         'amazonec2')
+            createDockerMachinesOnAws ${version} || fail "Failed to create Docker Machines"
+            ;;
+        'amazonec2-legacy')
             params=$(awsDockerParams ${version})
+            docker-machine create ${params} $(nodeName ${version} '1') &
+            child_pids="${child_pids} $!"
+            docker-machine create ${params} $(nodeName ${version} '2') &
+            child_pids="${child_pids} $!"
+            docker-machine create ${params} $(nodeName ${version} '3') &
+            child_pids="${child_pids} $!"
+            wait
             ;;
         'virtualbox')
             params=$(virtualBoxDockerParams ${version})
+            docker-machine create ${params} $(nodeName ${version} '1') &
+            child_pids="${child_pids} $!"
+            docker-machine create ${params} $(nodeName ${version} '2') &
+            child_pids="${child_pids} $!"
+            docker-machine create ${params} $(nodeName ${version} '3') &
+            child_pids="${child_pids} $!"
+            wait
+            docker-machine ssh $(nodeName ${version} '1') tce-load -wi bash || fail
             ;;
         "*")
             fail "Unsupported docker-machine driver ${driver}"
             ;;
     esac
-    docker-machine create ${params} $(nodeName ${version} '01') &
-    child_pids="${child_pids} $!"
-    docker-machine create ${params} $(nodeName ${version} '02') &
-    child_pids="${child_pids} $!"
-    docker-machine create ${params} $(nodeName ${version} '03') &
-    child_pids="${child_pids} $!"
-    wait
-    [ "${driver}" == 'virtualbox' ] && \
-        { docker-machine ssh $(nodeName ${version} '01') tce-load -wi bash || fail; }
     echoOk
 }
 
@@ -330,7 +418,7 @@ joinDockerSwarm() {
     requireArgument 'swarm_token'
     requireArgument 'swarm_address'
     echo -n "Node ${node_name} is joining Docker swarm... "
-    output=$(docker-machine ssh ${node_name} sudo docker swarm join --token ${swarm_token} ${swarm_address}) || fail "Failed to join ${node_name} to Docker swarm"
+    output=$(login ${node_name} sudo docker swarm join --token ${swarm_token} ${swarm_address}) || fail "Failed to join ${node_name} to Docker swarm"
     echoOk
 }
 
@@ -338,15 +426,15 @@ setupDockerSwarm() {
     version=$1
     requireArgument 'version'
     driver=${2-'amazonec2'}
-    managerNode=$(nodeName ${version} '01')
+    managerNode=$(nodeName ${version} '1')
     echo "Creating Docker swarm..."
-    advertiseAddress='eth0'
+    advertiseAddress='ens3'
     [ "${driver}" == 'virtualbox' ] && advertiseAddress='eth1'
-    output=$(docker-machine ssh ${managerNode} sudo docker swarm init --advertise-addr ${advertiseAddress}) || fail "Failed to initialize Docker swarm"
-    swarm_address=$(docker-machine ssh ${managerNode} sudo docker node inspect self | jq -r ".[].ManagerStatus.Addr") || fail "Failed to get address of Docker swarm manager"
-    swarm_token=$(docker-machine ssh ${managerNode} sudo docker swarm join-token -q worker) || fail "Failed to get Docker swarm's join token"
-    joinDockerSwarm $(nodeName ${version} '02') ${swarm_token} ${swarm_address}
-    joinDockerSwarm $(nodeName ${version} '03') ${swarm_token} ${swarm_address}
+    output=$(login ${managerNode} sudo docker swarm init --advertise-addr ${advertiseAddress}) || fail "Failed to initialize Docker swarm: ${output}"
+    swarm_address=$(login ${managerNode} sudo docker node inspect self | jq -r ".[].ManagerStatus.Addr") || fail "Failed to get address of Docker swarm manager"
+    swarm_token=$(login ${managerNode} sudo docker swarm join-token -q worker) || fail "Failed to get Docker swarm's join token"
+    joinDockerSwarm $(nodeName ${version} '2') ${swarm_token} ${swarm_address}
+    joinDockerSwarm $(nodeName ${version} '3') ${swarm_token} ${swarm_address}
     echo "Docker swarm created successfully"
 }
 
@@ -369,7 +457,7 @@ delete() {
     version=$1
     driver=${2-'amazonec2'}
     requireArgument 'version'
-    [ "${driver}" == 'amazonec2' ] && {
+    [ "${driver}" == 'amazonec2' -o "${driver}" == 'amazonec2-legacy' ] && {
         deleteRunningInstances ${version}
         waitForInstancesToTerminate ${version}
         deleteSubnet ${version}
@@ -378,6 +466,23 @@ delete() {
         deleteVpc ${version}
     }
     deleteDockerMachines ${version}
+}
+
+login() {
+    nodeName=$1
+    requireArgument 'nodeName'
+    shift
+    source .environment/${nodeName} 2>/dev/null || fail "Unknown node ${nodeName}"
+    ssh_command="ssh -o 'StrictHostKeyChecking no' -i ${ssh_key_file} ubuntu@${address} $@"
+    local i
+    for i in {1..10}; do
+        eval ${ssh_command}
+        ret=$?
+        [ ${ret} -eq 0 ] && break;
+        echo "Command failed: [${ssh_command}] (${ret})"
+        [ ! ${ret} -eq 255 ] && return ${ret};
+        sleep 3
+    done
 }
 
 case $1 in *)

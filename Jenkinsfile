@@ -34,8 +34,8 @@ if (isQaBuild()) {
         node {
             unstash 'pipeline'
             sh "pipeline/environment.sh create ${version}"
-            managerNode = "statistics-${version}-node01"
-            sh "docker-machine ssh ${managerNode} bash -s -- < pipeline/application.sh createAndVerify ${version}"
+            managerNode = "statistics-${version}-node1"
+            sh "pipeline/environment.sh login ${managerNode} bash -s -- < pipeline/application.sh createAndVerify ${version}"
             if (!env.commitMessage.startsWith("qa! keep!"))
                 sh "pipeline/environment.sh delete ${version}"
         }

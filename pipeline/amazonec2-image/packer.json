@@ -1,0 +1,38 @@
+{
+  "_comment": "source_ami is found via https://cloud-images.ubuntu.com/locator/ec2/ and is Ubuntu 16.04 LTS for us-east-1 with HVM and EBS-SSD backed",
+  "variables": {
+    "name": null,
+    "subnet-id": null,
+    "vpc-id": null
+  },
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "us-east-1",
+      "source_ami": "ami-e6d5d2f1",
+      "instance_type": "c4.large",
+      "ssh_username": "ubuntu",
+      "ami_name": "{{user `name`}}",
+      "vpc_id": "{{user `vpc-id`}}",
+      "subnet_id": "{{user `subnet-id`}}",
+      "associate_public_ip_address": true,
+      "tags": {
+        "Name": "Statistics"
+      }
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "inline": [
+        "sudo apt-get update",
+        "sudo apt-get -y install apt-transport-https ca-certificates",
+        "sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D",
+        "echo 'deb https://apt.dockerproject.org/repo ubuntu-xenial main' | sudo tee /etc/apt/sources.list.d/docker.list",
+        "sudo apt-get update",
+        "sudo apt-get -y install linux-image-extra-$(uname -r) linux-image-extra-virtual",
+        "sudo apt-get -y install docker-engine=1.12.4-0~ubuntu-xenial"
+      ]
+    }
+  ]
+}

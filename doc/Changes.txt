@@ -1,3 +1,4 @@
+bugfix/PBLEID-13166: QA-steget i pipeline har begynt å feiler/er ustabilt
 feature/PBLEID-11941: Utvidet informasjon om tilgjengelige tidsserier
 bugfix/PBLEID-13125: Swagger eksponerer ikke bulk-operasjonen til inndata-APIet
 bugfix/PBLEID-13113: Sum-operasjonen feiler dersom fra/til ikke er angitt
