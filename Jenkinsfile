@@ -33,11 +33,14 @@ if (isQaBuild()) {
     stage('QA') {
         node {
             unstash 'pipeline'
-            sh "pipeline/environment.sh create ${version}"
             managerNode = "statistics-${version}-node1"
-            sh "pipeline/environment.sh login ${managerNode} bash -s -- < pipeline/application.sh createAndVerify ${version}"
-            if (!env.commitMessage.startsWith("qa! keep!"))
-                sh "pipeline/environment.sh delete ${version}"
+            try {
+                sh "pipeline/environment.sh create ${version}"
+                sh "pipeline/environment.sh login ${managerNode} bash -s -- < pipeline/application.sh createAndVerify ${version}"
+            } finally {
+                if (!env.commitMessage.startsWith("qa! keep!"))
+                    sh "pipeline/environment.sh delete ${version}"
+            }
         }
     }
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 fail() {
-    ret=$?
-    message=${1-"[Failed (${ret})]"}
+    local ret=$?
+    local message=${1-"[Failed (${ret})]"}
     echo ${message}
     return ${ret}
 }
 
 warn() {
-    message=$1
+    local message=$1
     echo ${message}
 }
 
@@ -17,7 +17,7 @@ ok() {
 }
 
 dotSleep() {
-    length=${1-1}
+    local length=${1-1}
     echo -n "."
     sleep ${length};
 }
@@ -27,8 +27,8 @@ requireArgument() {
 }
 
 image() {
-    service=$1
-    version=${2-'latest'}
+    local service=$1
+    local version=${2-'latest'}
     requireArgument 'service'
     case "${service}" in
         "elasticsearch")
@@ -53,12 +53,12 @@ image() {
 }
 
 createService() {
-    service=$1
-    version=${2-'latest'}
+    local service=$1
+    local version=${2-'latest'}
     requireArgument 'service'
-    network='statistics'
+    local network='statistics'
     echo -n "Creating service ${service} of version ${version}... "
-    image=$(image ${service} ${version})
+    local image=$(image ${service} ${version})
     case ${service} in
     elasticsearch_gossip)
         output=$(sudo docker service create \
@@ -112,18 +112,18 @@ createService() {
 }
 
 updateService() {
-    service=$1
-    version=${2-'latest'}
+    local service=$1
+    local version=${2-'latest'}
     requireArgument 'service'
     echo -n "Updating service ${service} to version ${version}... "
-    image=$(image ${service} ${version})
+    local image=$(image ${service} ${version})
     output=$(sudo docker service inspect ${service}) || { echo "Service needs to be created"; createService ${service} ${version}; return; }
     output=$(sudo docker service update --image ${image} ${service}) \
         && ok || fail
 }
 
 waitForServiceUpdateToComplete() {
-    service=$1
+    local service=$1
     requireArgument 'service'
     echo -n "Waiting for service \"${service}\" to be updated"
     for i in $(seq 1 100); do isServiceUpdateCompleted ${service} && status=true && break || dotSleep; done
@@ -132,13 +132,13 @@ waitForServiceUpdateToComplete() {
 }
 
 isServiceUpdateCompleted() {
-    service="${1}"
+    local service="${1}"
     requireArgument 'service'
     [ "$(sudo docker service inspect ${service} -f '{{.UpdateStatus.State}}')" == "completed" ]
 }
 
 deleteService() {
-    service=$1
+    local service=$1
     requireArgument 'service'
     echo -n "Deleting service ${service}... "
     output=$(sudo docker service rm ${service}) \
@@ -146,7 +146,7 @@ deleteService() {
 }
 
 createNetwork() {
-    network=$1
+    local network=$1
     requireArgument 'network'
     echo -n "Creating network ${network}... "
     output=$(sudo docker network create -d overlay --subnet 10.0.1.0/24 ${network}) \
@@ -154,7 +154,7 @@ createNetwork() {
 }
 
 deleteNetwork() {
-    network=$1
+    local network=$1
     requireArgument 'network'
     echo -n "Deleting network ${network}... "
     output=$(sudo docker network rm ${network}) \
@@ -162,7 +162,7 @@ deleteNetwork() {
 }
 
 disableShardAllocation() {
-    host=${1-'localhost'}
+    local host=${1-'localhost'}
     echo -n "Disabling Elasticsearch shard allocation..."
     curl -s -XPUT http://${host}:8082/_cluster/settings \
         -d '{"transient":{"cluster.routing.allocation.enable":"none"}}' \
@@ -170,7 +170,7 @@ disableShardAllocation() {
 }
 
 enableShardAllocation() {
-    host=${1-'localhost'}
+    local host=${1-'localhost'}
     echo -n "Enabling Elasticsearch shard allocation..."
     curl -s -XPUT http://${host}:8082/_cluster/settings \
         -d '{"transient":{"cluster.routing.allocation.enable":"all"}}' \
@@ -178,24 +178,25 @@ enableShardAllocation() {
 }
 
 waitForGreenStatus() {
-    host=${1-'localhost'}
+    local host=${1-'localhost'}
     echo -n "Waiting for Elasticsearch to be green... "
     curl -sS -f -XGET http://${host}:8082/_cluster/health?wait_for_status=green&timeout=5m > /dev/null \
         && ok || fail
 }
 
 indexExists() {
-    index=${1}
-    host=${2-'localhost'}
+    local index=${1}
+    local host=${2-'localhost'}
     echo -n "Checking existence of index \"${index}\"... "
     curl -sS -f --head http://${host}:8082/${index} > /dev/null \
         && ok || fail
 }
 
 createTestData() {
-    host=${1-'localhost'}
-    user='991825827'
+    local host=${1-'localhost'}
+    local user='991825827'
     echo -n "Creating credentials for user ${user}..."
+    local i
     for i in $(seq 1 600); do
         password=$(doCreateCredentials ${user} ${host})
         ret=$?
@@ -214,12 +215,12 @@ createTestData() {
 }
 
 doCreateTestData() {
-    user="${1}"
-    password="${2}"
+    local user="${1}"
+    local password="${2}"
     requireArgument 'user'
     requireArgument 'password'
-    host=${3-'localhost'}
-    owner="${user}"
+    local host=${3-'localhost'}
+    local owner="${user}"
     curl \
         -sS \
         -f \
@@ -230,10 +231,10 @@ doCreateTestData() {
 }
 
 doCreateCredentials() {
-    user=$1
+    local user=$1
     requireArgument 'user'
-    host=${2-'localhost'}
-    password=$(curl \
+    local host=${2-'localhost'}
+    local password=$(curl \
         -sS \
         -f \
         -H "Content-Type: application/json;charset=UTF-8" \
@@ -248,9 +249,9 @@ verifyTestData() {
 }
 
 waitForServiceToBeAvailable() {
-    service=$1
+    local service=$1
     requireArgument 'service'
-    host=${2-'localhost'}
+    local host=${2-'localhost'}
     echo -n "Waiting for service \"${service}\" to be available: "
     status=false
     for i in $(seq 1 200); do
@@ -264,9 +265,9 @@ waitForServiceToBeAvailable() {
 }
 
 isServiceAvailable() {
-    service=$1
+    local service=$1
     requireArgument 'service'
-    host=${2-'localhost'}
+    local host=${2-'localhost'}
     case "${service}" in
         'elasticsearch_gossip')
             url="http://${host}:9201"
@@ -291,7 +292,7 @@ isServiceAvailable() {
 }
 
 create() {
-    version=${1-'latest'}
+    local version=${1-'latest'}
     echo "Creating application with version ${version}..."
     createNetwork 'statistics' || return $?
     createService 'elasticsearch_gossip' ${version} || return $?
@@ -304,7 +305,7 @@ create() {
 }
 
 update() {
-    version=${1-'latest'}
+    local version=${1-'latest'}
     echo "Updating application to version ${version}..."
     updateService 'query' ${version} || return $?
     updateService 'ingest' ${version} || return $?
@@ -334,13 +335,13 @@ delete() {
 }
 
 createAndVerify() {
-    version=${1-'latest'}
+    local version=${1-'latest'}
     create latest || return $?
     verify ${version} || return $?
 }
 
 verify() {
-    version=${1-'latest'}
+    local version=${1-'latest'}
     waitForServiceToBeAvailable 'elasticsearch' || return $?
     waitForServiceToBeAvailable 'ingest' || return $?
     waitForServiceToBeAvailable 'authenticate' || return $?
