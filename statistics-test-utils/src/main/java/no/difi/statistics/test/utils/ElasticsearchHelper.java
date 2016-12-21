@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutionException;
 import static java.lang.String.format;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.test.utils.DataOperations.unit;
+import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 import static org.elasticsearch.cluster.health.ClusterHealthStatus.GREEN;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
@@ -64,21 +65,21 @@ public class ElasticsearchHelper {
         return client.admin().cluster()
                 .prepareState().execute()
                 .actionGet().getState()
-                .getMetaData().concreteAllIndices();
+                .getMetaData().getConcreteAllIndices();
     }
 
     public void index(String indexName, String indexType, String id, String document) {
         client.prepareIndex(indexName, indexType, id)
                 .setSource(document)
                 .setCreate(true)
-                .setRefresh(true) // Make document immediately searchable for testing purposes
+                .setRefreshPolicy(IMMEDIATE) // Make document immediately searchable for testing purposes
                 .get();
     }
 
     public void index(String indexName, String indexType, String id, Map<String, String> document) {
         client.prepareIndex(indexName, indexType, id)
                 .setSource(document)
-                .setRefresh(true) // Make document immediately searchable for testing purposes
+                .setRefreshPolicy(IMMEDIATE) // Make document immediately searchable for testing purposes
                 .get();
     }
 

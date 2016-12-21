@@ -32,7 +32,6 @@ import org.testcontainers.containers.GenericContainer;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -71,7 +70,7 @@ public class ElasticsearchIngestServiceTest {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            GenericContainer backend = new GenericContainer("elasticsearch:2.4.1");
+            GenericContainer backend = new GenericContainer("elasticsearch:5.1.1");
             backend.start();
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),

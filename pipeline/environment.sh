@@ -103,13 +103,10 @@ cidrBlock() {
 createVpc() {
     version=$1
     requireArgument 'version'
-    echo -n "Creating VPC: "
     output=$(aws ec2 create-vpc --cidr-block $(cidrBlock)) || fail "Failed to create VPC"
     id=$(echo ${output} | jq -r ".Vpc.VpcId") || fail "Failed to get VPC id"
-    echo -n "${id}"
-    echo -n " Adding tag..."
     tag ${id} $(systemId ${version})
-    echoOk
+    echo -n "${id}"
 }
 
 deleteVpc() {
@@ -129,13 +126,9 @@ deleteVpc() {
 createSubnet() {
     version=$1
     requireArgument 'version'
-    echo -n "Creating subnet $(cidrBlock): "
     output=$(aws ec2 create-subnet --vpc-id $(vpcId ${version}) --cidr-block $(cidrBlock)) || fail "Failed to create subnet"
     id=$(echo ${output} | jq -r ".Subnet.SubnetId") || fail "Failed to get subnet id"
     echo -n "${id} "
-    availability_zone=$(echo ${output} | jq -r ".Subnet.AvailabilityZone") || fail "Failed to get availability zone for subnet"
-    echo -n "Using zone ${availability_zone} "
-    echoOk
 }
 
 deleteSubnet() {
@@ -336,9 +329,9 @@ createDockerMachinesOnAws() {
     sg_id=$(echo ${output} | jq -r ".SecurityGroups[].GroupId") || fail "Failed to get security group id"
     key_name=$(createKeyPairOnAws ${version})
     output=$(aws ec2 run-instances \
-	    --image-id ami-a61a10b1 \
+	    --image-id ami-ec3421fb \
 	    --security-group-ids ${sg_id} \
-	    --instance-type c4.large \
+	    --instance-type c4.xlarge \
 	    --subnet-id ${subnet_id} \
 	    --count ${count} \
 	    --associate-public-ip-address \

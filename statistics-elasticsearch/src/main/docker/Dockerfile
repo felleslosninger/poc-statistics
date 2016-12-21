@@ -1,4 +1,4 @@
-FROM elasticsearch:2.4.1
+FROM elasticsearch:5.1.1
 MAINTAINER Direktoratet for forvaltning og IKT <roy@difi.no>
 
 HEALTHCHECK --timeout=10s --interval=10s --retries=60 \

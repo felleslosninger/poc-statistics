@@ -2,10 +2,10 @@ package no.difi.statistics.elasticsearch;
 
 import no.difi.statistics.model.MeasurementDistance;
 import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
-import org.elasticsearch.search.aggregations.bucket.range.date.DateRangeBuilder;
-import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsBuilder;
+import org.elasticsearch.search.aggregations.bucket.range.date.DateRangeAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsAggregationBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.time.ZonedDateTime;
@@ -13,8 +13,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.*;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.dateHistogram;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.sum;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.topHits;
 
 public class QueryBuilders {
 
@@ -30,26 +32,26 @@ public class QueryBuilders {
         return builder;
     }
 
-    public static DateHistogramBuilder sumHistogramAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
-        DateHistogramBuilder builder = dateHistogram(name).field(timestampField).interval(dateHistogramInterval(targetDistance));
+    public static DateHistogramAggregationBuilder sumHistogramAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
+        DateHistogramAggregationBuilder builder = dateHistogram(name).field(timestampField).dateHistogramInterval(dateHistogramInterval(targetDistance));
         for (String measurementId : measurementIds)
             builder.subAggregation(sum(measurementId).field(measurementId));
         return builder;
     }
 
-    public static TopHitsBuilder lastAggregation() {
-        return topHits("last").setSize(1).addSort(timestampField, SortOrder.DESC);
+    public static TopHitsAggregationBuilder lastAggregation() {
+        return topHits("last").size(1).sort(timestampField, SortOrder.DESC);
     }
 
-    public static DateHistogramBuilder lastHistogramAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
-        DateHistogramBuilder builder = dateHistogram(name).field(timestampField).interval(dateHistogramInterval(targetDistance));
-        TopHitsBuilder topHitsBuilder = topHits(name).setSize(1).addSort(timestampField, SortOrder.DESC);
-        measurementIds.forEach(topHitsBuilder::addField);
+    public static DateHistogramAggregationBuilder lastHistogramAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
+        DateHistogramAggregationBuilder builder = dateHistogram(name).field(timestampField).dateHistogramInterval(dateHistogramInterval(targetDistance));
+        TopHitsAggregationBuilder topHitsBuilder = topHits(name).size(1).sort(timestampField, SortOrder.DESC);
+        measurementIds.forEach(topHitsBuilder::fieldDataField);
         return builder.subAggregation(topHitsBuilder);
     }
 
-    public static DateRangeBuilder sumAggregation(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
-        DateRangeBuilder builder = dateRange(name).field(timestampField);
+    public static DateRangeAggregationBuilder sumAggregation(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
+        DateRangeAggregationBuilder builder = dateRange(name).field(timestampField);
         if (from == null && to == null)
             throw new IllegalArgumentException("from or to required");
         else if (from == null)

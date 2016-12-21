@@ -14,7 +14,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.index.engine.DocumentAlreadyExistsException;
+import org.elasticsearch.index.engine.VersionConflictEngineException;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +29,7 @@ import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexNam
 import static no.difi.statistics.elasticsearch.QueryBuilders.lastAggregation;
 import static no.difi.statistics.elasticsearch.ResultParser.pointFromLastAggregation;
 import static no.difi.statistics.elasticsearch.Timestamp.normalize;
+import static org.elasticsearch.common.bytes.BytesReference.toBytes;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchIngestService implements IngestService {
@@ -54,7 +55,7 @@ public class ElasticsearchIngestService implements IngestService {
         log(indexName, id, document);
         try {
             client.prepareIndex(indexName, indexType, id).setSource(document).setCreate(true).get();
-        } catch (DocumentAlreadyExistsException e) {
+        } catch (VersionConflictEngineException e) {
             throw new TimeSeriesPointAlreadyExists(seriesDefinition.getOwner(), seriesDefinition.getName(), id, e);
         }
     }
@@ -121,7 +122,7 @@ public class ElasticsearchIngestService implements IngestService {
     }
 
     private static byte[] documentBytes(TimeSeriesPoint dataPoint, MeasurementDistance distance) {
-        return document(dataPoint, distance).bytes().toBytes();
+        return toBytes(document(dataPoint, distance).bytes());
     }
 
     private static XContentBuilder document(TimeSeriesPoint dataPoint, MeasurementDistance distance) {

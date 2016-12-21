@@ -10,6 +10,7 @@ import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.lang.String.format;
 import static org.apache.commons.lang3.RandomStringUtils.random;
 
 public class AuthenticationService {
@@ -29,10 +30,19 @@ public class AuthenticationService {
     }
 
     public String createCredentials(String username) {
-        String password = random(20, 0, 0, false, false, validPasswordCharacters, new SecureRandom());
+        final int passwordLength = 20;
+        String password = random(passwordLength, 0, 0, false, false, validPasswordCharacters, new SecureRandom());
         client.prepareIndex("authentication", "authentication", username)
                 .setSource(document(username, password))
                 .get();
+        if (password.length() != passwordLength)
+            throw new IllegalStateException(
+                    format(
+                            "Password length %d of generated password is not equal to expected length %d",
+                            password.length(),
+                            passwordLength
+                    )
+            );
         return password;
     }
 

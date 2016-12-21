@@ -52,6 +52,19 @@ image() {
     echo ${image}
 }
 
+serviceArgs() {
+    local service=$1
+    requireArgument 'service'
+    case "${service}" in
+        "elasticsearch")
+            echo -n "-Ediscovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Enode.master=false"
+            ;;
+        "elasticsearch_gossip")
+            echo -n "-Etransport.tcp.port=9301 -Enode.data=false"
+            ;;
+    esac
+}
+
 createService() {
     local service=$1
     local version=${2-'latest'}
@@ -59,6 +72,7 @@ createService() {
     local network='statistics'
     echo -n "Creating service ${service} of version ${version}... "
     local image=$(image ${service} ${version})
+    local serviceArgs=$(serviceArgs ${service})
     case ${service} in
     elasticsearch_gossip)
         output=$(sudo docker service create \
@@ -67,7 +81,7 @@ createService() {
             --stop-grace-period 5m \
             --name ${service} \
             -p 9201:9200 -p 9301:9301 \
-            ${image} -Des.transport.tcp.port=9301 -Des.node.data=false) \
+            ${image} ${serviceArgs}) \
             || fail "Failed to create service ${service}"
         ;;
     elasticsearch)
@@ -77,7 +91,7 @@ createService() {
             --stop-grace-period 5m \
             --name ${service} \
             -p 8082:9200 -p 9300:9300 \
-            ${image} -Des.discovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Des.node.master=false) \
+            ${image} ${serviceArgs}) \
             || fail "Failed to create service ${service}"
         ;;
     query)
@@ -86,7 +100,7 @@ createService() {
             --mode global \
             --name ${service} \
             -p 8080:8080 \
-            ${image}) \
+            ${image} ${serviceArgs}) \
             || fail "Failed to create service ${service}"
         ;;
     ingest)
@@ -95,7 +109,7 @@ createService() {
             --mode global \
             --name ${service} \
             -p 8081:8080 \
-            ${image}) \
+            ${image} ${serviceArgs}) \
             || fail "Failed to create service ${service}"
         ;;
     authenticate)
@@ -104,7 +118,7 @@ createService() {
             --mode global \
             --name ${service} \
             -p 8083:8080 \
-            ${image}) \
+            ${image} ${serviceArgs}) \
             || fail "Failed to create service ${service}"
         ;;
     esac
@@ -117,8 +131,9 @@ updateService() {
     requireArgument 'service'
     echo -n "Updating service ${service} to version ${version}... "
     local image=$(image ${service} ${version})
+    local serviceArgs=$(serviceArgs ${service})
     output=$(sudo docker service inspect ${service}) || { echo "Service needs to be created"; createService ${service} ${version}; return; }
-    output=$(sudo docker service update --image ${image} ${service}) \
+    output=$(sudo docker service update --image ${image} ${serviceArgs:+--args "${serviceArgs}"} ${service}) \
         && ok || fail
 }
 
@@ -234,9 +249,9 @@ doCreateCredentials() {
     local user=$1
     requireArgument 'user'
     local host=${2-'localhost'}
-    local password=$(curl \
-        -sS \
-        -f \
+    local password
+    password=$(curl \
+        -s -f --connect-timeout 3 --max-time 10 \
         -H "Content-Type: application/json;charset=UTF-8" \
         -XPOST \
         http://${host}:8083/credentials/${user}/short) || return $?
