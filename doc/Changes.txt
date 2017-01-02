@@ -1,3 +1,4 @@
+bugfix/PBLEID-13275: Applikasjonsoppdatering feiler dersom tjenesten 'elasticsearch' ikke allerede eksiterer
 feature/PBLEID-12319: Data overlever selv om applikasjonen går helt ned
 feature/PBLEID-12759: Elasticsearch versjon 5
 feature/PBLEID-13130: AWS-miljø ryddes opp (slettes) også når QA-steget feiler

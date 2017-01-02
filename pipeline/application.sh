@@ -123,6 +123,12 @@ serviceAvailabilityUrl() {
     esac
 }
 
+serviceExists() {
+    local service=$1
+    requireArgument 'service'
+    sudo docker service inspect ${service} > /dev/null
+}
+
 createService() {
     local service=$1
     local version=${2-'latest'}
@@ -193,7 +199,7 @@ updateService() {
     local image=$(image ${service} ${version})
     local serviceArgs=$(serviceArgs ${service})
     local start=$SECONDS
-    output=$(sudo docker service inspect ${service}) || { echo "Service needs to be created"; createService ${service} ${version}; return; }
+    output=$(serviceExists ${service}) || { echo "Service needs to be created"; createService ${service} ${version}; return; }
     output=$(sudo docker service update --image ${image} ${serviceArgs:+--args "${serviceArgs}"} ${service}) \
         && ok ${start} || fail
 }
@@ -395,7 +401,7 @@ update() {
     updateService 'ingest' ${version} || return $?
     updateService 'authenticate' ${version} || return $?
     # Se https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
-    disableShardAllocation || return $?
+    serviceExists 'elasticsearch' && { disableShardAllocation || return $?; }
     updateService 'elasticsearch' ${version} || return $?
     waitForServiceUpdateToComplete 'elasticsearch' || return $?
     waitForServiceToBeAvailable 'elasticsearch' || return $?
