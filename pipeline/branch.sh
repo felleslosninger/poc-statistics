@@ -7,6 +7,13 @@ die() {
     exit ${ret}
 }
 
+fail() {
+    local ret=$?
+    local message=${1-"[Failed (${ret})]"}
+    echo ${message}
+    return ${ret}
+}
+
 warn() {
     message=$1
     echo ${message}
@@ -40,6 +47,11 @@ info() {
     echo "Change log entry: $(change)"
 }
 
+qa() {
+    isIntegratable || fail "QA requires branch to be integratable."
+    git commit --allow-empty -m "qa! keep!"
+    publish
+}
 editChangesLog() {
     message=${1}
     requireArgument 'message'
@@ -54,7 +66,7 @@ editChangesLog() {
 
 integrate() {
     echo "Integrating branch..."
-    isIntegratable
+    isIntegratable || fail "Branch is currently not integratable."
     workBranch=$(currentBranch)
     echo -n "Checking out branch $(masterBranch): "
     git checkout $(masterBranch) && ok || die "Failed to check out branch $(masterBranch)"
@@ -75,15 +87,15 @@ integrate() {
 isIntegratable() {
     workBranch=$(currentBranch)
     echo -n "Verifying that branch ${workBranch} is a bugfix/feature branch: "
-    isWorkBranch && ok || die "${workBranch} is not a bugfix/feature branch"
+    isWorkBranch && ok || fail "${workBranch} is not a bugfix/feature branch"
     echo -n "Verifying that branch ${workBranch} has no unstaged changes: "
-    git diff-files --quiet -- && ok || die "Found unstaged changes."
+    git diff-files --quiet -- && ok || fail "Found unstaged changes."
     echo -n "Verifying that branch ${workBranch} has no staged changes: "
-    git diff-index --quiet --cached HEAD && ok || die "Found staged changes."
+    git diff-index --quiet --cached HEAD && ok || fail "Found staged changes."
     echo -n "Verifying that branch ${workBranch} is synchronized with remote branch: "
-    isSynchronizedWithRemote && ok || die "Local branch and remote diverges"
+    isSynchronizedWithRemote && ok || fail "Local branch and remote diverges"
     echo -n "Verifying that branch ${workBranch} contains origin/$(masterBranch): "
-    git branch --contains origin/$(masterBranch) | grep ${workBranch} > /dev/null && ok || die "No. Please run 'git merge origin/$(masterBranch)'."
+    git branch --contains origin/$(masterBranch) | grep ${workBranch} > /dev/null && ok || fail "No. Please run 'git merge origin/$(masterBranch)'."
 }
 
 isSynchronizedWithRemote() {

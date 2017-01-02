@@ -15,7 +15,7 @@ import static org.apache.commons.lang3.RandomStringUtils.random;
 
 public class AuthenticationService {
 
-    private static final char[] validPasswordCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~`!@#$%^&*()-_=+[{]}\\|;:\'\",<.>/?".toCharArray();
+    private static final char[] validPasswordCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~`!@#$%^&*()-_=+[{]}\\|;:,<.>/?".toCharArray();
     private AuthenticationProvider authenticationProvider;
     private Client client;
 

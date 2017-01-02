@@ -13,22 +13,39 @@ finish() {
 trap finish TERM INT
 
 fail() {
-    message=$1
-    echo ${message}
-    exit 1
+    local ret=$?
+    local message=${1-"Failed"}
+    ret=${2-${ret}}
+    echo "[${message} (${ret})]"
+    return ${ret}
+}
+
+die() {
+    local ret=$?
+    local message=${1-"Failed"}
+    ret=${2-${ret}}
+    echo "[${message} (${ret})]"
+    exit ${ret}
 }
 
 warn() {
-    message=$1
+    local message=$1
     echo ${message}
 }
 
-echoOk() {
-    echo "[OK]"
+ok() {
+    local start=$1
+    echo "[OK${start:+ ($(duration ${start})s)}]"
 }
 
 requireArgument() {
-    test -z ${!1} && fail "Missing argument '${1}'"
+    test -z "${!1}" && die "Missing argument '${1}'" 1
+}
+
+duration() {
+    local from=$1
+    requireArgument 'from'
+    echo -n $(( SECONDS - ${from} ))
 }
 
 tag() {
@@ -113,6 +130,7 @@ deleteVpc() {
     version=$1
     requireArgument 'version'
     echo -n "Deleting VPC: "
+    local start=${SECONDS}
     id=$(vpcId ${version})
     if [ ! -z ${id} ]; then
         echo -n "${id} "
@@ -120,7 +138,7 @@ deleteVpc() {
     else
         echo -n "Not found. "
     fi
-    echoOk
+    ok ${start}
 }
 
 createSubnet() {
@@ -135,6 +153,7 @@ deleteSubnet() {
     version=$1
     requireArgument 'version'
     echo -n "Deleting subnet: "
+    local start=${SECONDS}
     output=$(aws ec2 describe-subnets --filters $(vpcFilter ${version})) || fail "Failed to find subnet"
     id=$(echo ${output} | jq -r ".Subnets[].SubnetId") || fail "Failed to get subnet id"
     if [ ! -z ${id} ]; then
@@ -143,13 +162,14 @@ deleteSubnet() {
     else
         echo -n "Not found. "
     fi
-    echoOk
+    ok ${start}
 }
 
 createInternetGateway() {
     version=$1
     requireArgument 'version'
     echo -n "Creating Internet gateway: "
+    local start=${SECONDS}
     output=$(aws ec2 create-internet-gateway) || fail "Failed to create Internet gateway"
     id=$(echo ${output} | jq -r ".InternetGateway.InternetGatewayId") || fail "Failed to get Internet gateway id"
     echo -n "${id} "
@@ -157,13 +177,14 @@ createInternetGateway() {
     tag ${id} $(systemId ${version})
     echo -n "Attaching... "
     output=$(aws ec2 attach-internet-gateway --internet-gateway-id ${id} --vpc-id $(vpcId ${version})) || fail "Failed to attach Internet gateway to VPC"
-    echoOk
+    ok ${start}
 }
 
 deleteInternetGateway() {
     version=$1
     requireArgument 'version'
     echo -n "Deleting internet gateway: "
+    local start=${SECONDS}
     output=$(aws ec2 describe-internet-gateways --filters $(filter ${version})) || fail "Failed to find Internet gateway"
     id=$(echo ${output} | jq -r ".InternetGateways[].InternetGatewayId") || fail "Failed to get id of Internet gateway"
     if [ ! -z ${id} ]; then
@@ -173,13 +194,14 @@ deleteInternetGateway() {
     else
         echo -n "Not found. "
     fi
-    echoOk
+    ok ${start}
 }
 
 createRoute() {
     version=$1
     requireArgument 'version'
     echo -n "Creating route entry: "
+    local start=${SECONDS}
     output=$(aws ec2 describe-route-tables --filters $(vpcFilter ${version})) || fail "Failed to find route table"
     rtb_id=$(echo ${output} | jq -r ".RouteTables[].RouteTableId") || fail "Failed to get route table id"
     echo -n "Found route table ${rtb_id}. "
@@ -187,13 +209,14 @@ createRoute() {
     igw_id=$(echo ${output} | jq -r ".InternetGateways[].InternetGatewayId") || fail "Failed to get Internet gateway id"
     echo -n "Found Internet gateway ${igw_id}. "
     output=$(aws ec2 create-route --route-table-id ${rtb_id} --destination-cidr-block 0.0.0.0/0 --gateway-id ${igw_id}) || fail "Failed to create route entry"
-    echoOk
+    ok ${start}
 }
 
 createSecurityGroup() {
     version=$1
     requireArgument 'version'
     echo -n "Creating security group: "
+    local start=${SECONDS}
     sg_name="$(systemId ${version})"
     output=$(aws ec2 create-security-group --vpc-id $(vpcId ${version}) --group-name ${sg_name} --description "Security group for system id $(systemId ${version})") || fail "Failed to create security group"
     id=$(echo ${output} | jq -r ".GroupId") || fail "Failed to get security group id"
@@ -214,13 +237,14 @@ createSecurityGroup() {
             ) || fail "Failed to add ingress rules to security group"
     echo -n "Adding tag... "
     tag ${id} $(systemId ${version})
-    echoOk
+    ok ${start}
 }
 
 deleteSecurityGroup() {
     version=$1
     requireArgument 'version'
     echo -n "Deleting security group: "
+    local start=${SECONDS}
     output=$(aws ec2 describe-security-groups --filters $(filter ${version})) || fail "Failed to find security group"
     id=$(echo ${output} | jq -r ".SecurityGroups[].GroupId") || fail "Failed to get id of security group"
     if [ ! -z ${id} ]; then
@@ -229,13 +253,14 @@ deleteSecurityGroup() {
     else
         echo -n "Not found. "
     fi
-    echoOk
+    ok ${start}
 }
 
 deleteRunningInstances() {
     version=$1
     requireArgument 'version'
     echo -n "Deleting running EC2 instances: "
+    local start=${SECONDS}
     output=$(aws ec2 describe-instances --filter $(filter ${version}) $(runningFilter)) || fail "Failed to find running EC2 instances"
     ids=$(echo ${output} | jq -r ".Reservations[].Instances[].InstanceId" | paste -s -d ' ' -) || fail "Failed to get ids of running EC2 instances"
     if [ ! -z "${ids}" ]; then
@@ -244,13 +269,14 @@ deleteRunningInstances() {
     else
         echo -n "None found. "
     fi
-    echoOk
+    ok ${start}
 }
 
 waitForInstancesToTerminate() {
     version=$1
     requireArgument 'version'
     echo -n "Waiting for EC2 instances to terminate... "
+    local start=${SECONDS}
     ids=all
     while [[ "${ids}" != "" ]]; do
         output=$(aws ec2 describe-instances --filter $(filter ${version}) Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped) || fail "Failed to find EC2 instances"
@@ -260,7 +286,7 @@ waitForInstancesToTerminate() {
             sleep 3
         fi
     done
-    echoOk
+    ok ${start}
 }
 
 awsDockerParams() {
@@ -292,6 +318,7 @@ virtualBoxDockerParams() {
     requireArgument 'version'
     echo -n "\
         --engine-label system_id=$(systemId ${version}) \
+        --virtualbox-memory 8192 \
         -d virtualbox"
 }
 
@@ -322,7 +349,7 @@ findPublicIp() {
 createDockerMachinesOnAws() {
     version=$1
     requireArgument 'version'
-    count=3
+    count=${2-3}
     output=$(aws ec2 describe-subnets --filters $(vpcFilter ${version})) || fail "Failed to find subnet"
     subnet_id=$(echo ${output} | jq -r ".Subnets[].SubnetId") || fail "Failed to get subnet id"
     output=$(aws ec2 describe-security-groups --filters $(filter ${version})) || fail "Failed to find security group"
@@ -335,6 +362,9 @@ createDockerMachinesOnAws() {
 	    --subnet-id ${subnet_id} \
 	    --count ${count} \
 	    --associate-public-ip-address \
+	    --user-data "#!/bin/bash
+mkdir -p /usr/share/elasticsearch/data
+swapoff -a" \
 	    --key-name ${key_name})
     local i
 	for (( i=0; i<${count}; i++ )); do
@@ -357,6 +387,7 @@ createDockerMachines() {
     requireArgument 'version'
     driver=${2-'amazonec2'}
     echo "Creating Docker machines..."
+    local start=${SECONDS}
     case ${driver} in
         'amazonec2')
             createDockerMachinesOnAws ${version} || fail "Failed to create Docker Machines"
@@ -380,19 +411,24 @@ createDockerMachines() {
             docker-machine create ${params} $(nodeName ${version} '3') &
             child_pids="${child_pids} $!"
             wait
-            docker-machine ssh $(nodeName ${version} '1') tce-load -wi bash || fail
+            local postCommand="sudo -- sh -c 'sysctl -w vm.max_map_count=262144; mkdir -p /usr/share/elasticsearch/data'"
+            login $(nodeName ${version} '1') tce-load -wi bash || fail "Failed to install bash on node 1"
+            login $(nodeName ${version} '1') "${postCommand}" || fail "Failed to apply post-configuration to node 1"
+            login $(nodeName ${version} '2') "${postCommand}" || fail "Failed to apply post-configuration to node 2"
+            login $(nodeName ${version} '3') "${postCommand}" || fail "Failed to apply post-configuration to node 3"
             ;;
         "*")
             fail "Unsupported docker-machine driver ${driver}"
             ;;
     esac
-    echoOk
+    ok ${start}
 }
 
 deleteDockerMachines() {
     version=$1
     requireArgument 'version'
     echo -n "Deleting Docker machines: "
+    local start=${SECONDS}
     machines=$(docker-machine ls --filter "label=system_id=$(systemId ${version})" --format "{{.Name}}" | paste -s -d ' ' -)
     if [ ! -z "${machines}" ]; then
         echo -n "(${machines}) "
@@ -400,7 +436,7 @@ deleteDockerMachines() {
     else
         echo -n "None found. "
     fi
-    echoOk
+    ok ${start}
 }
 
 joinDockerSwarm() {
@@ -411,8 +447,9 @@ joinDockerSwarm() {
     requireArgument 'swarm_token'
     requireArgument 'swarm_address'
     echo -n "Node ${node_name} is joining Docker swarm... "
+    local start=${SECONDS}
     output=$(login ${node_name} sudo docker swarm join --token ${swarm_token} ${swarm_address}) || fail "Failed to join ${node_name} to Docker swarm"
-    echoOk
+    ok ${start}
 }
 
 setupDockerSwarm() {
@@ -462,17 +499,22 @@ delete() {
 }
 
 login() {
-    nodeName=$1
+    local nodeName=$1
     requireArgument 'nodeName'
     shift
-    source .environment/${nodeName} 2>/dev/null || fail "Unknown node ${nodeName}"
-    ssh_command="ssh -o 'StrictHostKeyChecking no' -i ${ssh_key_file} ubuntu@${address} $@"
+    local sshCommand
+    docker-machine inspect ${nodeName} > /dev/null && {
+        sshCommand='docker-machine ssh ${nodeName} "$@"'
+    } || {
+        source .environment/${nodeName} 2>/dev/null || fail "Unknown node ${nodeName}"
+        sshCommand="ssh -o 'StrictHostKeyChecking no' -i ${ssh_key_file} ubuntu@${address} $@"
+    }
     local i
     for i in {1..10}; do
-        eval ${ssh_command}
+        eval ${sshCommand}
         ret=$?
         [ ${ret} -eq 0 ] && break;
-        echo "Command failed: [${ssh_command}] (${ret})"
+        echo "Command failed: [${sshCommand}] (${ret})"
         [ ! ${ret} -eq 255 ] && return ${ret};
         sleep 3
     done

@@ -7,14 +7,12 @@ verify() {
 deliver() {
     version=$1
     mvn clean versions:set -DnewVersion=${version} || exit 1
-    mvn deploy || exit 2
+    mvn deploy -DskipTests || exit 2
 }
 
-case $1 in
-    verify)
-        verify
-        ;;
-    deliver)
-        deliver $2
+case $1 in *)
+        function=$1
+        shift
+        ${function} "$@"
         ;;
 esac
