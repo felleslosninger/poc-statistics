@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import no.difi.statistics.ingest.client.exception.*;
+import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
 import java.io.IOException;
@@ -14,10 +15,9 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Base64;
+import java.util.List;
 
-import static java.net.HttpURLConnection.HTTP_CONFLICT;
-import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+import static java.net.HttpURLConnection.*;
 
 public class IngestClient implements IngestService {
     private static final String CONTENT_TYPE_KEY = "Content-Type";
@@ -58,10 +58,35 @@ public class IngestClient implements IngestService {
         }
     }
 
-    private void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MalformedUrl {
-        URL url;
+    public void ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
         try {
-            url = new URL(serviceUrlTemplate(seriesName, Distance.minute.getValue()));
+            final URL url = new URL(serviceUrlTemplate(seriesDefinition.getName(), seriesDefinition.getDistance().name()));
+            final HttpURLConnection connection = getConnection(url);
+            writeJsonListToOutputStream(dataPoints, connection);
+            handleResponse(connection.getResponseCode());
+        } catch (MalformedURLException e) {
+            throw new MalformedUrl("Could not create URL to IngestService", e);
+        } catch (IOException e) {
+            throw new IngestFailed("Could not open connection to statistics", e);
+        }
+    }
+
+    private void handleResponse(int responseCode) throws IOException {
+        switch (responseCode) {
+            case HTTP_OK:
+            case HTTP_CREATED:
+                break;
+            case HTTP_UNAUTHORIZED:
+            case HTTP_FORBIDDEN:
+                throw new Unauthorized("Failed to authorize Ingest service");
+            case HTTP_NOT_FOUND:
+                throw new IngestFailed("Failed, could not find URL you have given");
+        }
+    }
+
+    private void minute(String seriesName, TimeSeriesPoint timeSeriesPoint) throws MalformedUrl {
+        try {
+            final URL url = new URL(serviceUrlTemplate(seriesName, Distance.minute.getValue()));
             dataPoint(timeSeriesPoint, url);
         } catch(MalformedURLException e) {
             throw new MalformedUrl("Could not create URL to IngestService", e);
@@ -117,21 +142,37 @@ public class IngestClient implements IngestService {
         return Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
-    private OutputStream writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn) throws IOException {
+    private void writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn) throws IOException {
         OutputStream outputStream = conn.getOutputStream();
-        ObjectWriter objectWriter = getObjectWriter();
+        ObjectWriter objectWriter = getObjectWriterForTimeSeriesPoint();
         String jsonString = objectWriter.writeValueAsString(timeSeriesPoint);
         outputStream.write(jsonString.getBytes());
         outputStream.flush();
-        return outputStream;
     }
 
-    private ObjectWriter getObjectWriter() {
+    private void writeJsonListToOutputStream(List<TimeSeriesPoint> timeSeriesPoint, HttpURLConnection conn) throws IOException {
+        OutputStream stream = conn.getOutputStream();
+        ObjectWriter writer = getObjectWriterForTimeSeriesPointList();
+
+        String jsonString = writer.writeValueAsString(timeSeriesPoint);
+        stream.write(jsonString.getBytes());
+        stream.flush();
+    }
+
+    private ObjectWriter getObjectWriterForTimeSeriesPoint() {
         return objectMapper
                 .registerModule(javaTimeModule)
                 .setDateFormat(iso8601DateFormat)
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
                 .writerFor(TimeSeriesPoint.class);
+    }
+
+    private ObjectWriter getObjectWriterForTimeSeriesPointList() {
+        return objectMapper
+                .registerModule(javaTimeModule)
+                .setDateFormat(iso8601DateFormat)
+                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+                .writerFor(List.class);
     }
 
     private String serviceUrlTemplate(String seriesName, String distance) {

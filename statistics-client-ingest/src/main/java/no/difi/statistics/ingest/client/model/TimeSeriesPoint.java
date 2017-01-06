@@ -5,25 +5,30 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.IOException;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Function;
 
-public class TimeSeriesPoint {
+
+@XmlRootElement
+public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
 
     private ZonedDateTime timestamp;
-    private final List<Measurement> measurements = new ArrayList<>();
+    private List<Measurement> measurements = new ArrayList<>();
 
     private TimeSeriesPoint() {
         // Use builder
     }
 
+    @XmlElement
     public ZonedDateTime getTimestamp() {
         return timestamp;
     }
 
+    @XmlElement
     public List<Measurement> getMeasurements() {
         return measurements;
     }
@@ -36,8 +41,15 @@ public class TimeSeriesPoint {
         return new Builder();
     }
 
+    @Override
+    public int compareTo(TimeSeriesPoint other) {
+        return timestamp.compareTo(other.timestamp);
+    }
+
     public static class Builder {
-        private final TimeSeriesPoint instance;
+        private TimeSeriesPoint instance;
+        private Map<String, Measurement> measurements = new HashMap<>();
+        private Function<ZonedDateTime, ZonedDateTime> timestampModifier;
 
         Builder() {
             this.instance = new TimeSeriesPoint();
@@ -48,23 +60,40 @@ public class TimeSeriesPoint {
             return this;
         }
 
+        public Builder timestampModifier(Function<ZonedDateTime, ZonedDateTime> modifier) {
+            timestampModifier = modifier;
+            return this;
+        }
+
         public Builder measurement(String measurementId, long measurement) {
-            instance.measurements.add(new Measurement(measurementId, measurement));
+            measurement(new Measurement(measurementId, measurement));
             return this;
         }
 
         public Builder measurement(Measurement measurement) {
-            instance.measurements.add(measurement);
+            Measurement oldMeasurement = measurements.get(measurement.getId());
+            if (oldMeasurement != null)
+                measurement = new Measurement(measurement.getId(), measurement.getValue() + oldMeasurement.getValue());
+            measurements.put(measurement.getId(), measurement);
             return this;
         }
 
         public Builder measurements(List<Measurement> measurements) {
-            instance.measurements.addAll(measurements);
+            measurements.forEach(this::measurement);
+            return this;
+        }
+
+        public Builder add(TimeSeriesPoint other) {
+            measurements(other.measurements);
+            instance.timestamp = other.timestamp;
             return this;
         }
 
         public TimeSeriesPoint build() {
             if (instance.timestamp == null) throw new IllegalArgumentException("timestamp");
+            if (timestampModifier != null)
+                instance.timestamp = timestampModifier.apply(instance.timestamp);
+            instance.measurements.addAll(measurements.values());
             return instance;
         }
 
@@ -78,11 +107,10 @@ public class TimeSeriesPoint {
         @Override
         public TimeSeriesPoint deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
             JsonNode node = parser.getCodec().readTree(parser);
-            return TimeSeriesPoint.builder().timestamp(ZonedDateTime.parse(node.get("timestamp").asText())).measurement(node.get("measurement").get("id").asText(), node.get("measurement").get("value").asLong()).build();
+            return TimeSeriesPoint.builder().timestamp(ZonedDateTime.parse(node.get("timestamp").asText())).measurement(node.get("measurement").get("id").asText(), node.get("measurement").get("value").asInt()).build();
         }
 
     }
-
     @Override
     public String toString() {
         return "TimeSeriesPoint{" +
@@ -90,4 +118,23 @@ public class TimeSeriesPoint {
                 ", measurements=" + measurements +
                 '}';
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        TimeSeriesPoint that = (TimeSeriesPoint) o;
+
+        return timestamp.equals(that.timestamp) && measurements.equals(that.measurements);
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = timestamp.hashCode();
+        result = 31 * result + measurements.hashCode();
+        return result;
+    }
+
 }

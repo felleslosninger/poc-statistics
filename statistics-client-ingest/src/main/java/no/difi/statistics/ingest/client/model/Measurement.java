@@ -14,8 +14,8 @@ import java.io.IOException;
 @XmlRootElement
 public class Measurement {
 
-    private final String id;
-    private final long value;
+    private String id;
+    private long value;
 
     public Measurement(String id, long value) {
         this.id = id;
@@ -40,8 +40,9 @@ public class Measurement {
         @Override
         public Measurement deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
             JsonNode node = parser.getCodec().readTree(parser);
-            return new Measurement(node.get("id").asText(), node.get("value").asLong());
+            return new Measurement(node.get("id").asText(), node.get("value").longValue());
         }
+
     }
 
     @Override
@@ -49,7 +50,25 @@ public class Measurement {
         return "Measurement{" +
                 "id='" + id + '\'' +
                 ", value=" + value +
-                "}";
+                '}';
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Measurement that = (Measurement) o;
+
+        if (value != that.value) return false;
+        return id.equals(that.id);
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id.hashCode();
+        result = 31 * result + (int) (value ^ (value >>> 32));
+        return result;
+    }
 }
