@@ -51,8 +51,8 @@ waitFor() {
         local ret
         ${fun}
         ret=$?
-        [ ${ret} -eq 7 ] && { >&2 echo -n "."; sleep 1; } # Connect failure
-        [ ${ret} -eq 28 ] && { >&2 echo -n "_"; sleep 1; } # Request timeout
+        [ ${ret} -eq 7 ] && { >&2 echo -n "."; sleep 3; } # Connect failure
+        [ ${ret} -eq 28 ] && { >&2 echo -n "_"; sleep 3; } # Request timeout
         [ ${ret} -eq 0 ] && { status=true; break; }
         [ ${ret} -eq 1 ] && break
     done
@@ -142,10 +142,10 @@ createService() {
     elasticsearch_gossip)
         output=$(sudo docker service create \
             --network ${network} \
-            --constraint 'node.role == manager' \
+            --mode replicated --replicas 1 \
             --stop-grace-period 5m \
             --name ${service} \
-            -p 9201:9200 -p 9301:9301 \
+            -p 9201:9200 \
             ${image} ${serviceArgs}) \
             || fail "Failed to create service ${service}"
         ;;
@@ -156,7 +156,7 @@ createService() {
             --stop-grace-period 5m \
             --name ${service} \
             --mount type=bind,src=/usr/share/elasticsearch/data,target=/usr/share/elasticsearch/data \
-            -p 8082:9200 -p 9300:9300 \
+            -p 8082:9200 \
             ${image} ${serviceArgs}) \
             || fail "Failed to create service ${service}"
         ;;
@@ -209,7 +209,7 @@ waitForServiceUpdateToComplete() {
     requireArgument 'service'
     echo -n "Waiting for service \"${service}\" to be updated: "
     local start=$SECONDS
-    waitFor "isServiceUpdateCompleted ${service}" 300 && ok ${start} || fail
+    waitFor "isServiceUpdateCompleted ${service}" 600 && ok ${start} || fail
 }
 
 isServiceUpdateCompleted() {
@@ -229,7 +229,7 @@ deleteService() {
     echo -n "Deleting service ${service}: "
     local start=$SECONDS
     output=$(sudo docker service rm ${service}) \
-        && ok ${start} || fail
+        && ok ${start} || fail "Failed to delete service ${service}${ouput:+: ${output}}"
 }
 
 createNetwork() {
@@ -290,7 +290,10 @@ indexExists() {
     local host=${2-'localhost'}
     echo -n "Checking existence of index \"${index}\": "
     local start=$SECONDS
-    waitFor "curl -s --connect-timeout 1 --max-time 1 -f http://${host}:8082/${index}/_search" && ok ${start} || fail
+    local output
+    output=$(waitFor "curl -s --connect-timeout 1 --max-time 1 -f http://${host}:8082/${index}/_search") || return 1
+    echo ${output} | grep -q "\"total\":1440" || return 2
+    return 0
 }
 
 createTestData() {
@@ -313,7 +316,7 @@ doCreateTestData() {
     local host=${3-'localhost'}
     local owner="${user}"
     curl \
-        -s -f --connect-timeout 10 --max-time 600 \
+        -sS -f --connect-timeout 10 --max-time 600 \
         -f \
         -u "${user}":"${password}" \
         -H "Content-Type: application/json;charset=UTF-8" \
@@ -327,7 +330,7 @@ doCreateCredentials() {
     local host=${2-'localhost'}
     local password
     password=$(curl \
-        -s -f --connect-timeout 3 --max-time 10 \
+        -sS -f --connect-timeout 3 --max-time 10 \
         -H "Content-Type: application/json;charset=UTF-8" \
         -XPOST \
         http://${host}:8083/credentials/${user}/short) || return $?
@@ -345,7 +348,7 @@ waitForServiceToBeAvailable() {
     local host=${2-'localhost'}
     echo -n "Waiting for service \"${service}\" to be available: "
     local start=$SECONDS
-    waitFor "isServiceAvailable ${service} ${host}" 100 && ok ${start} || fail
+    waitFor "isServiceAvailable ${service} ${host}" 200 && ok ${start} || fail
 }
 
 waitForServiceToBeUnavailable() {
@@ -354,7 +357,7 @@ waitForServiceToBeUnavailable() {
     local host=${2-'localhost'}
     echo -n "Waiting for service \"${service}\" to be unavailable: "
     local start=$SECONDS
-    waitFor "isServiceAvailable ${service} ${host}" 100 && ok ${start} || fail
+    waitFor "isServiceUnavailable ${service} ${host}" 200 && ok ${start} || fail
 }
 
 isServiceAvailable() {
@@ -375,8 +378,7 @@ isServiceUnavailable() {
     curl -s ${url} --connect-timeout 3 --max-time 10 > /dev/null
     ret=$?
     [ ${ret} -eq 7 ] && return 0
-    [ ${ret} -eq 0 ] && return 1
-    return ${ret}
+    return 28 # triggers waitFor to retry
 }
 
 create() {
@@ -415,12 +417,12 @@ update() {
 delete() {
     echo "Deleting application: "
     local start=$SECONDS
-    deleteService "authenticate" || return $?
-    deleteService "ingest" || return $?
-    deleteService "query" || return $?
-    deleteService "elasticsearch" || return $?
-    deleteService "elasticsearch_gossip" || return $?
-    deleteNetwork "statistics" || return $?
+    deleteService "authenticate"
+    deleteService "ingest"
+    deleteService "query"
+    deleteService "elasticsearch"
+    deleteService "elasticsearch_gossip"
+    deleteNetwork "statistics"
     echo "Application deleted ($(duration ${start})s)"
 }
 

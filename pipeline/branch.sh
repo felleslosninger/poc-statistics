@@ -66,7 +66,7 @@ editChangesLog() {
 
 integrate() {
     echo "Integrating branch..."
-    isIntegratable || fail "Branch is currently not integratable."
+    isIntegratable || die "Branch is currently not integratable."
     workBranch=$(currentBranch)
     echo -n "Checking out branch $(masterBranch): "
     git checkout $(masterBranch) && ok || die "Failed to check out branch $(masterBranch)"
@@ -87,15 +87,15 @@ integrate() {
 isIntegratable() {
     workBranch=$(currentBranch)
     echo -n "Verifying that branch ${workBranch} is a bugfix/feature branch: "
-    isWorkBranch && ok || fail "${workBranch} is not a bugfix/feature branch"
+    isWorkBranch && ok || { echo "${workBranch} is not a bugfix/feature branch"; return 1; }
     echo -n "Verifying that branch ${workBranch} has no unstaged changes: "
-    git diff-files --quiet -- && ok || fail "Found unstaged changes."
+    git diff-files --quiet -- && ok || { echo "Found unstaged changes."; return 1; }
     echo -n "Verifying that branch ${workBranch} has no staged changes: "
-    git diff-index --quiet --cached HEAD && ok || fail "Found staged changes."
+    git diff-index --quiet --cached HEAD && ok || { echo "Found staged changes."; return 1; }
     echo -n "Verifying that branch ${workBranch} is synchronized with remote branch: "
-    isSynchronizedWithRemote && ok || fail "Local branch and remote diverges"
+    isSynchronizedWithRemote && ok || { echo "Local branch and remote diverges"; return 1; }
     echo -n "Verifying that branch ${workBranch} contains origin/$(masterBranch): "
-    git branch --contains origin/$(masterBranch) | grep ${workBranch} > /dev/null && ok || fail "No. Please run 'git merge origin/$(masterBranch)'."
+    git branch --contains origin/$(masterBranch) | grep ${workBranch} > /dev/null && ok || { echo "No. Please run 'git merge origin/$(masterBranch)'."; return 1; }
 }
 
 isSynchronizedWithRemote() {

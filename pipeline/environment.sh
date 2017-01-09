@@ -48,6 +48,23 @@ duration() {
     echo -n $(( SECONDS - ${from} ))
 }
 
+waitFor() {
+    local fun=$1
+    requireArgument 'fun'
+    local duration=${2-100}
+    local status=false
+    for i in $(seq 1 ${duration}); do
+        local ret
+        ${fun}
+        ret=$?
+        [ ${ret} -eq 7 ] && { >&2 echo -n "."; sleep 3; } # Connect failure
+        [ ${ret} -eq 28 ] && { >&2 echo -n "_"; sleep 3; } # Request timeout
+        [ ${ret} -eq 0 ] && { status=true; break; }
+        [ ${ret} -eq 1 ] && break
+    done
+    ${status} && return 0 || return 1
+}
+
 tag() {
     id=$1
     system_id=$2
@@ -122,6 +139,7 @@ createVpc() {
     requireArgument 'version'
     output=$(aws ec2 create-vpc --cidr-block $(cidrBlock)) || fail "Failed to create VPC"
     id=$(echo ${output} | jq -r ".Vpc.VpcId") || fail "Failed to get VPC id"
+    output=$(aws ec2 modify-vpc-attribute --vpc-id ${id} --enable-dns-hostnames "{\"Value\":true}") || fail "Failed to enable DNS hostnames on VPC"
     tag ${id} $(systemId ${version})
     echo -n "${id}"
 }
@@ -272,6 +290,32 @@ deleteRunningInstances() {
     ok ${start}
 }
 
+isInstanceTerminatedOrNonExisting() {
+    local instanceId=$1
+    requireArgument 'instanceId'
+    local output
+    output=$(2>&1 aws ec2 describe-instances --instance-ids ${instanceId})
+    local rc=$?
+    [ ${rc} -eq 255 ] && echo ${output} | grep -q "InvalidInstanceID.NotFound" && return 0
+    [ ! ${rc} -eq 0 ] && return 1
+    [ "$(echo ${output} | jq -r ".Reservations[].Instances[].State.Name")" == "terminated" ] && return 0
+    [ "$(echo ${output} | jq -r ".Reservations[].Instances[].State.Name")" == "running" ] && return 28
+    [ "$(echo ${output} | jq -r ".Reservations[].Instances[].State.Name")" == "shutting-down" ] && return 28
+    [ "$(echo ${output} | jq -r ".Reservations[].Instances[].State.Name")" == "stopping" ] && return 28
+    return 1
+}
+
+terminateNode() {
+    local nodeName=$1
+    requireArgument 'nodeName'
+    source .environment/${nodeName} 2>/dev/null || die "Unknown node ${nodeName}"
+    local output
+    output=$(2>&1 aws ec2 terminate-instances --instance-ids ${aws_instance_id})
+    local rc=$?
+    [ ${rc} -eq 255 ] && echo ${output} | grep -q "InvalidInstanceID.NotFound" && return 0
+    waitFor "isInstanceTerminatedOrNonExisting ${aws_instance_id}"
+}
+
 waitForInstancesToTerminate() {
     version=$1
     requireArgument 'version'
@@ -322,15 +366,30 @@ virtualBoxDockerParams() {
         -d virtualbox"
 }
 
+keyFile() {
+    keyName=$1
+    requireArgument 'keyName'
+    echo "$(pwd)/.environment/key_${keyName}"
+}
+
 createKeyPairOnAws() {
     version=$1
     requireArgument 'version'
     mkdir -p .environment
-    key_name=$(systemId ${version})
-    key_file=.environment/key_${key_name}
-    aws ec2 create-key-pair --key-name ${key_name} --query 'KeyMaterial' --output text > ${key_file}
-    chmod 0400 ${key_file}
-    echo ${key_name}
+    keyName=$(systemId ${version})
+    keyFile=$(keyFile ${keyName})
+    aws ec2 create-key-pair --key-name ${keyName} --query 'KeyMaterial' --output text > ${keyFile} || fail "Failed to create key ${keyName} on AWS"
+    chmod 0400 ${keyFile}
+    echo ${keyName}
+}
+
+deleteKeyPairOnAws() {
+    version=$1
+    requireArgument 'version'
+    keyName=$(systemId ${version})
+    aws ec2 delete-key-pair --key-name ${keyName} || fail "Failed to delete key ${keyName} from AWS"
+    keyFile=$(keyFile ${keyName})
+    rm -f ${keyFile} || fail "Failed to delete key file"
 }
 
 findPublicIp() {
@@ -354,7 +413,7 @@ createDockerMachinesOnAws() {
     subnet_id=$(echo ${output} | jq -r ".Subnets[].SubnetId") || fail "Failed to get subnet id"
     output=$(aws ec2 describe-security-groups --filters $(filter ${version})) || fail "Failed to find security group"
     sg_id=$(echo ${output} | jq -r ".SecurityGroups[].GroupId") || fail "Failed to get security group id"
-    key_name=$(createKeyPairOnAws ${version})
+    keyName=$(createKeyPairOnAws ${version})
     output=$(aws ec2 run-instances \
 	    --image-id ami-ec3421fb \
 	    --security-group-ids ${sg_id} \
@@ -363,9 +422,8 @@ createDockerMachinesOnAws() {
 	    --count ${count} \
 	    --associate-public-ip-address \
 	    --user-data "#!/bin/bash
-mkdir -p /usr/share/elasticsearch/data
-swapoff -a" \
-	    --key-name ${key_name})
+mkdir -p /usr/share/elasticsearch/data" \
+	    --key-name ${keyName})
     local i
 	for (( i=0; i<${count}; i++ )); do
         node_names[$i]=$(nodeName ${version} $((i + 1)))
@@ -378,7 +436,7 @@ swapoff -a" \
         publicIp=$(findPublicIp ${node_name})
         echo "Node ${node_name} has address ${publicIp}"
         echo "address=${publicIp}" >> .environment/${node_name}
-        echo "ssh_key_file=$(pwd)/.environment/key_${key_name}" >> .environment/${node_name}
+        echo "ssh_key_file=$(keyFile ${keyName})" >> .environment/${node_name}
     done
 }
 
@@ -462,7 +520,7 @@ setupDockerSwarm() {
     [ "${driver}" == 'virtualbox' ] && advertiseAddress='eth1'
     output=$(login ${managerNode} sudo docker swarm init --advertise-addr ${advertiseAddress}) || fail "Failed to initialize Docker swarm: ${output}"
     swarm_address=$(login ${managerNode} sudo docker node inspect self | jq -r ".[].ManagerStatus.Addr") || fail "Failed to get address of Docker swarm manager"
-    swarm_token=$(login ${managerNode} sudo docker swarm join-token -q worker) || fail "Failed to get Docker swarm's join token"
+    swarm_token=$(login ${managerNode} sudo docker swarm join-token -q manager) || fail "Failed to get Docker swarm's join token"
     joinDockerSwarm $(nodeName ${version} '2') ${swarm_token} ${swarm_address}
     joinDockerSwarm $(nodeName ${version} '3') ${swarm_token} ${swarm_address}
     echo "Docker swarm created successfully"
@@ -489,6 +547,7 @@ delete() {
     requireArgument 'version'
     [ "${driver}" == 'amazonec2' -o "${driver}" == 'amazonec2-legacy' ] && {
         deleteRunningInstances ${version}
+        deleteKeyPairOnAws ${version}
         waitForInstancesToTerminate ${version}
         deleteSubnet ${version}
         deleteSecurityGroup ${version}
@@ -496,6 +555,7 @@ delete() {
         deleteVpc ${version}
     }
     deleteDockerMachines ${version}
+    find .environment -regex ".environment/statistics-${version}-node\d\+" -exec rm {} \;
 }
 
 login() {
