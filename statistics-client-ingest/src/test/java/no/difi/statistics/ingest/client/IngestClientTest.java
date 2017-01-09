@@ -16,6 +16,8 @@ import org.junit.rules.ExpectedException;
 import org.skyscreamer.jsonassert.JSONCompareMode;
 
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -71,12 +73,12 @@ public class IngestClientTest {
     public ExpectedException expectedEx = ExpectedException.none();
 
     @Before
-    public void before() {
+    public void before() throws MalformedURLException {
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .setDateFormat(new ISO8601DateFormat())
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        ingestClient = new IngestClient("http://localhost:" + wireMockRule.port(), read_timeout, connection_timeout, owner, username, password);
+        ingestClient = new IngestClient(new URL("http://localhost:" + wireMockRule.port()), read_timeout, connection_timeout, owner, username, password);
         timeSeriesPoint = buildValidTimeSeriesPoint();
     }
 
@@ -135,15 +137,6 @@ public class IngestClientTest {
 
         expectedEx.expect(IngestService.Failed.class);
         expectedEx.expectMessage("Failed to authorize Ingest service");
-
-        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
-    }
-
-    @Test
-    public void shouldFailWhenUrlIsWrong() {
-        final IngestClient ingestClient = new IngestClient("crappy/url", 150, 5000, owner, username, password);
-        expectedEx.expect(IngestClient.MalformedUrl.class);
-        expectedEx.expectMessage("Could not create URL to IngestService");
 
         ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
     }

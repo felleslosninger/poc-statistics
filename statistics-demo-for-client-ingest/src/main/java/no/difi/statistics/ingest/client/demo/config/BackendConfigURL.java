@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
+import java.net.URL;
+
 @Configuration
 public class BackendConfigURL implements BackendConfig {
 
@@ -17,7 +19,7 @@ public class BackendConfigURL implements BackendConfig {
     @Bean
     public IngestService ingestService() throws IngestClient.MalformedUrl {
         return new IngestClient(
-                environment.getRequiredProperty("service.url"),
+                environment.getRequiredProperty("baseUrl", URL.class),
                 5000,
                 15000,
                 environment.getRequiredProperty("owner"),

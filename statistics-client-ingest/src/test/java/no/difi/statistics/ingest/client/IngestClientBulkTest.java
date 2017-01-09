@@ -12,13 +12,19 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.any;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static java.time.LocalDateTime.now;
 import static java.util.Arrays.asList;
@@ -44,10 +50,9 @@ public class IngestClientBulkTest {
     @Rule public ExpectedException expectedEx = ExpectedException.none();
 
     @Before
-    public void setUp() {
+    public void setUp() throws MalformedURLException {
         wireMockRule.start();
-
-        ingestClient = new IngestClient("http://localhost:" + wireMockRule.port(), 500, 500, owner, username, password);
+        ingestClient = new IngestClient(new URL("http://localhost:" + wireMockRule.port()), 500, 500, owner, username, password);
     }
 
     @After
@@ -67,18 +72,9 @@ public class IngestClientBulkTest {
     }
 
     @Test
-    public void shouldFailWithMalformedUrlExceptionWhenUrlIsCrappy() {
-        final IngestClient ingestClient = new IngestClient("crappy/url", 150, 5000, owner, username, password);
-        expectedEx.expect(IngestClient.MalformedUrl.class);
-        expectedEx.expectMessage("Could not create URL to IngestService");
-
-        ingestClient.ingest(createTimeSeriesDefinitionValid(), createTimeSeriesPointValid());
-    }
-
-    @Test
     public void shouldFailWithIOExceptionWhenSomethingFailsInTransmission() {
         createWiremockStub(HttpURLConnection.HTTP_OK);
-        wireMockRule.addRequestProcessingDelay(501);
+        wireMockRule.addRequestProcessingDelay(10000);
 
         expectedEx.expect(IngestService.ConnectFailed.class);
 

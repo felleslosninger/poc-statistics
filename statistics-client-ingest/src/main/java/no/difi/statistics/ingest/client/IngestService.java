@@ -43,8 +43,8 @@ public interface IngestService {
     }
 
     class MalformedUrl extends Failed {
-        MalformedUrl(String message, Throwable cause) {
-            super(message, cause);
+        MalformedUrl(Throwable cause) {
+            super("Malformed URL", cause);
         }
     }
 

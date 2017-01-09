@@ -32,12 +32,12 @@ public class IngestClient implements IngestService {
 
     private final String username;
     private final String password;
-    private final String baseUrl;
+    private final URL baseUrl;
     private final String owner;
     private final int readTimeoutMillis;
     private final int connectionTimeoutMillis;
 
-    public IngestClient(String baseURL, int readTimeoutMillis, int connectionTimeoutMillis, String owner, String username, String password) throws MalformedUrl {
+    public IngestClient(URL baseURL, int readTimeoutMillis, int connectionTimeoutMillis, String owner, String username, String password) throws MalformedUrl {
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .setDateFormat(new ISO8601DateFormat())
@@ -72,19 +72,11 @@ public class IngestClient implements IngestService {
     }
 
     private URL postUrlFor(TimeSeriesDefinition seriesDefinition) {
-        try {
-            return new URL(postUrlTemplate(seriesDefinition.getName(), seriesDefinition.getDistance().name()));
-        } catch (MalformedURLException e) {
-            throw new MalformedUrl("Could not create URL to IngestService", e);
-        }
+        return postUrl(seriesDefinition.getName(), seriesDefinition.getDistance().name());
     }
 
     private URL getUrlFor(TimeSeriesDefinition seriesDefinition) {
-        try {
-            return new URL(getUrlTemplate(seriesDefinition.getName(), seriesDefinition.getDistance().name()));
-        } catch (MalformedURLException e) {
-            throw new MalformedUrl("Could not create URL to IngestService", e);
-        }
+        return getUrl(seriesDefinition.getName(), seriesDefinition.getDistance().name());
     }
 
     private void handleResponse(int responseCode) throws IOException {
@@ -185,12 +177,20 @@ public class IngestClient implements IngestService {
         stream.flush();
     }
 
-    private String postUrlTemplate(String seriesName, String distance) {
-        return format("%s/%s/%s/%s", this.baseUrl, this.owner, seriesName, distance);
+    private URL postUrl(String seriesName, String distance) {
+        try {
+            return new URL(format("%s/%s/%s/%s", this.baseUrl, this.owner, seriesName, distance));
+        } catch (MalformedURLException e) {
+            throw new MalformedUrl(e);
+        }
     }
 
-    private String getUrlTemplate(String seriesName, String distance) {
-        return format("%s/%s/%s/%s/last", this.baseUrl, this.owner, seriesName, distance);
+    private URL getUrl(String seriesName, String distance) {
+        try {
+            return new URL(format("%s/%s/%s/%s/last", this.baseUrl, this.owner, seriesName, distance));
+        } catch (MalformedURLException e) {
+            throw new MalformedUrl(e);
+        }
     }
 
 }
