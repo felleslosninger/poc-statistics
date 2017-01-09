@@ -1,3 +1,4 @@
+bugfix/PBLEID-13320: IngestClient støtter ikke siste punkt
 feature/PBLEID-12762: Tre master-noder
 feature/PBLEID-13276: Utvide Ingest Client API til å godta multiple serier (bulk-sendinger)
 bugfix/PBLEID-13275: Applikasjonsoppdatering feiler dersom tjenesten 'elasticsearch' ikke allerede eksiterer

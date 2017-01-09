@@ -1,7 +1,5 @@
 package no.difi.statistics.ingest.client.model;
 
-import static java.lang.String.format;
-
 /**
  * Definition for a time series
  */
@@ -9,14 +7,9 @@ public class TimeSeriesDefinition implements Comparable<TimeSeriesDefinition> {
 
     private String name;
     private MeasurementDistance distance;
-    private String owner;
 
     private TimeSeriesDefinition() {
         // Use builder
-    }
-
-    public String getOwner() {
-        return owner;
     }
 
     public String getName() {
@@ -33,9 +26,8 @@ public class TimeSeriesDefinition implements Comparable<TimeSeriesDefinition> {
 
     public interface NameEntry { DistanceEntry name(String name); }
 
-    public interface DistanceEntry { OwnerEntry distance(MeasurementDistance distance); }
-    public interface OwnerEntry { TimeSeriesDefinition owner(String owner); }
-    public static class Builder implements NameEntry, DistanceEntry, OwnerEntry {
+    public interface DistanceEntry { TimeSeriesDefinition distance(MeasurementDistance distance); }
+    public static class Builder implements NameEntry, DistanceEntry {
 
         private TimeSeriesDefinition instance = new TimeSeriesDefinition();
         @Override
@@ -45,14 +37,8 @@ public class TimeSeriesDefinition implements Comparable<TimeSeriesDefinition> {
         }
 
         @Override
-        public OwnerEntry distance(MeasurementDistance distance) {
+        public TimeSeriesDefinition distance(MeasurementDistance distance) {
             instance.distance = distance;
-            return this;
-        }
-
-        @Override
-        public TimeSeriesDefinition owner(String owner) {
-            instance.owner = owner;
             return instance;
         }
 
@@ -63,21 +49,14 @@ public class TimeSeriesDefinition implements Comparable<TimeSeriesDefinition> {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         TimeSeriesDefinition that = (TimeSeriesDefinition) o;
-        return name.equals(that.name) && distance == that.distance && owner.equals(that.owner);
-
+        return name.equals(that.name) && distance == that.distance;
     }
 
     @Override
     public int hashCode() {
-        int result = name.hashCode();
-        result = 31 * result + distance.hashCode();
-        result = 31 * result + owner.hashCode();
+        int result = name != null ? name.hashCode() : 0;
+        result = 31 * result + (distance != null ? distance.hashCode() : 0);
         return result;
-    }
-
-    @Override
-    public String toString() {
-        return format("%s:%s:%s", owner, name, distance);
     }
 
     @Override

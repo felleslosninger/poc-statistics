@@ -1,14 +1,15 @@
 package no.difi.statistics.ingest.client.demo.api;
 
-import no.difi.statistics.ingest.client.Distance;
 import no.difi.statistics.ingest.client.IngestService;
 import no.difi.statistics.ingest.client.demo.config.AppConfig;
 import no.difi.statistics.ingest.client.demo.config.BackendConfigURL;
+import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 import org.springframework.boot.SpringApplication;
 import org.springframework.web.bind.annotation.*;
 
 import static java.lang.String.format;
+import static no.difi.statistics.ingest.client.model.MeasurementDistance.minutes;
 
 @RestController
 public class IngestRestController {
@@ -32,7 +33,7 @@ public class IngestRestController {
             @PathVariable String seriesName,
             @RequestBody TimeSeriesPoint dataPoint
     ) {
-        ingestService.ingest(seriesName, Distance.minute, dataPoint);
+        ingestService.ingest(TimeSeriesDefinition.builder().name(seriesName).distance(minutes), dataPoint);
     }
 
     public static void main(String[] args) throws Exception {

@@ -1,26 +1,43 @@
 package no.difi.statistics.ingest.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import no.difi.statistics.ingest.client.exception.DataPointAlreadyExists;
-import no.difi.statistics.ingest.client.exception.IngestFailed;
-import no.difi.statistics.ingest.client.exception.MalformedUrl;
 import no.difi.statistics.ingest.client.model.Measurement;
+import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.skyscreamer.jsonassert.JSONCompareMode;
 
-import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.any;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static no.difi.statistics.ingest.client.Distance.minute;
+import static java.lang.String.format;
+import static no.difi.statistics.ingest.client.model.MeasurementDistance.hours;
+import static no.difi.statistics.ingest.client.model.MeasurementDistance.minutes;
+import static org.junit.Assert.assertEquals;
 
 public class IngestClientTest {
 
@@ -39,18 +56,11 @@ public class IngestClientTest {
     private static final String owner = "999888777";
     private static final String valid_url = "/999888777/seriesname/minutes";
     private static final int delay_for_timeout = 200;
+    private final ZonedDateTime aTimestamp = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
 
-    private final IngestClient ingestClient;
-
-    private final TimeSeriesPoint timeSeriesPoint;
-
-    public IngestClientTest() throws IOException {
-        wireMockRule.start();
-
-        ingestClient = new IngestClient("http://localhost:" + wireMockRule.port(), read_timeout, connection_timeout, owner, username, password);
-
-        timeSeriesPoint = buildValidTimeSeriesPoint();
-    }
+    private IngestClient ingestClient;
+    private TimeSeriesPoint timeSeriesPoint;
+    private ObjectMapper objectMapper;
 
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(wireMockConfig()
@@ -60,11 +70,21 @@ public class IngestClientTest {
     @Rule
     public ExpectedException expectedEx = ExpectedException.none();
 
+    @Before
+    public void before() {
+        this.objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .setDateFormat(new ISO8601DateFormat())
+                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        ingestClient = new IngestClient("http://localhost:" + wireMockRule.port(), read_timeout, connection_timeout, owner, username, password);
+        timeSeriesPoint = buildValidTimeSeriesPoint();
+    }
+
     @Test
     public void shouldSucceedWhenValidRequestWithAuthorizationForMinute() throws Exception {
         createStub(HttpURLConnection.HTTP_OK);
 
-        ingestClient.ingest(series_name, minute, timeSeriesPoint);
+        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
 
         verify(postRequestedFor(urlEqualTo(valid_url))
                 .withHeader(content_type, equalTo(JSON)));
@@ -74,7 +94,7 @@ public class IngestClientTest {
     public void shouldSucceedWhenValidRequestWithAuthorizationForHour() throws Exception {
         createStub(HttpURLConnection.HTTP_OK);
 
-        ingestClient.ingest(series_name, minute, timeSeriesPoint);
+        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
 
         verify(postRequestedFor(urlEqualTo(valid_url))
                 .withHeader(content_type, equalTo(JSON)));
@@ -84,48 +104,64 @@ public class IngestClientTest {
     public void shouldThrowExceptionWhenConnectionTimeoutOccur(){
         wireMockRule.addRequestProcessingDelay(delay_for_timeout);
 
-        expectedEx.expect(IngestFailed.class);
+        expectedEx.expect(IngestService.Failed.class);
         expectedEx.expectMessage("Could not call IngestService");
 
-        ingestClient.ingest(series_name, minute, timeSeriesPoint);
+        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
     }
 
     @Test
     public void shouldThrowExceptionWhenDatapointAlreadyExists(){
         createStub(HttpURLConnection.HTTP_CONFLICT);
 
-        expectedEx.expect(DataPointAlreadyExists.class);
+        expectedEx.expect(IngestService.DataPointAlreadyExists.class);
 
-        ingestClient.ingest(series_name, minute, timeSeriesPoint);
+        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
     }
 
     @Test
     public void shouldThrowExceptionWhenContentTypeIsWrong() {
         createStub(HttpURLConnection.HTTP_UNSUPPORTED_TYPE);
 
-        expectedEx.expect(IngestFailed.class);
+        expectedEx.expect(IngestService.Failed.class);
         expectedEx.expectMessage("Could not post to Ingest Service");
 
-        ingestClient.ingest(series_name, minute, timeSeriesPoint);
+        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
     }
 
     @Test
     public void shouldGetAuthenticationErrorWhenAuthenticationFails() {
         createStub(HttpURLConnection.HTTP_UNAUTHORIZED);
 
-        expectedEx.expect(IngestFailed.class);
+        expectedEx.expect(IngestService.Failed.class);
         expectedEx.expectMessage("Failed to authorize Ingest service");
 
-        ingestClient.ingest(series_name, minute, timeSeriesPoint);
+        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
     }
 
     @Test
     public void shouldFailWhenUrlIsWrong() {
         final IngestClient ingestClient = new IngestClient("crappy/url", 150, 5000, owner, username, password);
-        expectedEx.expect(MalformedUrl.class);
+        expectedEx.expect(IngestClient.MalformedUrl.class);
         expectedEx.expectMessage("Could not create URL to IngestService");
 
-        ingestClient.ingest(series_name, minute, timeSeriesPoint);
+        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
+    }
+
+    @Test
+    public void shouldReturnLastWhenLastRequested() {
+        TimeSeriesPoint expectedPoint = TimeSeriesPoint.builder().timestamp(aTimestamp).measurement("x", 3).build();
+        stubFor(get(urlMatching(format(".*/%s/test/hours/last", owner))).willReturn(aResponse().withBody(json(expectedPoint))));
+        TimeSeriesPoint actualPoint = ingestClient.last(TimeSeriesDefinition.builder().name("test").distance(hours));
+        assertEquals(expectedPoint, actualPoint);
+    }
+
+    private byte[] json(Object object) {
+        try {
+            return objectMapper.writeValueAsBytes(object);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException();
+        }
     }
 
     private void createStub(int status) {
