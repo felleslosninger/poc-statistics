@@ -51,10 +51,12 @@ waitFor() {
         local ret
         ${fun}
         ret=$?
-        [ ${ret} -eq 7 ] && { >&2 echo -n "."; sleep 3; } # Connect failure
-        [ ${ret} -eq 28 ] && { >&2 echo -n "_"; sleep 3; } # Request timeout
+        [ ${ret} -eq 7 ] && { >&2 echo -n "."; sleep 3; continue; } # Connect failure
+        [ ${ret} -eq 28 ] && { >&2 echo -n "_"; sleep 3; continue; } # Request timeout
+        [ ${ret} -eq 22 ] && { >&2 echo -n "F"; sleep 3; continue; } # HTTP 4xx or 5xx
         [ ${ret} -eq 0 ] && { status=true; break; }
-        [ ${ret} -eq 1 ] && break
+        [ ${ret} -eq 1 ] && { >&2 echo -n "E"; break; }
+        { >&2 echo -n "<$ret>"; break; }
     done
     ${status} && return 0 || return 1
 }
@@ -291,7 +293,7 @@ indexExists() {
     echo -n "Checking existence of index \"${index}\": "
     local start=$SECONDS
     local output
-    output=$(waitFor "curl -s --connect-timeout 1 --max-time 1 -f http://${host}:8082/${index}/_search") || return 1
+    output=$(waitFor "curl -sS --connect-timeout 1 --max-time 1 -f http://${host}:8082/${index}/_search") || return 1
     echo ${output} | grep -q "\"total\":1440" || return 2
     return 0
 }
