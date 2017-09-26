@@ -220,9 +220,9 @@ pipeline {
                     if (env.jobAborted == 'true') {
                         error('Job was aborted')
                     }
-                    env.version = versionFromCommitMessage()
-                    currentBuild.description = "Deploying ${env.version}"
-                    sh "ssh ${verificationDeployHostUser}@${verificationDeployHostName} bash -s -- < pipeline/application.sh update ${version}"
+                    version = versionFromCommitMessage()
+                    currentBuild.description = "Deploying ${version} to manual verification environment"
+                    sh "ssh ${verificationDeployHostUser}@${verificationDeployHostName} bash -s -- < pipelinex/application.sh update ${version}"
                 }
             }
         }
@@ -230,10 +230,6 @@ pipeline {
             when { branch 'master' }
             steps {
                 input message: "Approve manual verification?", ok: "Yes"
-            }
-            post {
-                failure { deleteArtifacts(env.version) }
-                aborted { deleteArtifacts(env.version) }
             }
         }
         stage('Deploy to production') {
@@ -244,9 +240,9 @@ pipeline {
                     if (env.jobAborted == 'true') {
                         error('Job was aborted')
                     }
-                    env.version = versionFromCommitMessage()
-                    currentBuild.description = "Deploying ${env.version}"
-                    sh "ssh ${productionDeployHostUser}@${productionDeployHostName} bash -s -- < pipeline/application.sh update ${version}"
+                    version = versionFromCommitMessage()
+                    currentBuild.description = "Deploying ${version} to production environment"
+                    sh "ssh ${productionDeployHostUser}@${productionDeployHostName} bash -s -- < pipelinex/application.sh update ${version}"
                 }
             }
         }
