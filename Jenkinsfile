@@ -4,10 +4,12 @@ import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
 
 import static java.time.ZonedDateTime.now
 
-def verificationDeployHostName = 'eid-test01.dmz.local'
-def verificationDeployHostUser = 'jenkins'
-def productionDeployHostName = 'eid-prod01.dmz.local'
-def productionDeployHostUser = 'jenkins'
+def verificationHostName = 'eid-test-docker01.dmz.local'
+def verificationHostUser = 'jenkins'
+def verificationHostSshKey = 'ssh.git.difi.local'
+def productionHostName = 'eid-prod-docker01.dmz.local'
+def productionHostUser = 'jenkins'
+def productionHostSshKey = 'ssh.git.difi.local'
 def gitSshKey = 'ssh.github.com'
 
 pipeline {
@@ -222,7 +224,9 @@ pipeline {
                     }
                     version = versionFromCommitMessage()
                     currentBuild.description = "Deploying ${version} to manual verification environment"
-                    sh "ssh ${verificationDeployHostUser}@${verificationDeployHostName} bash -s -- < pipelinex/application.sh update ${version}"
+                    sshagent([verificationHostSshKey]) {
+                        sh "ssh -o StrictHostKeyChecking=no ${verificationHostUser}@${verificationHostName} bash -s -- < pipelinex/application.sh update ${version}"
+                    }
                 }
             }
         }
@@ -232,7 +236,7 @@ pipeline {
                 input message: "Approve manual verification?", ok: "Yes"
             }
         }
-        stage('Deploy to production') {
+        stage('Deploy for production') {
             when { branch 'master' }
             agent any
             steps {
@@ -242,7 +246,9 @@ pipeline {
                     }
                     version = versionFromCommitMessage()
                     currentBuild.description = "Deploying ${version} to production environment"
-                    sh "ssh ${productionDeployHostUser}@${productionDeployHostName} bash -s -- < pipelinex/application.sh update ${version}"
+                    sshagent([productionHostSshKey]) {
+                        sh "ssh -o StrictHostKeyChecking=no ${productionHostUser}@${productionHostName} bash -s -- < pipelinex/application.sh update ${version}"
+                    }
                 }
             }
         }
