@@ -17,6 +17,7 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.*;
@@ -67,7 +68,7 @@ public class IngestClient implements IngestService {
     }
 
     @Override
-    public TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition) {
+    public Optional<TimeSeriesPoint> last(TimeSeriesDefinition seriesDefinition) {
         return getFrom(getUrlFor(seriesDefinition));
     }
 
@@ -116,10 +117,12 @@ public class IngestClient implements IngestService {
         }
     }
 
-    private TimeSeriesPoint getFrom(URL url) {
+    private Optional<TimeSeriesPoint> getFrom(URL url) {
         HttpURLConnection connection = null;
         try {
             connection = getConnection(url, "GET");
+            if (connection.getResponseCode() == 204)
+                return Optional.empty();
             if (connection.getResponseCode() != 200)
                 throw new Failed(format(
                         "Failed to get response from ingest service [%d %s]",
@@ -127,7 +130,7 @@ public class IngestClient implements IngestService {
                         connection.getResponseMessage()
                 ));
             ObjectReader reader = objectMapper.readerFor(TimeSeriesPoint.class);
-            return reader.readValue(connection.getInputStream());
+            return Optional.of(reader.readValue(connection.getInputStream()));
         } catch (IOException e) {
             throw new Failed("Failed to get last point", e);
         } finally {

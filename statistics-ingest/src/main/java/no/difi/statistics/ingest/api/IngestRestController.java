@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
@@ -64,9 +65,13 @@ public class IngestRestController {
     public TimeSeriesPoint last(
             @PathVariable String owner,
             @PathVariable String seriesName,
-            @PathVariable MeasurementDistance distance
+            @PathVariable MeasurementDistance distance,
+            HttpServletResponse response
     ) {
-        return ingestService.last(TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner));
+        TimeSeriesPoint lastPoint = ingestService.last(TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner));
+        if (lastPoint == null)
+            response.setStatus(HttpStatus.NO_CONTENT.value());
+        return lastPoint;
     }
 
 }

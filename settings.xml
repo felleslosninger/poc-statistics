@@ -10,6 +10,11 @@
             <password>${docker.release.password}</password>
         </server>
         <server>
+            <id>docker.io</id>
+            <username>${docker.release.username}</username>
+            <password>${docker.release.password}</password>
+        </server>
+        <server>
             <id>eid-releases</id>
             <username>${maven.release.username}</username>
             <password>${maven.release.password}</password>

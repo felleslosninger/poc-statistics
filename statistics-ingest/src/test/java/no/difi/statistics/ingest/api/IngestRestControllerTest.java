@@ -20,6 +20,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.ZoneId;
@@ -28,9 +29,11 @@ import java.time.ZonedDateTime;
 import static no.difi.statistics.model.MeasurementDistance.minutes;
 import static org.apache.tomcat.util.codec.binary.Base64.encodeBase64;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.test.web.client.ExpectedCount.once;
@@ -69,8 +72,8 @@ public class IngestRestControllerTest {
 
     @Test
     public void whenRequestingIndexThenAuthorizationIsNotRequired() throws Exception {
-        mockMvc.perform(get("/")).andExpect(status().is(302)).andExpect(header().string("Location", equalTo("swagger-ui.html")));
-        mockMvc.perform(get("/swagger-ui.html")).andExpect(status().is(200));
+        mockMvc.perform(get("/")).andExpect(status().is(HttpStatus.FOUND.value())).andExpect(header().string("Location", equalTo("swagger-ui.html")));
+        mockMvc.perform(get("/swagger-ui.html")).andExpect(status().is(HttpStatus.OK.value()));
     }
 
     @Test
@@ -83,7 +86,7 @@ public class IngestRestControllerTest {
                         .distance("minutes")
                         .ingest()
         )
-                .andExpect(status().is(403));
+                .andExpect(status().is(HttpStatus.FORBIDDEN.value()));
     }
 
     @Test
@@ -96,7 +99,7 @@ public class IngestRestControllerTest {
                         .distance("minutes")
                         .ingest()
         )
-                .andExpect(status().is(200));
+                .andExpect(status().is(HttpStatus.OK.value()));
         verify(service).ingest(
                 eq(TimeSeriesDefinition.builder().name("aTimeSeries").distance(minutes).owner("aUser")),
                 eq(timeSeriesPoint)
@@ -112,7 +115,7 @@ public class IngestRestControllerTest {
                         .distance("minutes")
                         .ingest()
         )
-                .andExpect(status().is(200));
+                .andExpect(status().is(HttpStatus.OK.value()));
     }
 
     @Test
@@ -124,7 +127,7 @@ public class IngestRestControllerTest {
                         .distance("minutes")
                         .ingest()
         )
-                .andExpect(status().is(400));
+                .andExpect(status().is(HttpStatus.BAD_REQUEST.value()));
     }
 
     @Test
@@ -137,12 +140,21 @@ public class IngestRestControllerTest {
                         .distance("minutes")
                         .ingest()
         )
-                .andExpect(status().is(401));
+                .andExpect(status().is(HttpStatus.UNAUTHORIZED.value()));
     }
 
     @Test
     public void whenRequestingLastPointInASeriesThenNoAuthenticationIsRequired() throws Exception {
-        mockMvc.perform(request().distance("minutes").last()).andExpect(status().is(200));
+        when(service.last(any(TimeSeriesDefinition.class))).thenReturn(aPoint());
+        mockMvc.perform(request().distance("minutes").last())
+                .andExpect(status().is(HttpStatus.OK.value()));
+    }
+
+    @Test
+    public void whenRequestingLastPointInEmptySeriesThenExpectEmptyResponse() throws Exception {
+        mockMvc.perform(request().distance("minutes").last())
+                .andExpect(status().is(HttpStatus.NO_CONTENT.value()))
+                .andExpect(MockMvcResultMatchers.content().string(""));
     }
 
     @Test

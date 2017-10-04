@@ -4,6 +4,7 @@ import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface IngestService {
 
@@ -11,7 +12,7 @@ public interface IngestService {
 
     void ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints);
 
-    TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition);
+    Optional<TimeSeriesPoint> last(TimeSeriesDefinition seriesDefinition);
 
     class Failed extends RuntimeException {
         Failed() {

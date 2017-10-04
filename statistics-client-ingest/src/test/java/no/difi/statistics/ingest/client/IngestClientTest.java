@@ -23,23 +23,15 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.any;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
-import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static java.lang.String.format;
 import static no.difi.statistics.ingest.client.model.MeasurementDistance.hours;
 import static no.difi.statistics.ingest.client.model.MeasurementDistance.minutes;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public class IngestClientTest {
 
@@ -145,8 +137,15 @@ public class IngestClientTest {
     public void shouldReturnLastWhenLastRequested() {
         TimeSeriesPoint expectedPoint = TimeSeriesPoint.builder().timestamp(aTimestamp).measurement("x", 3).build();
         stubFor(get(urlMatching(format(".*/%s/test/hours/last", owner))).willReturn(aResponse().withBody(json(expectedPoint))));
-        TimeSeriesPoint actualPoint = ingestClient.last(TimeSeriesDefinition.builder().name("test").distance(hours));
-        assertEquals(expectedPoint, actualPoint);
+        Optional<TimeSeriesPoint> actualPoint = ingestClient.last(TimeSeriesDefinition.builder().name("test").distance(hours));
+        assertEquals(expectedPoint, actualPoint.get());
+    }
+
+    @Test
+    public void shouldReturnEmptyWhenLastRequestedAndTimeSeriesIsEmpty() {
+        stubFor(get(urlMatching(format(".*/%s/test/hours/last", owner))).willReturn(aResponse().withStatus(204)));
+        Optional<TimeSeriesPoint> actualPoint = ingestClient.last(TimeSeriesDefinition.builder().name("test").distance(hours));
+        assertFalse(actualPoint.isPresent());
     }
 
     private byte[] json(Object object) {

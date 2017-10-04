@@ -18,6 +18,7 @@ pipeline {
         timeout(time: 5, unit: 'DAYS')
         disableConcurrentBuilds()
         ansiColor('xterm')
+        timestamps()
     }
     stages {
         stage('Check build') {
@@ -82,7 +83,7 @@ pipeline {
             }
         }
         stage('Build artifacts') {
-            when { expression { env.BRANCH_NAME.matches(/verify\/(work|feature|bugfix)\/(\w+-\w+)/) } }
+            when { expression { env.BRANCH_NAME.matches(/(work|feature|bugfix)\/(\w+-\w+)/) && env.verification == 'true' } }
             environment {
                 nexus = credentials('nexus')
                 artifactory = credentials('artifactory-publish')
@@ -90,6 +91,7 @@ pipeline {
             agent any
             steps {
                 script {
+                    sh "git checkout verify/\${BRANCH_NAME}"
                     version = versionFromCommitMessage()
                     currentBuild.description = "Building ${version} from commit " + readCommitId()
                     env.MAVEN_OPTS = readProperties(file: 'Jenkinsfile.properties').MAVEN_OPTS
@@ -105,12 +107,12 @@ pipeline {
                 }
             }
             post {
-                failure { sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }}
-                aborted { sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }}
+                failure { sshagent([gitSshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }}
+                aborted { sshagent([gitSshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }}
             }
         }
         stage('Deploy for verification') {
-            when { expression { env.BRANCH_NAME.matches(/verify\/(work|feature|bugfix)\/(\w+-\w+)/) } }
+            when { expression { env.BRANCH_NAME.matches(/(work|feature|bugfix)\/(\w+-\w+)/) && env.verification == 'true' } }
             environment {
                 aws = credentials('aws')
             }
@@ -125,6 +127,7 @@ pipeline {
                     env.AWS_DEFAULT_REGION = 'us-east-1'
                     env.AWS_ACCESS_KEY_ID = env.aws_USR
                     env.AWS_SECRET_ACCESS_KEY = env.aws_PSW
+                    sh "git checkout verify/\${BRANCH_NAME}"
                     version = versionFromCommitMessage()
                     node1 = "statistics-${version}-node1"
                     node2 = "statistics-${version}-node2"
@@ -134,17 +137,17 @@ pipeline {
             }
             post {
                 failure {
-                    sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }
+                    sshagent([gitSshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }
                     sh "pipelinex/environment.sh delete ${version}"
                 }
                 aborted {
-                    sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }
+                    sshagent([gitSshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }
                     sh "pipelinex/environment.sh delete ${version}"
                 }
             }
         }
         stage('Verify behaviour') {
-            when { expression { env.BRANCH_NAME.matches(/verify\/(work|feature|bugfix)\/(\w+-\w+)/) } }
+            when { expression { env.BRANCH_NAME.matches(/(work|feature|bugfix)\/(\w+-\w+)/) && env.verification == 'true' } }
             agent {
                 dockerfile {
                     dir 'docker'
@@ -153,6 +156,7 @@ pipeline {
             }
             steps {
                 script {
+                    sh "git checkout verify/\${BRANCH_NAME}"
                     version = versionFromCommitMessage()
                     node1 = "statistics-${version}-node1"
                     node2 = "statistics-${version}-node2"
@@ -165,12 +169,12 @@ pipeline {
 //                always {
 //                    sh "pipelinex/environment.sh delete ${version}"
 //                }
-                failure { sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }}
-                aborted { sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }}
+                failure { sshagent([gitSshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }}
+                aborted { sshagent([gitSshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }}
             }
         }
         stage('Wait for code reviewer to finish') {
-            when { expression { env.BRANCH_NAME.matches(/verify\/(work|feature|bugfix)\/(\w+-\w+)/) } }
+            when { expression { env.BRANCH_NAME.matches(/(work|feature|bugfix)\/(\w+-\w+)/) && env.verification == 'true' } }
             steps {
                 script {
                     env.codeApproved = "false"
@@ -191,21 +195,21 @@ pipeline {
             }
         }
         stage('Integrate code') {
-            when { expression { env.BRANCH_NAME.matches(/verify\/(work|feature|bugfix)\/(\w+-\w+)/) } }
+            when { expression { env.BRANCH_NAME.matches(/(work|feature|bugfix)\/(\w+-\w+)/) && env.verification == 'true' } }
             agent any
             steps {
                 script {
                     sshagent([gitSshKey]) {
-                        sh 'git push origin HEAD:master'
+                        sh "git push origin verify/\${BRANCH_NAME}:master"
                     }
                 }
             }
             post {
                 always {
-                    sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }
+                    sshagent([gitSshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }
                 }
                 success {
-                    sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME#verify/}" }
+                    sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }
                 }
             }
         }
