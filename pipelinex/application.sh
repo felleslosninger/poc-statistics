@@ -67,19 +67,19 @@ image() {
     requireArgument 'service'
     case "${service}" in
         "elasticsearch")
-            image="difi/statistics-elasticsearch:${version}"
+            image="eid-jenkins02.dmz.local:8081/statistics-elasticsearch:${version}"
             ;;
         "elasticsearch_gossip")
-            image="difi/statistics-elasticsearch:${version}"
+            image="eid-jenkins02.dmz.local:8081/statistics-elasticsearch:${version}"
             ;;
         "query")
-            image="difi/statistics-query-elasticsearch:${version}"
+            image="eid-jenkins02.dmz.local:8081/statistics-query-elasticsearch:${version}"
             ;;
         "ingest")
-            image="difi/statistics-ingest-elasticsearch:${version}"
+            image="eid-jenkins02.dmz.local:8081/statistics-ingest-elasticsearch:${version}"
             ;;
         "authenticate")
-            image="difi/statistics-authenticate:${version}"
+            image="eid-jenkins02.dmz.local:8081/statistics-authenticate:${version}"
             ;;
         *)
             fail "Unknown service ${service}"

@@ -85,6 +85,7 @@ pipeline {
             when { expression { env.BRANCH_NAME.matches(/verify\/(work|feature|bugfix)\/(\w+-\w+)/) } }
             environment {
                 nexus = credentials('nexus')
+                artifactory = credentials('artifactory-publish')
             }
             agent any
             steps {
@@ -93,7 +94,14 @@ pipeline {
                     currentBuild.description = "Building ${version} from commit " + readCommitId()
                     env.MAVEN_OPTS = readProperties(file: 'Jenkinsfile.properties').MAVEN_OPTS
                     sh "mvn versions:set -B -DnewVersion=${version}"
-                    sh "mvn deploy -B -DdeployAtEnd=true"
+                    sh """
+                       mvn deploy -B -s settings.xml \
+                       -Dmaven.release.username=${env.artifactory_USR} \
+                       -Dmaven.release.password=${env.artifactory_PSW} \
+                       -Ddocker.release.username=${env.nexus_USR} \
+                       -Ddocker.release.password=${env.nexus_PSW} \
+                       -DdeployAtEnd=true
+                       """
                 }
             }
             post {
@@ -120,8 +128,8 @@ pipeline {
                     version = versionFromCommitMessage()
                     node1 = "statistics-${version}-node1"
                     node2 = "statistics-${version}-node2"
-                    sh "pipelinex/environment.sh create ${version}"
-                    sh "pipelinex/environment.sh login ${node1} bash -s -- < pipelinex/application.sh create latest" // TODO: Should be previous version
+                    //sh "pipelinex/environment.sh create ${version}"
+                    //sh "pipelinex/environment.sh login ${node1} bash -s -- < pipelinex/application.sh create latest" // TODO: Should be previous version
                 }
             }
             post {
@@ -148,15 +156,15 @@ pipeline {
                     version = versionFromCommitMessage()
                     node1 = "statistics-${version}-node1"
                     node2 = "statistics-${version}-node2"
-                    sh "pipelinex/environment.sh login ${node1} bash -s -- < pipelinex/application.sh verify ${version}"
-                    sh "pipelinex/environment.sh terminateNode ${node1}"
-                    sh "pipelinex/environment.sh login ${node2} bash -s -- < pipelinex/application.sh verifyTestData"
+                    //sh "pipelinex/environment.sh login ${node1} bash -s -- < pipelinex/application.sh verify ${version}"
+                    //sh "pipelinex/environment.sh terminateNode ${node1}"
+                    //sh "pipelinex/environment.sh login ${node2} bash -s -- < pipelinex/application.sh verifyTestData"
                 }
             }
             post {
-                always {
-                    sh "pipelinex/environment.sh delete ${version}"
-                }
+//                always {
+//                    sh "pipelinex/environment.sh delete ${version}"
+//                }
                 failure { sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }}
                 aborted { sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }}
             }

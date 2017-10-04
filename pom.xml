@@ -32,7 +32,7 @@
         <elasticsearch.version>5.1.1</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <difi.docker.registry>docker.io/difi</difi.docker.registry>
+        <difi.docker.registry>eid-jenkins02.dmz.local:8081</difi.docker.registry>
         <artifactory.url>http://eid-artifactory.dmz.local:8080/artifactory</artifactory.url>
     </properties>
 
