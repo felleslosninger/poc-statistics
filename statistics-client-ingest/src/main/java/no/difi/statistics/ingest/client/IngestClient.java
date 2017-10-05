@@ -53,13 +53,19 @@ public class IngestClient implements IngestService {
 
     @Override
     public void ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint timeSeriesPoint) {
-        postTo(postUrlFor(seriesDefinition), timeSeriesPoint);
+        try {
+            HttpURLConnection connection = getConnection(postUrlFor(seriesDefinition), "POST");
+            writeJsonToOutputStream(timeSeriesPoint, connection);
+            handleResponse(connection.getResponseCode());
+        } catch (IOException e) {
+            throw new ConnectFailed(e);
+        }
     }
 
     @Override
     public void ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
         try {
-            final HttpURLConnection connection = getConnection(postUrlFor(seriesDefinition), "POST");
+            HttpURLConnection connection = getConnection(postUrlFor(seriesDefinition), "POST");
             writeJsonListToOutputStream(dataPoints, connection);
             handleResponse(connection.getResponseCode());
         } catch (IOException e) {
@@ -85,35 +91,15 @@ public class IngestClient implements IngestService {
             case HTTP_OK:
             case HTTP_CREATED:
                 break;
+            case HTTP_CONFLICT:
+                throw new DataPointAlreadyExists();
             case HTTP_UNAUTHORIZED:
             case HTTP_FORBIDDEN:
-                throw new Unauthorized("Failed to authorize Ingest service");
+                throw new Unauthorized("Failed to authorize Ingest service (" + responseCode + ")");
             case HTTP_NOT_FOUND:
-                throw new Failed("Failed, could not find URL you have given");
-        }
-    }
-
-    private void postTo(URL url, TimeSeriesPoint timeSeriesPoint) {
-        HttpURLConnection connection = null;
-        try {
-            connection = getConnection(url, "POST");
-            writeJsonToOutputStream(timeSeriesPoint, connection);
-            switch (connection.getResponseCode()) {
-                case HTTP_OK:
-                    break;
-                case HTTP_CONFLICT:
-                    throw new DataPointAlreadyExists();
-                case HTTP_UNAUTHORIZED:
-                    throw new Unauthorized("Failed to authorize Ingest service");
-                default:
-                    throw new Failed("Could not post to Ingest Service");
-            }
-        } catch (IOException e) {
-            throw new Failed("Could not call IngestService", e);
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
+                throw new Failed("URL not found");
+            default:
+                throw new Failed("Ingest failed (" + responseCode + ")");
         }
     }
 

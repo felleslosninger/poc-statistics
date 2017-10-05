@@ -98,8 +98,7 @@ public class IngestClientTest {
     public void shouldThrowExceptionWhenConnectionTimeoutOccur(){
         wireMockRule.addRequestProcessingDelay(delay_for_timeout);
 
-        expectedEx.expect(IngestService.Failed.class);
-        expectedEx.expectMessage("Could not call IngestService");
+        expectedEx.expect(IngestService.ConnectFailed.class);
 
         ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
     }
@@ -118,7 +117,7 @@ public class IngestClientTest {
         createStub(HttpURLConnection.HTTP_UNSUPPORTED_TYPE);
 
         expectedEx.expect(IngestService.Failed.class);
-        expectedEx.expectMessage("Could not post to Ingest Service");
+        expectedEx.expectMessage("Ingest failed (415)");
 
         ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), timeSeriesPoint);
     }
