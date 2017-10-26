@@ -26,14 +26,13 @@ import org.springframework.web.client.RestTemplate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
+import static java.util.Arrays.asList;
 import static no.difi.statistics.model.MeasurementDistance.minutes;
 import static org.apache.tomcat.util.codec.binary.Base64.encodeBase64;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.test.web.client.ExpectedCount.once;
@@ -164,6 +163,13 @@ public class IngestRestControllerTest {
                 .andExpect(status().is(HttpStatus.OK.value()));
     }
 
+    @Test
+    public void whenBulkIngestingTwoPointThenExpectOkResponse() throws Exception {
+        validCredentials("aUser", "aPassword");
+        mockMvc.perform(request().content(json(asList(aPoint(), aPoint()))).distance("hours").bulkIngest())
+                .andExpect(status().is(HttpStatus.OK.value()));
+    }
+
     private TimeSeriesPoint aPoint() {
         return TimeSeriesPoint.builder()
                 .measurement("antall", 2)
@@ -224,16 +230,23 @@ public class IngestRestControllerTest {
                     .content(content);
         }
 
+        MockHttpServletRequestBuilder bulkIngest() {
+            return post("/{owner}/{seriesName}/{distance}?bulk=y", owner, series, distance)
+                    .contentType(MediaType.APPLICATION_JSON_UTF8)
+                    .header("Authorization", authorizationHeader(user, password))
+                    .content(content);
+        }
+
         MockHttpServletRequestBuilder last() {
             return get("/{owner}/{seriesName}/{distance}/last", owner, series, distance);
         }
 
     }
 
-    private String json(TimeSeriesPoint timeSeriesPoint) throws Exception {
+    private String json(Object object) throws Exception {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())
-                .writeValueAsString(timeSeriesPoint);
+                .writeValueAsString(object);
     }
 
     private void validCredentials(String username, String password) {

@@ -54,7 +54,7 @@ public class IngestClient implements IngestService {
     @Override
     public void ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint timeSeriesPoint) {
         try {
-            HttpURLConnection connection = getConnection(postUrlFor(seriesDefinition), "POST");
+            HttpURLConnection connection = getConnection(ingestUrlFor(seriesDefinition), "POST");
             writeJsonToOutputStream(timeSeriesPoint, connection);
             handleResponse(connection.getResponseCode());
         } catch (IOException e) {
@@ -65,7 +65,7 @@ public class IngestClient implements IngestService {
     @Override
     public void ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
         try {
-            HttpURLConnection connection = getConnection(postUrlFor(seriesDefinition), "POST");
+            HttpURLConnection connection = getConnection(bulkIngestUrlFor(seriesDefinition), "POST");
             writeJsonListToOutputStream(dataPoints, connection);
             handleResponse(connection.getResponseCode());
         } catch (IOException e) {
@@ -75,15 +75,27 @@ public class IngestClient implements IngestService {
 
     @Override
     public Optional<TimeSeriesPoint> last(TimeSeriesDefinition seriesDefinition) {
-        return getFrom(getUrlFor(seriesDefinition));
+        return getFrom(lastUrlFor(seriesDefinition));
     }
 
-    private URL postUrlFor(TimeSeriesDefinition seriesDefinition) {
-        return postUrl(seriesDefinition.getName(), seriesDefinition.getDistance().name());
+    private URL ingestUrlFor(TimeSeriesDefinition seriesDefinition) {
+        return urlFor("%s/%s/%s/%s", this.baseUrl, this.owner, seriesDefinition.getName(), seriesDefinition.getDistance().name());
     }
 
-    private URL getUrlFor(TimeSeriesDefinition seriesDefinition) {
-        return getUrl(seriesDefinition.getName(), seriesDefinition.getDistance().name());
+    private URL bulkIngestUrlFor(TimeSeriesDefinition seriesDefinition) {
+        return urlFor("%s/%s/%s/%s?bulk=true", this.baseUrl, this.owner, seriesDefinition.getName(), seriesDefinition.getDistance().name());
+    }
+
+    private URL lastUrlFor(TimeSeriesDefinition seriesDefinition) {
+        return urlFor("%s/%s/%s/%s/last", this.baseUrl, this.owner, seriesDefinition.getName(), seriesDefinition.getDistance().name());
+    }
+
+    private URL urlFor(String template, Object...parameters) {
+        try {
+            return new URL(format(template, parameters));
+        } catch (MalformedURLException e) {
+            throw new MalformedUrl(e);
+        }
     }
 
     private void handleResponse(int responseCode) throws IOException {
@@ -164,22 +176,6 @@ public class IngestClient implements IngestService {
         String jsonString = writer.writeValueAsString(timeSeriesPoint);
         stream.write(jsonString.getBytes());
         stream.flush();
-    }
-
-    private URL postUrl(String seriesName, String distance) {
-        try {
-            return new URL(format("%s/%s/%s/%s", this.baseUrl, this.owner, seriesName, distance));
-        } catch (MalformedURLException e) {
-            throw new MalformedUrl(e);
-        }
-    }
-
-    private URL getUrl(String seriesName, String distance) {
-        try {
-            return new URL(format("%s/%s/%s/%s/last", this.baseUrl, this.owner, seriesName, distance));
-        } catch (MalformedURLException e) {
-            throw new MalformedUrl(e);
-        }
     }
 
 }
