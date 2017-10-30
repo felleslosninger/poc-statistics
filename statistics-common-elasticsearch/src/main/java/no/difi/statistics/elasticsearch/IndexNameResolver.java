@@ -118,8 +118,6 @@ public class IndexNameResolver {
             switch (distance) {
                 case minutes:
                 case hours:
-                    instance.baseTimeUnit = DAYS;
-                    break;
                 case days:
                 case months:
                     instance.baseTimeUnit = YEARS;

@@ -170,7 +170,7 @@ public class ElasticsearchIngestServiceTest {
                 ingest("minutes", owner, password, series, point().timestamp(now).measurement("aMeasurement", 103L).build());
         assertEquals(200, response.getStatusCodeValue());
         assertEquals(
-                format("%s:%s:minute%d.%02d.%02d", owner, series, now.getYear(), now.getMonthValue(), now.getDayOfMonth()),
+                format("%s:%s:minute%d", owner, series, now.getYear()),
                 elasticsearchHelper.indices()[0]
         );
     }

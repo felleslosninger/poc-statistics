@@ -26,10 +26,10 @@ public class IndexNameResolverTest {
     }
 
     @Test
-    public void givenMinuteSeriesWithinDayWhenResolvingThenResultIsOneNameWithDay() {
+    public void givenMinuteSeriesWithinDayWhenResolvingThenResultIsOneNameWithYear() {
         List<String> indexNames = resolveIndexName().seriesName("test").owner("owner").minutes()
                 .from(timestamp(2016, 3, 22, 1, 23)).to(timestamp(2016, 3, 22, 17, 18)).list();
-        assertThat(indexNames, contains("owner:test:minute2016.03.22"));
+        assertThat(indexNames, contains("owner:test:minute2016"));
     }
 
     @Test
