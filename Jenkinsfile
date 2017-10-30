@@ -79,11 +79,11 @@ pipeline {
             }
             post {
                 failure {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
                 }
                 aborted {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
                 }
             }
@@ -113,11 +113,11 @@ pipeline {
             }
             post {
                 failure {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
                 }
                 aborted {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
                 }
             }
@@ -147,12 +147,12 @@ pipeline {
             }
             post {
                 failure {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
                     sh "pipelinex/environment.sh delete ${version}"
                 }
                 aborted {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
                     sh "pipelinex/environment.sh delete ${version}"
                 }
@@ -181,11 +181,11 @@ pipeline {
 //                    sh "pipelinex/environment.sh delete ${env.version}"
 //                }
                 failure {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
                 }
                 aborted {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
                 }
             }
@@ -206,19 +206,15 @@ pipeline {
             agent any
             steps {
                 failIfJobIsAborted()
-                script {
-                    checkoutVerificationBranch()
-                    sshagent([gitSshKey]) {
-                        sh 'git push origin HEAD:master'
-                    }
-                }
+                checkoutVerificationBranch()
+                integrateCode(gitSshKey)
             }
             post {
                 always {
-                    deleteVerificationBranch()
+                    deleteVerificationBranch(gitSshKey)
                 }
                 success {
-                    deleteWorkBranch()
+                    deleteWorkBranch(gitSshKey)
                 }
                 failure {
                     transitionIssue env.ISSUE_STATUS_CODE_REVIEW, env.ISSUE_TRANSITION_RESUME_WORK
@@ -292,19 +288,23 @@ pipeline {
     }
 }
 
+def integrateCode(def sshKey) {
+    sshagent([sshKey]) { sh 'git push origin HEAD:master' }
+}
+
 def checkoutVerificationBranch() {
     sh "git checkout verify/\${BRANCH_NAME}"
     sh "git reset --hard origin/verify/\${BRANCH_NAME}"
 }
 
-def deleteVerificationBranch() {
+def deleteVerificationBranch(def sshKey) {
     echo "Deleting verification branch"
-    sshagent([gitSshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }
+    sshagent([sshKey]) { sh "git push origin --delete verify/\${BRANCH_NAME}" }
     echo "Verification branch deleted"
 }
 
-def deleteWorkBranch() {
-    sshagent([gitSshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }
+def deleteWorkBranch(def sshKey) {
+    sshagent([sshKey]) { sh "git push origin --delete \${BRANCH_NAME}" }
 }
 
 def failIfJobIsAborted() {
@@ -325,7 +325,7 @@ def waitUntilIssueStatusIs(def targetStatus) {
                 error "Waiting until issue status is ${targetStatus}..."
             }
         }
-    } catch (FlowInterruptedException e) {
+    } catch (FlowInterruptedException ignored) {
         env.jobAborted = "true"
     }
 }
@@ -339,7 +339,7 @@ def waitUntilIssueStatusIsNot(def targetStatus) {
                 error "Waiting until issue status is not ${targetStatus}..."
             }
         }
-    } catch (FlowInterruptedException e) {
+    } catch (FlowInterruptedException ignored) {
         env.jobAborted = "true"
     }
 }
