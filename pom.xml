@@ -28,7 +28,7 @@
 
     <properties>
         <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
-        <springboot.version>1.4.0.RC1</springboot.version>
+        <springboot.version>1.5.8.RELEASE</springboot.version>
         <elasticsearch.version>5.6.3</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
