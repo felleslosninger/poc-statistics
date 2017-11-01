@@ -206,6 +206,7 @@ pipeline {
             agent any
             steps {
                 failIfJobIsAborted()
+                failIfCodeNotApproved()
                 checkoutVerificationBranch()
                 integrateCode(gitSshKey)
             }
@@ -310,6 +311,11 @@ def deleteWorkBranch(def sshKey) {
 def failIfJobIsAborted() {
     if (env.jobAborted == 'true')
         error('Job was aborted')
+}
+
+def failIfCodeNotApproved() {
+    if (env.codeApproved == 'false')
+        error('Code was not approved')
 }
 
 boolean issueStatusIs(def targetStatus) {

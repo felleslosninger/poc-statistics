@@ -29,7 +29,7 @@
     <properties>
         <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
         <springboot.version>1.4.0.RC1</springboot.version>
-        <elasticsearch.version>5.1.1</elasticsearch.version>
+        <elasticsearch.version>5.6.3</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <difi.docker.registry>eid-jenkins02.dmz.local:8081</difi.docker.registry>

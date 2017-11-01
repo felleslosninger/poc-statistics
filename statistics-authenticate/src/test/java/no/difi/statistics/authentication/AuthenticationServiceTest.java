@@ -40,8 +40,7 @@ public class AuthenticationServiceTest {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            GenericContainer backend = new GenericContainer("elasticsearch:5.1.1");
-            backend.start();
+            GenericContainer backend = ElasticsearchHelper.startContainer();
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),
                     "no.difi.statistics.elasticsearch.host=" + backend.getContainerIpAddress(),

@@ -14,6 +14,9 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.sort.SortOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.GenericContainer;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -40,6 +43,7 @@ public class ElasticsearchHelper {
     private static final String timeFieldName = "timestamp";
     private static final String defaultType = "default";
     private final static String aMeasurementId = "count";
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private Client client;
     private URL refreshUrl;
@@ -47,6 +51,12 @@ public class ElasticsearchHelper {
     public ElasticsearchHelper(Client client, String host, int port) throws UnknownHostException, MalformedURLException {
         this.client = client;
         this.refreshUrl = new URL(format("http://%s:%d/_refresh", host, port));
+    }
+
+    public static GenericContainer startContainer() {
+        GenericContainer container = new GenericContainer("elasticsearch:5.6.3").withCommand("-Enetwork.host=_site_");
+        container.start();
+        return container;
     }
 
     public void clear() {
@@ -143,13 +153,25 @@ public class ElasticsearchHelper {
     }
 
     public void waitForGreenStatus() throws InterruptedException, ExecutionException {
+        logger.info("Wait for connected ES node...");
         for (int i = 0; i < 1000; i++) {
-            if (((TransportClient)client).connectedNodes().size() > 0) break;
+            if (((TransportClient)client).connectedNodes().size() > 0) {
+                logger.info("ES node is connected");
+                break;
+            }
             Thread.sleep(10L);
         }
         for (int i = 0; i < 1000; i++) {
-            if (client.admin().cluster().health(new ClusterHealthRequest()).get().getStatus().equals(GREEN))
-                break;
+            logger.info("Waiting for GREEN status...");
+            try {
+                if (client.admin().cluster().health(new ClusterHealthRequest()).get().getStatus().equals(GREEN)) {
+                    logger.info("Status is GREEN");
+                    break;
+                }
+                logger.info("Status is " + client.admin().cluster().health(new ClusterHealthRequest()).get().getStatus() + "\n Retrying " + (i + 1) + "/1000...");
+            } catch (Exception e) {
+                logger.warn("Failed to check cluster health: " + e.getMessage());
+            }
             Thread.sleep(10L);
         }
     }
