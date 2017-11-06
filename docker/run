@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+
+run() {
+    [[ $# -eq 4 ]] || { >&2 echo "Usage: $0 USERNAME PASSWORD STACK_NAME VERSION"; return 1; }
+    local registryUser=$1
+    local registryPassword=$2
+    local stackName=$3
+    local version=$4
+    workDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    stackFile="${workDir}/stack.yml"
+    docker login $(__registry) -u ${registryUser} -p ${registryPassword}
+    # See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
+    __disableShardAllocation || { >&2 echo "Failed to disable shard allocation"; return 1; }
+    VERSION=${version} docker stack deploy --prune --with-registry-auth -c ${stackFile} ${stackName} || return 1
+    docker logout $(__registry)
+    __waitForServiceUpdateToComplete "${stackName}_elasticsearch" || return $?
+    __waitForServiceUpdateToComplete "${stackName}_elasticsearch_gossip" || return $?
+    __waitForServiceToBeAvailable 'elasticsearch' || return $?
+    __waitForServiceToBeAvailable 'elasticsearch_gossip' || return $?
+    __enableShardAllocation || { >&2 echo "Failed to enable shard allocation"; return 1; }
+}
+
+__waitForServiceToBeAvailable() {
+    local service=$1
+    local host=${2-'localhost'}
+    echo -n "Waiting for service \"${service}\" to be available: "
+    local start=$SECONDS
+    __waitFor "__isServiceAvailable ${service} ${host}" 200 && __ok ${start} || { >&2 echo "Service ${service} is not available"; return 1; }
+}
+
+__isServiceAvailable() {
+    local service=$1
+    local host=${2-'localhost'}
+    local url
+    url=$(__serviceAvailabilityUrl ${service} ${host}) || return 1
+    curl -s ${url} --connect-timeout 3 --max-time 10 > /dev/null
+}
+
+__serviceAvailabilityUrl() {
+    local service=$1
+    local host=${2-'localhost'}
+    case "${service}" in
+        'elasticsearch_gossip')
+            echo -n "http://${host}:9201"
+            ;;
+        'elasticsearch')
+            echo -n "http://${host}:8082"
+            ;;
+        'query')
+            echo -n "http://${host}:8080/health"
+            ;;
+        'ingest')
+            echo -n "http://${host}:8081/health"
+            ;;
+        'authenticate')
+            echo -n "http://${host}:8083/health"
+            ;;
+        *)
+            return 1
+    esac
+}
+
+__disableShardAllocation() {
+    local host=${1-'localhost'}
+    echo -n "Disabling Elasticsearch shard allocation: "
+    local start=$SECONDS
+    __waitFor "__doDisableShardAllocation ${host}" && __ok ${start} || { >&2 echo "Failed to disable shard allocation"; return 1; }
+}
+
+__enableShardAllocation() {
+    local host=${1-'localhost'}
+    echo -n "Enabling Elasticsearch shard allocation: "
+    local start=$SECONDS
+    __waitFor "__doEnableShardAllocation ${host}" && __ok ${start} || { >&2 echo "Failed to enable shard allocation"; return 1; }
+}
+
+__doDisableShardAllocation() {
+    local host=${1-'localhost'}
+    curl -s -f --connect-timeout 3 --max-time 10 \
+        -XPUT http://${host}:8082/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable":"none"}}'
+}
+
+__doEnableShardAllocation() {
+    local host=${1-'localhost'}
+    curl -s -f --connect-timeout 3 --max-time 10 \
+        -XPUT http://${host}:8082/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable":"all"}}'
+}
+
+__waitForServiceUpdateToComplete() {
+    local service=$1
+    echo -n "Waiting for service \"${service}\" to be updated: "
+    local start=$SECONDS
+    __waitFor "__isServiceUpdateCompleted ${service}" 600 && __ok ${start} || return 1
+}
+
+__isServiceUpdateCompleted() {
+    local service="${1}"
+    updateStatus=$(docker service inspect ${service} -f '{{.UpdateStatus.State}}')
+    [ "${updateStatus}" == "completed" ] && return 0
+    [ -z "${updateStatus}" ] && { echo -n "No update status found, assuming completed"; return 0; }
+    [ "${updateStatus}" == "updating" ] && return 28
+    [ "${updateStatus}" == "paused" ] && { >&2 echo "Update is paused, probably due to an error: $(docker service inspect ${service} -f '{{.UpdateStatus.Message}}')"; return 1; }
+    return 1
+}
+
+__waitFor() {
+    local fun=$1
+    local duration=${2-100}
+    local status=false
+    for i in $(seq 1 ${duration}); do
+        local ret
+        ${fun}
+        ret=$?
+        [ ${ret} -eq 7 ] && { >&2 echo -n "."; sleep 3; continue; } # Connect failure
+        [ ${ret} -eq 28 ] && { >&2 echo -n "_"; sleep 3; continue; } # Request timeout
+        [ ${ret} -eq 22 ] && { >&2 echo -n "F"; sleep 3; continue; } # HTTP 4xx or 5xx
+        [ ${ret} -eq 0 ] && { status=true; break; }
+        [ ${ret} -eq 1 ] && { >&2 echo -n "E"; break; }
+        { >&2 echo -n "<$ret>"; break; }
+    done
+    ${status} && return 0 || return 1
+}
+
+__ok() {
+    local start=$1
+    echo "[OK${start:+ ($(__duration ${start})s)}]"
+}
+
+__duration() {
+    local from=$1
+    echo -n $(( SECONDS - ${from} ))
+}
+
+__registry() {
+    echo -n 'eid-jenkins02.dmz.local:8081'
+}
+
+run ${@}

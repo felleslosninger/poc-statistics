@@ -7,9 +7,11 @@ import static java.time.ZonedDateTime.now
 def verificationHostName = 'eid-test-docker01.dmz.local'
 def verificationHostUser = 'jenkins'
 def verificationHostSshKey = 'ssh.git.difi.local'
+def verificationStackName = 'statistics'
 def productionHostName = 'eid-prod-docker01.dmz.local'
 def productionHostUser = 'jenkins'
 def productionHostSshKey = 'ssh.git.difi.local'
+def productionStackName = 'statistics'
 def gitSshKey = 'ssh.github.com'
 
 pipeline {
@@ -233,14 +235,29 @@ pipeline {
         }
         stage('Deploy for manual verification') {
             when { expression { env.BRANCH_NAME.matches(/(work|feature|bugfix)\/(\w+-\w+)/) && env.verification == 'true' } }
-            agent any
+            environment {
+                nexus = credentials('nexus')
+            }
+            agent {
+                dockerfile {
+                    dir 'docker'
+                    args '-v /var/jenkins_home/.ssh/known_hosts:/root/.ssh/known_hosts -u root:root'
+                }
+            }
             steps {
                 failIfJobIsAborted()
                 script {
                     currentBuild.description = "Deploying ${env.version} to verification environment"
+                    DOCKER_HOST = sh(returnStdout: true, script: 'pipeline/docker/define-docker-host-for-ssh-tunnel')
                     sshagent([verificationHostSshKey]) {
-                        sh "ssh -o StrictHostKeyChecking=no ${verificationHostUser}@${verificationHostName} bash -s -- < pipelinex/application.sh update ${env.version}"
+                        sh "DOCKER_HOST=${DOCKER_HOST} pipeline/docker/create-ssh-tunnel-for-docker-host ${verificationHostUser}@${verificationHostName}"
                     }
+                    sh "DOCKER_TLS_VERIFY= DOCKER_HOST=${DOCKER_HOST} docker/run ${env.nexus_USR} ${env.nexus_PSW} ${verificationStackName} ${env.version}"
+                }
+            }
+            post {
+                always {
+                    sh "pipeline/docker/cleanup-ssh-tunnel-for-docker-host"
                 }
             }
         }
@@ -254,14 +271,29 @@ pipeline {
         }
         stage('Deploy for production') {
             when { expression { env.BRANCH_NAME.matches(/(work|feature|bugfix)\/(\w+-\w+)/) && env.verification == 'true' } }
-            agent any
+            environment {
+                nexus = credentials('nexus')
+            }
+            agent {
+                dockerfile {
+                    dir 'docker'
+                    args '-v /var/jenkins_home/.ssh/known_hosts:/root/.ssh/known_hosts -u root:root'
+                }
+            }
             steps {
                 failIfJobIsAborted()
                 script {
                     currentBuild.description = "Deploying ${env.version} to production environment"
+                    DOCKER_HOST = sh(returnStdout: true, script: 'pipeline/docker/define-docker-host-for-ssh-tunnel')
                     sshagent([productionHostSshKey]) {
-                        sh "ssh -o StrictHostKeyChecking=no ${productionHostUser}@${productionHostName} bash -s -- < pipelinex/application.sh update ${env.version}"
+                        sh "DOCKER_HOST=${DOCKER_HOST} pipeline/docker/create-ssh-tunnel-for-docker-host ${productionHostUser}@${productionHostName}"
                     }
+                    sh "DOCKER_TLS_VERIFY= DOCKER_HOST=${DOCKER_HOST} docker/run ${env.nexus_USR} ${env.nexus_PSW} ${productionStackName} ${env.version}"
+                }
+            }
+            post {
+                always {
+                    sh "pipeline/docker/cleanup-ssh-tunnel-for-docker-host"
                 }
             }
         }
