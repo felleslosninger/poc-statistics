@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 
 run() {
-    [[ $# -eq 4 ]] || { >&2 echo "Usage: $0 USERNAME PASSWORD STACK_NAME VERSION"; return 1; }
+    [[ $# -eq 5 ]] || { >&2 echo "Usage: $0 USERNAME PASSWORD STACK_NAME VERSION APPLICATION_HOST"; return 1; }
     local registryUser=$1
     local registryPassword=$2
     local stackName=$3
     local version=$4
+    local applicationHost=$5
     workDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     stackFile="${workDir}/stack.yml"
     docker login $(__registry) -u ${registryUser} -p ${registryPassword}
     # See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
-    __serviceExists "${stackName}_elasticsearch" && __isServiceAvailable 'elasticsearch' && \
+    __serviceExists "${stackName}_elasticsearch" && __isServiceAvailable 'elasticsearch' ${applicationHost} && \
         { __disableShardAllocation || { >&2 echo "Failed to disable shard allocation"; return 1; } }
     VERSION=${version} docker stack deploy --prune --with-registry-auth -c ${stackFile} ${stackName} || return 1
     docker logout $(__registry)
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch" || return $?
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch_gossip" || return $?
-    __waitForServiceToBeAvailable 'elasticsearch' || return $?
-    __waitForServiceToBeAvailable 'elasticsearch_gossip' || return $?
+    __waitForServiceToBeAvailable 'elasticsearch' ${applicationHost} || return $?
+    __waitForServiceToBeAvailable 'elasticsearch_gossip' ${applicationHost} || return $?
     __enableShardAllocation || { >&2 echo "Failed to enable shard allocation"; return 1; }
 }
 
