@@ -9,12 +9,14 @@ run() {
     local applicationHost=$5
     workDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     stackFile="${workDir}/stack.yml"
-    docker login $(__registry) -u ${registryUser} -p ${registryPassword}
+    [[ ${version} != 'DEV-SNAPSHOT' ]] && \
+        echo ${registryPassword} | docker login $(__registry) -u ${registryUser} --password-stdin
     # See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
     __serviceExists "${stackName}_elasticsearch" && __isServiceAvailable 'elasticsearch' ${applicationHost} && \
         { __disableShardAllocation ${applicationHost} || { >&2 echo "Failed to disable shard allocation"; return 1; } }
-    VERSION=${version} docker stack deploy --prune --with-registry-auth -c ${stackFile} ${stackName} || return 1
-    docker logout $(__registry)
+    VERSION=${version} docker stack deploy --prune --with-registry-auth --resolve-image never -c ${stackFile} ${stackName} || return 1
+    [[ ${version} != 'DEV-SNAPSHOT' ]] && \
+        docker logout $(__registry)
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch" || return $?
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch_gossip" || return $?
     __waitForServiceToBeAvailable 'elasticsearch' ${applicationHost} || return $?
@@ -83,13 +85,13 @@ __enableShardAllocation() {
 
 __doDisableShardAllocation() {
     local host=${1-'localhost'}
-    curl -s -f --connect-timeout 3 --max-time 10 \
+    >/dev/null curl -s -f --connect-timeout 3 --max-time 10 \
         -XPUT http://${host}:8082/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable":"none"}}'
 }
 
 __doEnableShardAllocation() {
     local host=${1-'localhost'}
-    curl -s -f --connect-timeout 3 --max-time 10 \
+    >/dev/null curl -s -f --connect-timeout 3 --max-time 10 \
         -XPUT http://${host}:8082/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable":"all"}}'
 }
 
@@ -102,7 +104,7 @@ __waitForServiceUpdateToComplete() {
 
 __isServiceUpdateCompleted() {
     local service="${1}"
-    updateStatus=$(docker service inspect ${service} -f '{{.UpdateStatus.State}}')
+    updateStatus=$(docker service inspect ${service} -f '{{.UpdateStatus.State}}' 2>/dev/null)
     [ "${updateStatus}" == "completed" ] && return 0
     [ -z "${updateStatus}" ] && { echo -n "No update status found, assuming completed"; return 0; }
     [ "${updateStatus}" == "updating" ] && return 28
@@ -142,4 +144,4 @@ __registry() {
     echo -n 'eid-jenkins02.dmz.local:8081'
 }
 
-run ${@}
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] && run ${@}

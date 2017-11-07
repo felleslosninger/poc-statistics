@@ -11,8 +11,8 @@ Prosjektet leverer Java-tjenester pakket inn i Docker-bilder.
 Du må ha følgende installert:
 
 * JDK 1.8 eller nyere.
-* Maven 3.3 eller nyere.
-* [Docker](https://www.docker.com/products/docker-toolbox) 1.12 eller nyere.
+* Maven 3.5 eller nyere.
+* [Docker](https://www.docker.com/products/docker-toolbox) 17-09 eller nyere.
 
 Du trenger også nettverkstilgang til Difi sin [artifakt-brønn](http://eid-artifactory.dmz.local:8080).
 
@@ -34,57 +34,14 @@ $ mvn verify
 
 ### Start applikasjonen i ditt lokale Docker-miljø
 
-Slik startes en enkeltinstans av applikasjonen på din lokale Docker-maskin:
+Forutsetninger:
+* Det lokale Docker-miljøet benytter Docker for Windows
+* Sverm-modus er aktivert
+* 8GB RAM er tilgjengelig i Docker
 
 ```
-$ docker run -d --name elasticsearch --restart=unless-stopped difi/statistics-elasticsearch:DEV-SNAPSHOT
-$ docker run -d --name statistics-query --restart=unless-stopped --link elasticsearch -p 8080:8080 difi/statistics-query-elasticsearch:DEV-SNAPSHOT
-$ docker run -d --name statistics-ingest --restart=unless-stopped --link elasticsearch -p 8081:8080 difi/statistics-ingest-elasticsearch:DEV-SNAPSHOT
-```
-
-Endepunktet til applikasjonen vil da være tilgjengelig på http://$(docker-machine ip).
-
-_Dette forutsetter at port 80 er tilgjengelig i Docker-maskinen din. Hvis ikke kan du endre port-assosiasjonen i
-p-flagget ovenfor._
-
-Alternativt kan applikasjonen startes via Maven:
-
-```
-$ mvn -pl statistics-query-elasticsearch,statistics-ingest-elasticsearch,statistics-elasticsearch docker:run
-```
-
-Merk at i dette tilfellet benyttes dynamisk port-assosiasjon, så du må inspisere konteinerne for å utlede endepunktet.
-
-Konteinerne stoppes og fjernes tilsvarende på denne måten:
-```
-$ mvn -pl statistics-query-elasticsearch,statistics-ingest-elasticsearch,statistics-elasticsearch docker:stop
-```
-
-### Start applikasjonen på en Docker-sverm
-
-_Denne beskrivelsen forutsetter at det allerede er satt opp en [Docker-sverm](https://docs.docker.com/engine/swarm) og
-at Docker-klienten peker til en manager-node._
-
-Lag først et overlay-nettverk tjenestene kan kommunisere på. Pass på at sub-nettet ikke kolliderer med andre eksisterende
-sub-nett:
-```
-$ docker network create -d overlay --subnet 10.0.1.0/24 statistics
-```
-
-Elasticsearch-klyngen kan startes slik, her med én data-node per sverm-node (_global modus_) og én _gossip_-node per sverm-_manager_:
-```
-$ docker service create --network statistics --constraint 'node.role == manager' --name elasticsearch_gossip -p 9201:9201 -p 9301:9301 difi/statistics-elasticsearch -Des.http.port=9201 -Des.transport.tcp.port=9301 -Des.node.data=false \
-  && docker service create --network statistics --mode global --name elasticsearch -p 9200:9200 -p 9300:9300 difi/statistics-elasticsearch -Des.discovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Des.node.master=false
-```
-
-Query-tjenesten kan startes slik:
-```
-$ docker service create --network statistics --mode global --name statistics-query -p 8080:8080 difi/statistics-query-elasticsearch
-```
-
-Og tilsvarende for ingest-tjenesten:
-```
-$ docker service create --network statistics --mode global --name statistics-ingest -p 8081:8080 difi/statistics-ingest-elasticsearch
+$ mvn package
+$ docker/run-local
 ```
 
 ### Lag en versjonert utgave av applikasjonen
@@ -95,20 +52,6 @@ gjenspeiler byggetidspunktet.
 ```
 $ mvn deploy
 ```
-
-### Utrulling av ny versjon
-
-Gitt at applikasjonen kjører som et sett tjenester på Docker i sverm-modus, så kan funksjonaliteten for
-[rullerende oppdatering](https://docs.docker.com/engine/swarm/swarm-tutorial/rolling-update) av tjenester benyttes:
-
-```
-$ docker service update --image difi/statistics-query-elasticsearch:$VERSION statistics-query
-$ docker service update --image difi/statistics-ingest-elasticsearch:$VERSION statistics-ingest
-$ docker service update --image difi/statistics-elasticsearch:$VERSION elasticsearch
-$ docker service update --image difi/statistics-elasticsearch:$VERSION elasticsearch_gossip
-```
-
->Merk at Docker-klienten her må peke til en av _manager_-nodene i svermen.
 
 ## Sporbarhet
 

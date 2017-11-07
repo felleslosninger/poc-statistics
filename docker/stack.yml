@@ -32,9 +32,7 @@ services:
     command: -Ediscovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Enode.master=false
     stop_grace_period: 5m
     volumes:
-      - type: bind
-        source: /usr/share/elasticsearch/data
-        target: /usr/share/elasticsearch/data
+      - statistics-data:/usr/share/elasticsearch/data
     networks:
       - net
     deploy:
@@ -55,3 +53,7 @@ networks:
   net:
     driver: overlay
     attachable: true
+
+volumes:
+  statistics-data:
+    external: true
