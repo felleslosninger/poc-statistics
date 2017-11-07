@@ -10,7 +10,8 @@ run() {
     stackFile="${workDir}/stack.yml"
     docker login $(__registry) -u ${registryUser} -p ${registryPassword}
     # See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
-    __serviceExists "${stackName}_elasticsearch" && { __disableShardAllocation || { >&2 echo "Failed to disable shard allocation"; return 1; } }
+    __serviceExists "${stackName}_elasticsearch" && __isServiceAvailable 'elasticsearch' && \
+        { __disableShardAllocation || { >&2 echo "Failed to disable shard allocation"; return 1; } }
     VERSION=${version} docker stack deploy --prune --with-registry-auth -c ${stackFile} ${stackName} || return 1
     docker logout $(__registry)
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch" || return $?
