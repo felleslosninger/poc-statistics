@@ -12,14 +12,14 @@ run() {
     docker login $(__registry) -u ${registryUser} -p ${registryPassword}
     # See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
     __serviceExists "${stackName}_elasticsearch" && __isServiceAvailable 'elasticsearch' ${applicationHost} && \
-        { __disableShardAllocation || { >&2 echo "Failed to disable shard allocation"; return 1; } }
+        { __disableShardAllocation ${applicationHost} || { >&2 echo "Failed to disable shard allocation"; return 1; } }
     VERSION=${version} docker stack deploy --prune --with-registry-auth -c ${stackFile} ${stackName} || return 1
     docker logout $(__registry)
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch" || return $?
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch_gossip" || return $?
     __waitForServiceToBeAvailable 'elasticsearch' ${applicationHost} || return $?
     __waitForServiceToBeAvailable 'elasticsearch_gossip' ${applicationHost} || return $?
-    __enableShardAllocation || { >&2 echo "Failed to enable shard allocation"; return 1; }
+    __enableShardAllocation ${applicationHost} || { >&2 echo "Failed to enable shard allocation"; return 1; }
 }
 
 __serviceExists() {
