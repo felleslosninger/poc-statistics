@@ -72,7 +72,7 @@ public class QueryRestControllerTest {
         TimeSeriesFilter filter = new TimeSeriesFilter(percentile, measurementId, operator);
         ResultActions result;
         result = mockMvc.perform(
-                get("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries)
+                get("/{owner}/{series}/minutes/percentile", aSeriesOwner(), timeSeries)
                         .param("from", from)
                         .param("to", to)
                         .param("percentile", String.valueOf(percentile))

@@ -154,8 +154,9 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
     private String url() {
         switch (type) {
             case normal:
-            case relativeToPercentile:
                 return "/{owner}/{series}/{distance}" + queryUrl();
+            case relativeToPercentile:
+                return "/{owner}/{series}/{distance}/percentile" + queryUrl();
             case sum:
                 return "/{owner}/{series}/{distance}/sum" + queryUrl();
             case sumPer:

@@ -71,7 +71,7 @@ public class QueryRestController {
         }
     }
 
-    @GetMapping(path = "{owner}/{seriesName}/{distance}", params = {"percentile", "measurementId", "operator"})
+    @GetMapping(path = "{owner}/{seriesName}/{distance}/percentile", params = {"percentile", "measurementId", "operator"})
     public List<TimeSeriesPoint> relationalToPercentile(
             @PathVariable String owner,
             @PathVariable String seriesName,
