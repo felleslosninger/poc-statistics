@@ -2,6 +2,7 @@ package no.difi.statistics;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.model.*;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.elasticsearch.config.ElasticsearchConfig;
@@ -10,7 +11,8 @@ import no.difi.statistics.query.elasticsearch.helpers.GivenSupplier;
 import no.difi.statistics.query.elasticsearch.helpers.WhenSupplier;
 import no.difi.statistics.test.utils.DataOperations;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
-import org.elasticsearch.client.Client;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.*;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,33 +39,15 @@ import java.util.function.Function;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.MONTHS;
-import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.greaterThan;
-import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.greaterThanOrEqualTo;
-import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.lessThan;
-import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.lessThanOrEqualTo;
+import static no.difi.statistics.ElasticsearchQueryServiceTest.PercentileFilterBuilder.*;
 import static no.difi.statistics.elasticsearch.Timestamp.truncate;
-import static no.difi.statistics.model.MeasurementDistance.days;
-import static no.difi.statistics.model.MeasurementDistance.hours;
-import static no.difi.statistics.model.MeasurementDistance.minutes;
-import static no.difi.statistics.model.MeasurementDistance.months;
-import static no.difi.statistics.model.MeasurementDistance.years;
-import static no.difi.statistics.model.RelationalOperator.gt;
-import static no.difi.statistics.model.RelationalOperator.gte;
-import static no.difi.statistics.model.RelationalOperator.lt;
-import static no.difi.statistics.model.RelationalOperator.lte;
+import static no.difi.statistics.model.MeasurementDistance.*;
+import static no.difi.statistics.model.RelationalOperator.*;
 import static no.difi.statistics.query.elasticsearch.helpers.Given.given;
-import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.availableSeries;
-import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.lastPoint;
-import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.percentile;
+import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.*;
 import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.sum;
-import static no.difi.statistics.query.elasticsearch.helpers.ThenFunction.sumHistogram;
 import static no.difi.statistics.test.utils.DataGenerator.createRandomTimeSeries;
-import static no.difi.statistics.test.utils.DataOperations.measurementValue;
-import static no.difi.statistics.test.utils.DataOperations.relativeToPercentile;
-import static no.difi.statistics.test.utils.DataOperations.size;
-import static no.difi.statistics.test.utils.DataOperations.timestamp;
-import static no.difi.statistics.test.utils.DataOperations.unit;
-import static no.difi.statistics.test.utils.DataOperations.value;
+import static no.difi.statistics.test.utils.DataOperations.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
@@ -81,7 +65,7 @@ public class ElasticsearchQueryServiceTest {
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),
                     "no.difi.statistics.elasticsearch.host=" + backend.getContainerIpAddress(),
-                    "no.difi.statistics.elasticsearch.port=" + backend.getMappedPort(9300)
+                    "no.difi.statistics.elasticsearch.port=" + backend.getMappedPort(9200)
             );
             ElasticsearchQueryServiceTest.backend = backend;
         }
@@ -106,11 +90,7 @@ public class ElasticsearchQueryServiceTest {
 
     @Before
     public void prepare() throws Exception {
-        helper = new ElasticsearchHelper(
-                client,
-                backend.getContainerIpAddress(),
-                backend.getMappedPort(9200)
-        );
+        helper = new ElasticsearchHelper(client);
         helper.waitForGreenStatus();
     }
 
@@ -282,7 +262,7 @@ public class ElasticsearchQueryServiceTest {
         assertEquals(0, size(timeSeries));
     }
 
-    @Test @Ignore
+    @Test
     public void givenHourSeriesWhenQueryingForApproxUnlimitedRangeThenAllDataPointsAreReturned() throws IOException, InterruptedException {
         helper.indexPoint(hours, now.minusHours(100), 100);
         helper.indexPoint(hours, now.minusHours(200), 200);

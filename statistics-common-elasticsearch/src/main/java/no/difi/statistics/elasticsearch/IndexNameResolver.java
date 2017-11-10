@@ -172,6 +172,12 @@ public class IndexNameResolver {
                 instance.from = truncate(instance.from, instance.baseTimeUnit);
                 instance.to = truncate(instance.to, instance.baseTimeUnit);
                 for (ZonedDateTime timestamp = instance.from; timestamp.isBefore(instance.to) || timestamp.isEqual(instance.to); timestamp = timestamp.plus(1, instance.baseTimeUnit)) {
+                    if (indices.size() >= 10) {
+                        // Use wildcard instead if number of indices exceeds 10
+                        indices.clear();
+                        indices.add(formatName(null));
+                        break;
+                    }
                     indices.add(formatName(timestamp));
                 }
             }

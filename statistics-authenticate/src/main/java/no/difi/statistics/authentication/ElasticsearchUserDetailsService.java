@@ -1,31 +1,38 @@
 package no.difi.statistics.authentication;
 
-import org.elasticsearch.client.Client;
-import org.elasticsearch.index.IndexNotFoundException;
+import org.elasticsearch.ElasticsearchStatusException;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.rest.RestStatus;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static java.util.Collections.singletonList;
 
 public class ElasticsearchUserDetailsService implements UserDetailsService {
 
-    private Client client;
+    private RestHighLevelClient client;
 
-    public ElasticsearchUserDetailsService(Client client) {
+    public ElasticsearchUserDetailsService(RestHighLevelClient client) {
         this.client = client;
     }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         try {
-            return user(client.prepareGet("authentication", "authentication", username).get().getSource());
-        } catch (IndexNotFoundException e) {
-            throw new UsernameNotFoundException(username);
+            return user(client.get(new GetRequest("authentication", "authentication", username)).getSource());
+        } catch (ElasticsearchStatusException e) {
+            if (e.status() == RestStatus.NOT_FOUND)
+                throw new UsernameNotFoundException(username);
+            throw new RuntimeException("Failed to load user by username", e);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load user by username", e);
         }
     }
 

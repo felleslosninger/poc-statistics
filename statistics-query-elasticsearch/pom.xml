@@ -24,7 +24,7 @@
         </dependency>
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
-            <artifactId>transport</artifactId>
+            <artifactId>elasticsearch-rest-high-level-client</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -50,6 +50,16 @@
             <artifactId>statistics-test-utils</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.json</groupId>
+            <artifactId>javax.json-api</artifactId>
+            <version>1.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish</groupId>
+            <artifactId>javax.json</artifactId>
+            <version>1.1.2</version>
         </dependency>
         <dependency>
             <groupId>io.rest-assured</groupId>

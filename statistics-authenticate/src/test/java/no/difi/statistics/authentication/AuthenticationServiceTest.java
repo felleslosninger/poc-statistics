@@ -4,8 +4,10 @@ import no.difi.statistics.authentication.api.AuthenticationRequest;
 import no.difi.statistics.authentication.api.AuthenticationResponse;
 import no.difi.statistics.authentication.api.CredentialsResponse;
 import no.difi.statistics.authentication.config.AppConfig;
+import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
-import org.elasticsearch.client.Client;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -44,7 +46,7 @@ public class AuthenticationServiceTest {
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),
                     "no.difi.statistics.elasticsearch.host=" + backend.getContainerIpAddress(),
-                    "no.difi.statistics.elasticsearch.port=" + backend.getMappedPort(9300)
+                    "no.difi.statistics.elasticsearch.port=" + backend.getMappedPort(9200)
             );
             AuthenticationServiceTest.backend = backend;
         }
@@ -61,11 +63,7 @@ public class AuthenticationServiceTest {
 
     @Before
     public void prepare() throws Exception {
-        elasticsearchHelper = new ElasticsearchHelper(
-                client,
-                backend.getContainerIpAddress(),
-                backend.getMappedPort(9200)
-        );
+        elasticsearchHelper = new ElasticsearchHelper(client);
         elasticsearchHelper.waitForGreenStatus();
     }
 

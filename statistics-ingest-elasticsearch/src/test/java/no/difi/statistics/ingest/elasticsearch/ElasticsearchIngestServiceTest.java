@@ -1,11 +1,11 @@
 package no.difi.statistics.ingest.elasticsearch;
 
+import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.ingest.api.IngestResponse;
 import no.difi.statistics.ingest.config.AppConfig;
 import no.difi.statistics.ingest.elasticsearch.config.ElasticsearchConfig;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
-import org.elasticsearch.client.Client;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.After;
@@ -74,7 +74,7 @@ public class ElasticsearchIngestServiceTest {
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),
                     "no.difi.statistics.elasticsearch.host=" + backend.getContainerIpAddress(),
-                    "no.difi.statistics.elasticsearch.port=" + backend.getMappedPort(9300)
+                    "no.difi.statistics.elasticsearch.port=" + backend.getMappedPort(9200)
             );
             ElasticsearchIngestServiceTest.backend = backend;
         }
@@ -105,11 +105,7 @@ public class ElasticsearchIngestServiceTest {
                 .andExpect(jsonPath("username", equalTo(owner)))
                 .andExpect(jsonPath("password", equalTo(password)))
                 .andRespond(withSuccess("{\"authenticated\": true}", APPLICATION_JSON_UTF8));
-        elasticsearchHelper = new ElasticsearchHelper(
-                client,
-                backend.getContainerIpAddress(),
-                backend.getMappedPort(9200)
-        );
+        elasticsearchHelper = new ElasticsearchHelper(client);
         elasticsearchHelper.waitForGreenStatus();
     }
 

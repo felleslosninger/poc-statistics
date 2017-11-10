@@ -2,36 +2,36 @@ package no.difi.statistics.query.elasticsearch;
 
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
-import org.elasticsearch.client.Client;
+import org.elasticsearch.client.RestClient;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
-import static no.difi.statistics.model.MeasurementDistance.days;
-import static no.difi.statistics.model.MeasurementDistance.hours;
-import static no.difi.statistics.model.MeasurementDistance.minutes;
-import static no.difi.statistics.model.MeasurementDistance.months;
-import static no.difi.statistics.model.MeasurementDistance.years;
+import static no.difi.statistics.model.MeasurementDistance.*;
 
 public class ListAvailableTimeSeries {
 
     private final static Pattern indexNamePattern = Pattern.compile("(.+):(.+):(minute|hour|day|month|year).*");
-    private Client elasticSearchClient;
+    private RestClient elasticSearchClient;
 
     private ListAvailableTimeSeries() {
         // Use builder
     }
 
     List<TimeSeriesDefinition> execute() {
-        List<String> indices = asList(
-                elasticSearchClient.admin().cluster()
-                        .prepareState().execute()
-                        .actionGet().getState()
-                        .getMetaData().getConcreteAllIndices()
-        );
+        List<String> indices = new ArrayList<>();
+        try (InputStream response = elasticSearchClient.performRequest("GET", "/_cat/indices?h=index").getEntity().getContent();
+             Scanner scanner = new Scanner(response)) {
+            scanner.forEachRemaining(indices::add);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to list available time series", e);
+        }
         return indices.stream()
                 .map(indexNamePattern::matcher)
                 .filter(Matcher::find)
@@ -62,9 +62,9 @@ public class ListAvailableTimeSeries {
 
     public static class Command {
 
-        private Client elasticSearchClient;
+        private RestClient elasticSearchClient;
 
-        public Command elasticsearchClient(Client client) {
+        public Command elasticsearchClient(RestClient client) {
             this.elasticSearchClient = client;
             return this;
         }

@@ -1,6 +1,6 @@
 package no.difi.statistics.query.elasticsearch;
 
-import com.google.common.collect.ImmutableMap;
+import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.ResultParser;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
@@ -8,38 +8,39 @@ import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.QueryService;
-import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
-import org.elasticsearch.search.sort.SortOrder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.json.Json;
+import javax.json.JsonReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
+import static java.lang.String.join;
+import static java.util.stream.Collectors.*;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
-import static no.difi.statistics.elasticsearch.QueryBuilders.lastAggregation;
-import static no.difi.statistics.elasticsearch.QueryBuilders.lastHistogramAggregation;
-import static no.difi.statistics.elasticsearch.QueryBuilders.sumAggregation;
-import static no.difi.statistics.elasticsearch.QueryBuilders.sumHistogramAggregation;
-import static no.difi.statistics.elasticsearch.QueryBuilders.timeRangeQuery;
+import static no.difi.statistics.elasticsearch.QueryBuilders.*;
 import static no.difi.statistics.model.MeasurementDistance.days;
 import static no.difi.statistics.model.MeasurementDistance.months;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
+import static org.elasticsearch.search.builder.SearchSourceBuilder.searchSource;
+import static org.elasticsearch.search.sort.SortOrder.ASC;
 
 public class ElasticsearchQueryService implements QueryService {
 
@@ -47,11 +48,11 @@ public class ElasticsearchQueryService implements QueryService {
     private static final String timeFieldName = "timestamp";
     private static final String indexType = "default";
 
-    private Client elasticSearchClient;
+    private Client elasticsearchClient;
     private ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand;
 
-    public ElasticsearchQueryService(Client elasticSearchClient, ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand) {
-        this.elasticSearchClient = elasticSearchClient;
+    public ElasticsearchQueryService(Client elasticsearchClient, ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand) {
+        this.elasticsearchClient = elasticsearchClient;
         this.listAvailableTimeSeriesCommand = listAvailableTimeSeriesCommand;
     }
 
@@ -165,11 +166,11 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private TimeSeriesPoint last(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
-        SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .addAggregation(lastAggregation())
-                .setSize(0) // We are after aggregation and not the search hits
-                .execute().actionGet();
+        SearchResponse response = search(indexNames, searchSource()
+                .query(timeRangeQuery(from, to))
+                .aggregation(lastAggregation())
+                .size(0) // We are after aggregation and not the search hits
+        );
         return ResultParser.pointFromLastAggregation(response);
     }
 
@@ -183,14 +184,11 @@ public class ElasticsearchQueryService implements QueryService {
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .setSize(10_000) // 10 000 is maximum
-                .execute().actionGet();
+        SearchResponse response = search(indexNames, searchSource()
+                .query(timeRangeQuery(from, to))
+                .size(10_000) // 10 000 is maximum
+        );
         List<TimeSeriesPoint> series = new ArrayList<>();
-        if (logger.isDebugEnabled()) {
-            logger.debug("Search result:\n" + response);
-        }
         for (SearchHit hit : response.getHits()) {
             series.add(ResultParser.point(hit));
         }
@@ -200,29 +198,23 @@ public class ElasticsearchQueryService implements QueryService {
     private TimeSeriesPoint sumAggregate(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
         if (from == null && to == null)
             return sumAggregateUnbounded(indexNames);
-        SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .addAggregation(sumAggregation("a", from, to, measurementIds(indexNames)))
-                .setSize(0) // We are after aggregation and not the search hits
-                .execute().actionGet();
-        if (logger.isDebugEnabled()) {
-            logger.debug("Search result:\n" + response);
-        }
+        SearchResponse response = search(indexNames, searchSource()
+                .query(timeRangeQuery(from, to))
+                .aggregation(sumAggregation("a", from, to, measurementIds(indexNames)))
+                .size(0) // We are after aggregation and not the search hits
+        );
         if (response.getAggregations() == null)
             return null;
         return ResultParser.sumPointFromRangeBucket(response.getAggregations().get("a"));
     }
 
     private TimeSeriesPoint sumAggregateUnbounded(List<String> indexNames) {
-        SearchRequestBuilder searchBuilder = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(null, null))
-                .setSize(0); // We are after aggregation and not the search hits
-        measurementIds(indexNames).forEach(mid -> searchBuilder.addAggregation(AggregationBuilders.sum(mid).field(mid)));
-        searchBuilder.addAggregation(lastAggregation());
-        SearchResponse response = searchBuilder.execute().actionGet();
-        if (logger.isDebugEnabled()) {
-            logger.debug("Search result:\n" + response);
-        }
+        SearchSourceBuilder searchSourceBuilder = searchSource()
+                .query(timeRangeQuery(null, null))
+                .size(0); // We are after aggregation and not the search hits
+        measurementIds(indexNames).forEach(mid -> searchSourceBuilder.aggregation(AggregationBuilders.sum(mid).field(mid)));
+        searchSourceBuilder.aggregation(lastAggregation());
+        SearchResponse response = search(indexNames, searchSourceBuilder);
         return ResultParser.sumPoint(response.getAggregations());
     }
 
@@ -236,14 +228,11 @@ public class ElasticsearchQueryService implements QueryService {
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .addAggregation(sumHistogramAggregation("a", targetDistance, measurementIds(indexNames)))
-                .setSize(0) // We are after aggregation and not the search hits
-                .execute().actionGet();
-        if (logger.isDebugEnabled()) {
-            logger.debug("Search result:\n" + response);
-        }
+        SearchResponse response = search(indexNames, searchSource()
+                .query(timeRangeQuery(from, to))
+                .aggregation(sumHistogramAggregation("a", targetDistance, measurementIds(indexNames)))
+                .size(0) // We are after aggregation and not the search hits
+        );
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
             Histogram histogram = response.getAggregations().get("a");
@@ -262,14 +251,11 @@ public class ElasticsearchQueryService implements QueryService {
                     to
             ));
         }
-        SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .addAggregation(lastHistogramAggregation("a", targetDistance, measurementIds(indexNames)))
-                .setSize(0) // We are after aggregation and not the search hits
-                .execute().actionGet();
-        if (logger.isDebugEnabled()) {
-            logger.debug("Search result:\n" + response);
-        }
+        SearchResponse response = search(indexNames, searchSource()
+                .query(timeRangeQuery(from, to))
+                .aggregation(lastHistogramAggregation("a", targetDistance, measurementIds(indexNames)))
+                .size(0) // We are after aggregation and not the search hits
+        );
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
             Histogram histogram = response.getAggregations().get("a");
@@ -290,13 +276,12 @@ public class ElasticsearchQueryService implements QueryService {
         }
         double percentileValue = percentileValue(indexNames, filter.getMeasurementId(), filter.getPercentile(), from, to);
         logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
-        SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .setPostFilter(range(filter.getMeasurementId(), filter.getRelationalOperator(), percentileValue))
-                .setSize(10_000) // 10 000 is maximum
-                .execute().actionGet();
+        SearchResponse response = search(indexNames, searchSource()
+                .query(timeRangeQuery(from, to))
+                .postFilter(range(filter.getMeasurementId(), filter.getRelationalOperator(), percentileValue))
+                .size(10_000) // 10 000 is maximum
+        );
         List<TimeSeriesPoint> series = new ArrayList<>();
-        logger.info("Search result:\n" + response);
         for (SearchHit hit : response.getHits()) {
             series.add(ResultParser.point(hit));
         }
@@ -320,33 +305,46 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private double percentileValue(List<String> indexNames, String measurementId, int percentile, ZonedDateTime from, ZonedDateTime to) {
-        SearchResponse response = searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .setSize(0) // We are after aggregation and not the search hits
-                .addAggregation(percentiles("p").field(measurementId).percentiles(percentile).compression(10000))
-                .execute().actionGet();
+        SearchResponse response = search(indexNames, searchSource()
+                        .query(timeRangeQuery(from, to))
+                        .size(0) // We are after aggregation and not the search hits
+                        .aggregation(percentiles("p").field(measurementId).percentiles(percentile).compression(10000))
+        );
         if (response.getAggregations() == null)
             return 0.0;
         return ((Percentiles)response.getAggregations().get("p")).percentile(percentile);
     }
 
-    private SearchRequestBuilder searchBuilder(List<String> indexNames) {
-        return elasticSearchClient
-                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
-                .addSort(timeFieldName, SortOrder.ASC)
-                .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                .setTypes(indexType);
+    private SearchResponse search(List<String> indexNames, SearchSourceBuilder searchSource) {
+        try {
+            return elasticsearchClient.highLevel().search(searchRequest(indexNames).source(searchSource.sort(timeFieldName, ASC)));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to search", e);
+        }
+    }
+
+    private SearchRequest searchRequest(List<String> indexNames) {
+        return new SearchRequest(indexNames.toArray(new String[indexNames.size()]))
+                .indicesOptions(IndicesOptions.fromOptions(true, true, true, false))
+                .types(indexType);
     }
 
     private List<String> measurementIds(List<String> indexNames) {
-        Map<String, GetFieldMappingsResponse.FieldMappingMetaData> fieldMapping =
-                elasticSearchClient.admin().indices()
-                        .prepareGetFieldMappings(indexNames.toArray(new String[indexNames.size()]))
-                        .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                        .addTypes(indexType)
-                        .setFields("*")
-                        .get().mappings().entrySet().stream().findFirst().map(m -> m.getValue().get(indexType)).orElse(ImmutableMap.of());
-        return fieldMapping.keySet().stream().filter(f -> !f.equals("timestamp") && !f.startsWith("_")).collect(toList());
+        Set<String> result = new HashSet<>();
+        try (InputStream response = elasticsearchClient.lowLevel()
+                .performRequest("GET", "/" + join(",", indexNames) + "/_mappings?ignore_unavailable=true").getEntity().getContent()) {
+            JsonReader reader = Json.createReader(response);
+            reader.readObject().forEach(
+                    (key, value) -> result.addAll(
+                            value.asJsonObject().getJsonObject("mappings").getJsonObject("default")
+                                    .getJsonObject("properties").keySet().stream()
+                                    .filter(p -> !p.equals(timeFieldName)).collect(toSet())
+                    )
+            );
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to get available measurement ids", e);
+        }
+        return new ArrayList<>(result);
     }
 
 

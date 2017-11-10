@@ -1,40 +1,42 @@
 package no.difi.statistics.test.utils;
 
+import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesPoint;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.apache.http.ConnectionClosedException;
+import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.ConnectException;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.net.UnknownHostException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.Scanner;
 
-import static java.lang.String.format;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.test.utils.DataOperations.unit;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
-import static org.elasticsearch.cluster.health.ClusterHealthStatus.GREEN;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.elasticsearch.common.xcontent.XContentType.JSON;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 
 public class ElasticsearchHelper {
@@ -46,51 +48,71 @@ public class ElasticsearchHelper {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private Client client;
-    private URL refreshUrl;
 
-    public ElasticsearchHelper(Client client, String host, int port) throws UnknownHostException, MalformedURLException {
+    public ElasticsearchHelper(Client client) throws UnknownHostException, MalformedURLException {
         this.client = client;
-        this.refreshUrl = new URL(format("http://%s:%d/_refresh", host, port));
     }
 
     public static GenericContainer startContainer() {
-        GenericContainer container = new GenericContainer("elasticsearch:5.6.3").withCommand("-Enetwork.host=_site_");
+        GenericContainer container = null;
+        try {
+            container = new GenericContainer("elasticsearch:5.6.3").withCommand("-Enetwork.host=_site_");
+        } catch (Exception e) {
+            // try again as
+            container = new GenericContainer("elasticsearch:5.6.3").withCommand("-Enetwork.host=_site_");
+        }
         container.start();
         return container;
     }
 
     public void clear() {
-        client.admin().indices().prepareDelete("_all").get();
+        try {
+            client.lowLevel().performRequest("DELETE", "/_all");
+        } catch (ConnectException|ConnectionClosedException e) {
+            // Assume Elasticsearch is stopped
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to clear Elasticsearch state", e);
+        }
     }
 
     public void refresh() {
         try {
-            refreshUrl.openConnection().getContent();
+            client.lowLevel().performRequest("GET", "/_refresh");
         } catch (IOException e) {
             throw new RuntimeException("Failed to refresh", e);
         }
     }
 
     public String[] indices() {
-        return client.admin().cluster()
-                .prepareState().execute()
-                .actionGet().getState()
-                .getMetaData().getConcreteAllIndices();
+        List<String> indices = new ArrayList<>();
+        try (InputStream response = client.lowLevel().performRequest("GET", "/_cat/indices?h=index").getEntity().getContent();
+             Scanner scanner = new Scanner(response)) {
+            scanner.forEachRemaining(indices::add);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to get indices", e);
+        }
+        return indices.toArray(new String[indices.size()]);
     }
 
     public void index(String indexName, String indexType, String id, String document) {
-        client.prepareIndex(indexName, indexType, id)
-                .setSource(document)
-                .setCreate(true)
-                .setRefreshPolicy(IMMEDIATE) // Make document immediately searchable for testing purposes
-                .get();
+        try {
+            client.highLevel().index(new IndexRequest(indexName, indexType, id)
+                    .source(document, JSON)
+                    .create(true)
+                    .setRefreshPolicy(IMMEDIATE)); // Make document immediately searchable for testing purposes
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to index", e);
+        }
     }
 
     public void index(String indexName, String indexType, String id, Map<String, String> document) {
-        client.prepareIndex(indexName, indexType, id)
-                .setSource(document)
-                .setRefreshPolicy(IMMEDIATE) // Make document immediately searchable for testing purposes
-                .get();
+        try {
+            client.highLevel().index(new IndexRequest(indexName, indexType, id)
+                    .source(document, JSON)
+                    .setRefreshPolicy(IMMEDIATE)); // Make document immediately searchable for testing purposes
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to index", e);
+        }
     }
 
     public void indexPoints(MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
@@ -140,48 +162,46 @@ public class ElasticsearchHelper {
     }
 
     public SearchResponse search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
-        return searchBuilder(indexNames)
-                .setQuery(timeRangeQuery(from, to))
-                .setSize(10_000) // 10 000 is maximum
-                .execute().actionGet();
+        SearchRequest request = new SearchRequest(indexNames.toArray(new String[indexNames.size()]))
+                .indicesOptions(IndicesOptions.fromOptions(true, true, true, false))
+                .types(defaultType)
+                .source(new SearchSourceBuilder()
+                        .sort(timeFieldName, SortOrder.ASC)
+                        .query(timeRangeQuery(from, to))
+                        .size(10_000)); // 10 000 is maximum
+        try {
+            return client.highLevel().search(request);
+        } catch (IOException e) {
+            throw new RuntimeException("Search failed", e);
+        }
     }
 
     public Long get(String indexName, String id, String measurementId) {
-        GetResponse response = client.prepareGet(indexName, defaultType, id).get();
+        GetResponse response;
+        try {
+            response = client.highLevel().get(new GetRequest(indexName, defaultType, id));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to get document", e);
+        }
         Object value = response.getSource().get(measurementId);
         return value != null && value instanceof Number ? ((Number) value).longValue() : null;
     }
 
-    public void waitForGreenStatus() throws InterruptedException, ExecutionException {
-        logger.info("Wait for connected ES node...");
-        for (int i = 0; i < 1000; i++) {
-            if (((TransportClient)client).connectedNodes().size() > 0) {
-                logger.info("ES node is connected");
-                break;
-            }
-            Thread.sleep(10L);
-        }
-        for (int i = 0; i < 1000; i++) {
-            logger.info("Waiting for GREEN status...");
-            try {
-                if (client.admin().cluster().health(new ClusterHealthRequest()).get().getStatus().equals(GREEN)) {
-                    logger.info("Status is GREEN");
-                    break;
+    public void waitForGreenStatus() {
+        try {
+            for (int i = 0; i < 100; i++) {
+                try {
+                    client.lowLevel().performRequest("GET", "/_cluster/health?wait_for_status=green&timeout=50s");
+                    return;
+                } catch (IOException e) {
+                    logger.info("Waiting for green status (" + i + "/1000): " + e.toString());
+                    Thread.sleep(100);
                 }
-                logger.info("Status is " + client.admin().cluster().health(new ClusterHealthRequest()).get().getStatus() + "\n Retrying " + (i + 1) + "/1000...");
-            } catch (Exception e) {
-                logger.warn("Failed to check cluster health: " + e.getMessage());
             }
-            Thread.sleep(10L);
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Failed to check Elasticsearch status", e);
         }
-    }
 
-    private SearchRequestBuilder searchBuilder(List<String> indexNames) {
-        return client
-                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
-                .addSort(timeFieldName, SortOrder.ASC)
-                .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                .setTypes(defaultType);
     }
 
     private RangeQueryBuilder timeRangeQuery(ZonedDateTime from, ZonedDateTime to) {

@@ -3,10 +3,10 @@ package no.difi.statistics.authentication.config;
 import no.difi.statistics.authentication.AuthenticationService;
 import no.difi.statistics.authentication.ElasticsearchUserDetailsService;
 import no.difi.statistics.authentication.api.AuthenticationRestController;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.transport.client.PreBuiltTransportClient;
+import no.difi.statistics.elasticsearch.Client;
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.autoconfigure.ManagementWebSecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -23,9 +23,6 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-
 import static java.lang.String.format;
 import static springfox.documentation.builders.PathSelectors.any;
 import static springfox.documentation.builders.RequestHandlerSelectors.basePackage;
@@ -37,8 +34,12 @@ import static springfox.documentation.builders.RequestHandlerSelectors.basePacka
 @EnableSwagger2
 public class AppConfig {
 
+    private final Environment environment;
+
     @Autowired
-    private Environment environment;
+    public AppConfig(Environment environment) {
+        this.environment = environment;
+    }
 
     @Bean
     public AuthenticationRestController api() {
@@ -47,7 +48,7 @@ public class AppConfig {
 
     @Bean
     public AuthenticationService authenticationService() {
-        return new AuthenticationService(authenticationProvider(), elasticsearchClient());
+        return new AuthenticationService(authenticationProvider(), elasticsearchHighLevelClient());
     }
 
     @Bean
@@ -60,19 +61,24 @@ public class AppConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return new ElasticsearchUserDetailsService(elasticsearchClient());
+        return new ElasticsearchUserDetailsService(elasticsearchHighLevelClient());
+    }
+
+    @Bean
+    public Client elasticsearchClient() {
+        return new Client(elasticsearchHighLevelClient(), elasticsearchLowLevelClient());
+    }
+
+    @Bean
+    public RestHighLevelClient elasticsearchHighLevelClient() {
+        return new RestHighLevelClient(elasticsearchLowLevelClient());
     }
 
     @Bean(destroyMethod = "close")
-    public Client elasticsearchClient() {
+    public RestClient elasticsearchLowLevelClient() {
         String host = environment.getRequiredProperty("no.difi.statistics.elasticsearch.host");
         int port = environment.getRequiredProperty("no.difi.statistics.elasticsearch.port", Integer.class);
-        try {
-            return new PreBuiltTransportClient(Settings.EMPTY)
-                    .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host), port));
-        } catch (UnknownHostException e) {
-            throw new RuntimeException("Failed to create Elasticsearch client", e);
-        }
+        return RestClient.builder(new HttpHost(host, port, "http")).build();
     }
 
     @Bean

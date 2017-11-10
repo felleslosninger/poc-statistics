@@ -1,11 +1,13 @@
 package no.difi.statistics.authentication;
 
-import org.elasticsearch.client.Client;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,9 +19,9 @@ public class AuthenticationService {
 
     private static final char[] validPasswordCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~`!@#$%^&*()-_=+[{]}\\|;:,<.>/?".toCharArray();
     private AuthenticationProvider authenticationProvider;
-    private Client client;
+    private RestHighLevelClient client;
 
-    public AuthenticationService(AuthenticationProvider authenticationProvider, Client client) {
+    public AuthenticationService(AuthenticationProvider authenticationProvider, RestHighLevelClient client) {
         this.authenticationProvider = authenticationProvider;
         this.client = client;
     }
@@ -32,9 +34,6 @@ public class AuthenticationService {
     public String createCredentials(String username) {
         final int passwordLength = 20;
         String password = random(passwordLength, 0, 0, false, false, validPasswordCharacters, new SecureRandom());
-        client.prepareIndex("authentication", "authentication", username)
-                .setSource(document(username, password))
-                .get();
         if (password.length() != passwordLength)
             throw new IllegalStateException(
                     format(
@@ -43,6 +42,11 @@ public class AuthenticationService {
                             passwordLength
                     )
             );
+        try {
+            client.index(new IndexRequest("authentication", "authentication", username).source(document(username, password)));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create credentials for username \"" + username + "\"", e);
+        }
         return password;
     }
 

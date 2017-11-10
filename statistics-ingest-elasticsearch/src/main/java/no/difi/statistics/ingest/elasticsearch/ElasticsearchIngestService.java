@@ -6,15 +6,23 @@ import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.bulk.BulkItemResponse;
+import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.engine.VersionConflictEngineException;
+import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,15 +39,17 @@ import static no.difi.statistics.elasticsearch.ResultParser.pointFromLastAggrega
 import static no.difi.statistics.elasticsearch.Timestamp.normalize;
 import static org.elasticsearch.common.bytes.BytesReference.toBytes;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.elasticsearch.common.xcontent.XContentType.JSON;
+import static org.elasticsearch.search.builder.SearchSourceBuilder.searchSource;
 
 public class ElasticsearchIngestService implements IngestService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    private final Client client;
+    private final RestHighLevelClient client;
     private static final String timeFieldName = "timestamp";
     private static final String indexType = "default";
 
-    public ElasticsearchIngestService(Client client) {
+    public ElasticsearchIngestService(RestHighLevelClient client) {
         this.client = client;
     }
 
@@ -54,18 +64,23 @@ public class ElasticsearchIngestService implements IngestService {
                 .at(normalize(dataPoint.getTimestamp(), seriesDefinition.getDistance())).single();
         log(indexName, id, document);
         try {
-            client.prepareIndex(indexName, indexType, id).setSource(document).setCreate(true).get();
-        } catch (VersionConflictEngineException e) {
-            throw new TimeSeriesPointAlreadyExists(seriesDefinition.getOwner(), seriesDefinition.getName(), id, e);
+            client.index(new IndexRequest(indexName, indexType, id).source(document, JSON).create(true));
+        } catch (ElasticsearchStatusException e) {
+            if (e.status().equals(RestStatus.CONFLICT))
+                throw new TimeSeriesPointAlreadyExists(seriesDefinition.getOwner(), seriesDefinition.getName(), id, e);
+            else
+                throw new RuntimeException("Failed to index point", e);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to index point", e);
         }
     }
 
     @Override
     public IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
-        BulkRequestBuilder bulkRequest = client.prepareBulk();
+        BulkRequest bulkRequest = new BulkRequest();
         for (TimeSeriesPoint point : dataPoints) {
             bulkRequest.add(
-                    client.prepareIndex(
+                    new IndexRequest(
                             resolveIndexName()
                                     .seriesName(seriesDefinition.getName())
                                     .owner(seriesDefinition.getOwner())
@@ -75,26 +90,40 @@ public class ElasticsearchIngestService implements IngestService {
                             indexType,
                             id(point, seriesDefinition.getDistance())
                     )
-                            .setSource(documentBytes(point, seriesDefinition.getDistance()))
-                            .setCreate(true)
+                            .source(documentBytes(point, seriesDefinition.getDistance()))
+                            .create(true)
             );
         }
-        BulkResponse response = bulkRequest.get();
+        BulkResponse response = null;
+        try {
+            response = client.bulk(bulkRequest);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to index list of points", e);
+        }
         return response(response);
     }
 
     @Override
     public TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition) {
-        SearchResponse response = searchBuilder(
-                resolveIndexName()
-                        .seriesName(seriesDefinition.getName())
-                        .owner(seriesDefinition.getOwner())
-                        .distance(seriesDefinition.getDistance())
-                        .list()
-        )
-                .addAggregation(lastAggregation())
-                .setSize(0) // We are after aggregation and not the search hits
-                .execute().actionGet();
+        List<String> indexNames = resolveIndexName()
+                .seriesName(seriesDefinition.getName())
+                .owner(seriesDefinition.getOwner())
+                .distance(seriesDefinition.getDistance())
+                .list();
+        SearchRequest request = new SearchRequest(indexNames.toArray(new String[indexNames.size()]))
+                .types(indexType)
+                .indicesOptions(IndicesOptions.fromOptions(true, true, true, false))
+                .source(searchSource()
+                        .sort(timeFieldName, SortOrder.ASC)
+                        .aggregation(lastAggregation())
+                        .size(0) // We are after aggregation and not the search hits
+                );
+        SearchResponse response;
+        try {
+            response = client.search(request);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to search", e);
+        }
         return pointFromLastAggregation(response);
     }
 
@@ -140,14 +169,6 @@ public class ElasticsearchIngestService implements IngestService {
 
     private static String format(ZonedDateTime timestamp, MeasurementDistance distance) {
         return normalize(timestamp, distance).toString();
-    }
-
-    private SearchRequestBuilder searchBuilder(List<String> indexNames) {
-        return client
-                .prepareSearch(indexNames.toArray(new String[indexNames.size()]))
-                .addSort(timeFieldName, SortOrder.ASC)
-                .setIndicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                .setTypes(indexType);
     }
 
 }

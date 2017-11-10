@@ -11,7 +11,6 @@ import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.range.Range;
 import org.elasticsearch.search.aggregations.metrics.sum.Sum;
-import org.elasticsearch.search.aggregations.metrics.tophits.InternalTopHits;
 import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
 
 import java.time.ZonedDateTime;
@@ -64,10 +63,10 @@ public class ResultParser {
         for (Aggregation aggregation : aggregations) {
             if (aggregation instanceof Sum) {
                 measurements.add(new Measurement(aggregation.getName(), (long) ((Sum) aggregation).getValue()));
-            } else if (aggregation instanceof InternalTopHits) {
-                long numHits = ((InternalTopHits)aggregation).getHits().hits().length;
+            } else if (aggregation instanceof TopHits) {
+                long numHits = ((TopHits)aggregation).getHits().getHits().length;
                 if (numHits != 1) throw new IllegalArgumentException("Expected 1 top hit but found " + numHits);
-                Map<String, SearchHitField> fieldsMap = ((InternalTopHits) aggregation).getHits().getAt(0).fields();
+                Map<String, SearchHitField> fieldsMap = ((TopHits) aggregation).getHits().getAt(0).getFields();
                 for (String s : fieldsMap.keySet()) {
                     Number value = (Number) fieldsMap.get(s).getValues().get(0);
                     measurements.add(new Measurement(s, value.longValue()));
