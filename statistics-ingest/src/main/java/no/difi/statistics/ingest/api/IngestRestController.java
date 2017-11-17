@@ -12,6 +12,7 @@ import org.springframework.web.servlet.view.RedirectView;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class IngestRestController {
@@ -35,30 +36,19 @@ public class IngestRestController {
 
     @PostMapping(
             value = "{owner}/{seriesName}/{distance}",
-            params = "!bulk",
-            consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
-    )
-    public void ingest(
-            @PathVariable String owner,
-            @PathVariable String seriesName,
-            @PathVariable MeasurementDistance distance,
-            @RequestBody TimeSeriesPoint dataPoint
-    ) {
-        ingestService.ingest(TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner), dataPoint);
-    }
-
-    @PostMapping(
-            value = "{owner}/{seriesName}/{distance}",
-            params = "bulk",
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
     public IngestResponse bulkIngest(
             @PathVariable String owner,
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
+            @RequestParam Map<String, String> categories,
             @RequestBody List<TimeSeriesPoint> dataPoints
     ) {
-        return ingestService.ingest(TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner), dataPoints);
+        return ingestService.ingest(
+                TimeSeriesDefinition.builder().name(seriesName).categories(categories).distance(distance).owner(owner),
+                dataPoints
+        );
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/last")

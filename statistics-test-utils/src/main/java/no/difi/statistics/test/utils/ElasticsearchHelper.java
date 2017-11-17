@@ -4,6 +4,7 @@ import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.apache.http.ConnectionClosedException;
 import org.elasticsearch.action.get.GetRequest;
@@ -54,7 +55,7 @@ public class ElasticsearchHelper {
     }
 
     public static GenericContainer startContainer() {
-        GenericContainer container = null;
+        GenericContainer container;
         try {
             container = new GenericContainer("elasticsearch:5.6.3").withCommand("-Enetwork.host=_site_");
         } catch (Exception e) {
@@ -116,46 +117,42 @@ public class ElasticsearchHelper {
     }
 
     public void indexPoints(MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
-        indexPoints("test_owner", "test", distance, points);
+        indexPoints(TimeSeriesDefinition.builder().name("test").distance(distance).owner("test_owner"), points);
     }
 
-    public void indexPoints(String owner, String series, MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
+    public void indexPoints(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> points) throws IOException {
         for (TimeSeriesPoint point : points)
-            indexPoint(indexNameForSeries(owner, series, distance, point.getTimestamp()), IdResolver.id(point, distance), point);
+            indexPoint(indexNameForSeries(seriesDefinition, point.getTimestamp()), IdResolver.id(point, seriesDefinition), point);
     }
 
     public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, MeasurementDistance distance, long...values) throws IOException {
-        return indexPointsFrom(timestamp, "test_owner", "test", distance, values);
+        return indexPointsFrom(timestamp, TimeSeriesDefinition.builder().name("test").distance(distance).owner("test_owner"), values);
     }
 
-    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, String owner, String series, MeasurementDistance distance, long... values) throws IOException {
+    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, TimeSeriesDefinition seriesDefinition, long... values) throws IOException {
         List<TimeSeriesPoint> points = new ArrayList<>(values.length);
         for (long value : values) {
             TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
             points.add(point);
-            indexPoint(indexNameForSeries(owner, series, distance, timestamp), IdResolver.id(point, distance), point);
-            timestamp = timestamp.plus(1, unit(distance));
+            indexPoint(indexNameForSeries(seriesDefinition, timestamp), IdResolver.id(point, seriesDefinition), point);
+            timestamp = timestamp.plus(1, unit(seriesDefinition.getDistance()));
         }
         return points;
     }
 
-    public TimeSeriesPoint indexPoint(String series, MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
-        return indexPoint("test_owner", series, distance, timestamp, value);
-    }
-
     public TimeSeriesPoint indexPoint(MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
-        return indexPoint("test_owner", "test", distance, timestamp, value);
+        return indexPoint(TimeSeriesDefinition.builder().name("test").distance(distance).owner("test_owner"), timestamp, value);
     }
 
-    public TimeSeriesPoint indexPoint(String owner, String series, MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
+    public TimeSeriesPoint indexPoint(TimeSeriesDefinition seriesDefinition, ZonedDateTime timestamp, long value) throws IOException {
         TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
-        indexPoint(indexNameForSeries(owner, series, distance, timestamp), IdResolver.id(point, distance), point);
+        indexPoint(indexNameForSeries(seriesDefinition, timestamp), IdResolver.id(point, seriesDefinition), point);
         return point;
     }
 
     private void indexPoint(String indexName, String id, TimeSeriesPoint point) throws IOException {
         XContentBuilder sourceBuilder = jsonBuilder().startObject()
-                .field("timestamp", formatTimestamp(point.getTimestamp()));
+                .field(timeFieldName, formatTimestamp(point.getTimestamp()));
         for (Measurement measurement : point.getMeasurements())
             sourceBuilder.field(measurement.getId(), measurement.getValue());
         index(indexName, "default", id, sourceBuilder.endObject().string());
@@ -213,8 +210,8 @@ public class ElasticsearchHelper {
         return builder;
     }
 
-    private String indexNameForSeries(String owner, String series, MeasurementDistance distance, ZonedDateTime timestamp) {
-        return resolveIndexName().seriesName(series).owner(owner).distance(distance).at(timestamp).single();
+    private String indexNameForSeries(TimeSeriesDefinition seriesDefinition, ZonedDateTime timestamp) {
+        return resolveIndexName().seriesDefinition(seriesDefinition).at(timestamp).single();
     }
 
     private String formatTimestamp(ZonedDateTime timestamp) {

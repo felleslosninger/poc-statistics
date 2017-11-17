@@ -2,33 +2,21 @@ package no.difi.statistics.ingest.elasticsearch;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.ingest.api.IngestResponse;
-import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
-import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.engine.VersionConflictEngineException;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -44,7 +32,6 @@ import static org.elasticsearch.search.builder.SearchSourceBuilder.searchSource;
 
 public class ElasticsearchIngestService implements IngestService {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
     private final RestHighLevelClient client;
     private static final String timeFieldName = "timestamp";
     private static final String indexType = "default";
@@ -54,47 +41,23 @@ public class ElasticsearchIngestService implements IngestService {
     }
 
     @Override
-    public void ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint dataPoint) throws TimeSeriesPointAlreadyExists {
-        byte[] document = documentBytes(dataPoint, seriesDefinition.getDistance());
-        String id = id(dataPoint, seriesDefinition.getDistance());
-        String indexName = resolveIndexName()
-                .seriesName(seriesDefinition.getName())
-                .owner(seriesDefinition.getOwner())
-                .distance(seriesDefinition.getDistance())
-                .at(normalize(dataPoint.getTimestamp(), seriesDefinition.getDistance())).single();
-        log(indexName, id, document);
-        try {
-            client.index(new IndexRequest(indexName, indexType, id).source(document, JSON).create(true));
-        } catch (ElasticsearchStatusException e) {
-            if (e.status().equals(RestStatus.CONFLICT))
-                throw new TimeSeriesPointAlreadyExists(seriesDefinition.getOwner(), seriesDefinition.getName(), id, e);
-            else
-                throw new RuntimeException("Failed to index point", e);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to index point", e);
-        }
-    }
-
-    @Override
     public IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
         BulkRequest bulkRequest = new BulkRequest();
         for (TimeSeriesPoint point : dataPoints) {
             bulkRequest.add(
                     new IndexRequest(
                             resolveIndexName()
-                                    .seriesName(seriesDefinition.getName())
-                                    .owner(seriesDefinition.getOwner())
-                                    .distance(seriesDefinition.getDistance())
+                                    .seriesDefinition(seriesDefinition)
                                     .at(normalize(point.getTimestamp(), seriesDefinition.getDistance()))
                                     .single(),
                             indexType,
-                            id(point, seriesDefinition.getDistance())
+                            id(point, seriesDefinition)
                     )
-                            .source(documentBytes(point, seriesDefinition.getDistance()))
+                            .source(documentBytes(point, seriesDefinition), JSON)
                             .create(true)
             );
         }
-        BulkResponse response = null;
+        BulkResponse response;
         try {
             response = client.bulk(bulkRequest);
         } catch (IOException e) {
@@ -105,11 +68,7 @@ public class ElasticsearchIngestService implements IngestService {
 
     @Override
     public TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition) {
-        List<String> indexNames = resolveIndexName()
-                .seriesName(seriesDefinition.getName())
-                .owner(seriesDefinition.getOwner())
-                .distance(seriesDefinition.getDistance())
-                .list();
+        List<String> indexNames = resolveIndexName().seriesDefinition(seriesDefinition).list();
         SearchRequest request = new SearchRequest(indexNames.toArray(new String[indexNames.size()]))
                 .types(indexType)
                 .indicesOptions(IndicesOptions.fromOptions(true, true, true, false))
@@ -134,34 +93,44 @@ public class ElasticsearchIngestService implements IngestService {
     }
 
     private IngestResponse.Status status(BulkItemResponse.Failure failure) {
-        return failure == null ? IngestResponse.Status.Ok : IngestResponse.Status.Failed;
-    }
-
-    private void log(String indexName, String id, byte[] document) {
-        if (logger.isDebugEnabled()) {
-            logger.debug(String.format(
-                    "Ingesting: Index=%s Type=%s Id=%s Point=%s",
-                    indexName,
-                    indexType,
-                    id,
-                    new String(document, Charset.forName("UTF-8"))
-                    )
-            );
+        if (failure == null)
+            return IngestResponse.Status.Ok;
+        switch (failure.getStatus()) {
+            case OK: return IngestResponse.Status.Ok;
+            case CONFLICT: return IngestResponse.Status.Conflict;
+            default: return IngestResponse.Status.Failed;
         }
     }
 
-    private static byte[] documentBytes(TimeSeriesPoint dataPoint, MeasurementDistance distance) {
-        return toBytes(document(dataPoint, distance).bytes());
+    private static byte[] documentBytes(TimeSeriesPoint dataPoint, TimeSeriesDefinition seriesDefinition) {
+        return toBytes(document(dataPoint, seriesDefinition).bytes());
     }
 
-    private static XContentBuilder document(TimeSeriesPoint dataPoint, MeasurementDistance distance) {
+    private static XContentBuilder document(TimeSeriesPoint dataPoint, TimeSeriesDefinition seriesDefinition) {
         try {
-            XContentBuilder builder = jsonBuilder().startObject()
-                    .field("timestamp", format(dataPoint.getTimestamp(), distance));
-            for (Measurement measurement : dataPoint.getMeasurements()) {
-                builder.field(measurement.getId(), measurement.getValue());
-            }
+            XContentBuilder builder = jsonBuilder().startObject();
+            addField(builder, timeFieldName, format(dataPoint.getTimestamp(), seriesDefinition.getDistance()));
+            seriesDefinition.getCategories().ifPresent(cs -> cs.forEach((key, value) -> addCategoryField(builder, key, value)));
+            dataPoint.getMeasurements().forEach(m -> addMeasurementField(builder, m.getId(), m.getValue()));
             return builder.endObject();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void addMeasurementField(XContentBuilder builder, String id, long value) {
+        if (id.startsWith("category.")) throw new IllegalArgumentException("Measurement ids cannot be prefixed with \"category.\"");
+        if (id.equals(timeFieldName)) throw new IllegalArgumentException("Measurement ids cannot be named \"" + timeFieldName + "\"");
+        addField(builder, id, value);
+    }
+
+    private static void addCategoryField(XContentBuilder builder, String key, String value) {
+        addField(builder, "category." + key, value);
+    }
+
+    private static void addField(XContentBuilder builder, String key, Object value) {
+        try {
+            builder.field(key, value);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

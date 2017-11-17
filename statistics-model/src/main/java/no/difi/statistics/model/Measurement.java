@@ -18,6 +18,7 @@ public class Measurement {
     private long value;
 
     public Measurement(String id, long value) {
+        if (id.startsWith("_")) throw new IllegalArgumentException("Invalid measurement id: cannot start with '_'");
         this.id = id;
         this.value = value;
     }

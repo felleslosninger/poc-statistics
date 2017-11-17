@@ -10,8 +10,6 @@ import static java.lang.String.format;
 
 public interface IngestService {
 
-    void ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint dataPoint) throws TimeSeriesPointAlreadyExists;
-
     IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints);
 
     TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition);

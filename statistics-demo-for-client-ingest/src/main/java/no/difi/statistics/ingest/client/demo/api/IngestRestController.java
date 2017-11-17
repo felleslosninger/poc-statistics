@@ -9,6 +9,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.web.bind.annotation.*;
 
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static no.difi.statistics.ingest.client.model.MeasurementDistance.minutes;
 
 @RestController
@@ -33,7 +34,7 @@ public class IngestRestController {
             @PathVariable String seriesName,
             @RequestBody TimeSeriesPoint dataPoint
     ) {
-        ingestService.ingest(TimeSeriesDefinition.builder().name(seriesName).distance(minutes), dataPoint);
+        ingestService.ingest(TimeSeriesDefinition.builder().name(seriesName).distance(minutes), singletonList(dataPoint));
     }
 
     public static void main(String[] args) throws Exception {

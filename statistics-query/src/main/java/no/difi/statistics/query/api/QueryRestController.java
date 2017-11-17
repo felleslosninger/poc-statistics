@@ -50,7 +50,8 @@ public class QueryRestController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     )
     {
-        return service.last(seriesName, distance, owner, from, to);
+        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
+        return service.last(seriesDefinition, from, to);
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}")
@@ -61,14 +62,8 @@ public class QueryRestController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        switch (distance) {
-            case minutes: return service.minutes(seriesName, owner, from, to);
-            case hours: return service.hours(seriesName, owner, from, to);
-            case days: return service.days(seriesName, owner, from, to);
-            case months: return service.months(seriesName, owner, from, to);
-            case years: return service.years(seriesName, owner, from, to);
-            default: throw new IllegalArgumentException(distance.toString());
-        }
+        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
+        return service.query(seriesDefinition, from, to);
     }
 
     @GetMapping(path = "{owner}/{seriesName}/{distance}/percentile", params = {"percentile", "measurementId", "operator"})
@@ -82,7 +77,8 @@ public class QueryRestController {
             @RequestParam String measurementId,
             @RequestParam RelationalOperator operator
     ) {
-        return service.query(seriesName, distance, owner, from, to, new TimeSeriesFilter(percentile, measurementId, operator));
+        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
+        return service.query(seriesDefinition, from, to, new TimeSeriesFilter(percentile, measurementId, operator));
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/last/{targetDistance}")
@@ -96,7 +92,8 @@ public class QueryRestController {
     ) {
         if (distance.ordinal() > targetDistance.ordinal())
             throw new IllegalArgumentException(format("Distance %s is greater than target distance %s", distance, targetDistance));
-        return service.lastPerDistance(seriesName, distance, targetDistance, owner, from, to);
+        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
+        return service.lastPerDistance(seriesDefinition, targetDistance, from, to);
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/sum")
@@ -107,7 +104,8 @@ public class QueryRestController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.sum(seriesName, distance, owner, from, to);
+        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
+        return service.sum(seriesDefinition, from, to);
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/sum/{targetDistance}")
@@ -119,7 +117,8 @@ public class QueryRestController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
     ) {
-        return service.sumPerDistance(seriesName, distance, targetDistance, owner, from, to);
+        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
+        return service.sumPerDistance(seriesDefinition, targetDistance, from, to);
     }
 
 }

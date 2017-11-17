@@ -10,7 +10,7 @@ import static java.util.Collections.unmodifiableList;
 @XmlRootElement
 public class IngestResponse {
 
-    public enum Status {Ok, Failed}
+    public enum Status {Ok, Failed, Conflict}
 
     private List<Status> statuses = new ArrayList<>();
 

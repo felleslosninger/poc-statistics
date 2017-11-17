@@ -1,6 +1,7 @@
 package no.difi.statistics.elasticsearch;
 
 import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.TimeSeriesDefinition;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -10,22 +11,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static java.lang.String.format;
-import static java.time.temporal.ChronoUnit.*;
+import static java.time.temporal.ChronoUnit.FOREVER;
+import static java.time.temporal.ChronoUnit.YEARS;
 import static java.util.Collections.singletonList;
 import static no.difi.statistics.elasticsearch.Timestamp.truncate;
-import static no.difi.statistics.model.MeasurementDistance.*;
 
 public class IndexNameResolver {
 
-    private String seriesName;
-    private String owner;
-    private MeasurementDistance measurementDistance;
+    private TimeSeriesDefinition seriesDefinition;
     private ChronoUnit baseTimeUnit;
     private ZonedDateTime from;
     private ZonedDateTime to;
     private ZonedDateTime at;
 
-    public static SeriesNameEntry resolveIndexName() {
+    public static SeriesDefinitionEntry resolveIndexName() {
         return new Fluent();
     }
 
@@ -52,21 +51,8 @@ public class IndexNameResolver {
         String single();
     }
 
-    public interface SeriesNameEntry {
-        OwnerEntry seriesName(String seriesName);
-    }
-
-    public interface OwnerEntry {
-        DistanceEntry owner(String owner);
-    }
-
-    public interface DistanceEntry {
-        FromOrAtOrResolveList distance(MeasurementDistance distance);
-        FromOrAtOrResolveList minutes();
-        FromOrAtOrResolveList hours();
-        FromOrAtOrResolveList days();
-        FromOrAtOrResolveList months();
-        FromOrAtOrResolveList years();
+    public interface SeriesDefinitionEntry {
+        FromOrAtOrResolveList seriesDefinition(TimeSeriesDefinition seriesDefinition);
     }
 
     private static class Fluent implements
@@ -76,9 +62,7 @@ public class IndexNameResolver {
             AtEntry,
             ResolveList,
             ResolveSingle,
-            OwnerEntry,
-            SeriesNameEntry,
-            DistanceEntry {
+            SeriesDefinitionEntry {
 
         private IndexNameResolver instance = new IndexNameResolver();
 
@@ -101,21 +85,9 @@ public class IndexNameResolver {
         }
 
         @Override
-        public OwnerEntry seriesName(String seriesName) {
-            instance.seriesName = seriesName;
-            return this;
-        }
-
-        @Override
-        public DistanceEntry owner(String organizationNumber) {
-            instance.owner = organizationNumber;
-            return this;
-        }
-
-        @Override
-        public FromOrAtOrResolveList distance(MeasurementDistance distance) {
-            instance.measurementDistance = distance;
-            switch (distance) {
+        public FromOrAtOrResolveList seriesDefinition(TimeSeriesDefinition seriesDefinition) {
+            instance.seriesDefinition = seriesDefinition;
+            switch (seriesDefinition.getDistance()) {
                 case minutes:
                 case hours:
                 case days:
@@ -129,35 +101,6 @@ public class IndexNameResolver {
             return this;
         }
 
-        @Override
-        public FromOrAtOrResolveList minutes() {
-            distance(minutes);
-            return this;
-        }
-
-        @Override
-        public FromOrAtOrResolveList hours() {
-            distance(hours);
-            return this;
-        }
-
-        @Override
-        public FromOrAtOrResolveList days() {
-            distance(days);
-            return this;
-        }
-
-        @Override
-        public FromOrAtOrResolveList months() {
-            distance(months);
-            return this;
-        }
-
-        @Override
-        public FromOrAtOrResolveList years() {
-            distance(years);
-            return this;
-        }
 
         @Override
         public List<String> list() {
@@ -192,9 +135,9 @@ public class IndexNameResolver {
         private String formatName(ZonedDateTime timestamp) {
             return format(
                     "%s:%s:%s%s",
-                    instance.owner,
-                    instance.seriesName,
-                    measurementDistanceName(instance.measurementDistance),
+                    instance.seriesDefinition.getOwner(),
+                    instance.seriesDefinition.getName(),
+                    measurementDistanceName(instance.seriesDefinition.getDistance()),
                     timestamp != null ? dateTimeFormatter(instance.baseTimeUnit).format(timestamp) : "*"
             );
         }

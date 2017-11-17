@@ -2,7 +2,6 @@ package no.difi.statistics.ingest.poc;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.Measurement;
-import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.springframework.boot.ApplicationArguments;
@@ -15,6 +14,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static no.difi.statistics.model.MeasurementDistance.minutes;
 
 public class DifiAdminIngester implements ApplicationRunner {
@@ -44,7 +44,7 @@ public class DifiAdminIngester implements ApplicationRunner {
                 }
                 service.ingest(
                         TimeSeriesDefinition.builder().name(timeSeriesName()).distance(minutes).owner(difiOrganizationNumber),
-                        pointBuilder.build()
+                        singletonList(pointBuilder.build())
                 );
             }
         }

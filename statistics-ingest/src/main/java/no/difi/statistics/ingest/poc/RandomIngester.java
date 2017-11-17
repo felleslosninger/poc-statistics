@@ -2,7 +2,6 @@ package no.difi.statistics.ingest.poc;
 
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.model.Measurement;
-import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.springframework.boot.ApplicationArguments;
@@ -11,6 +10,7 @@ import org.springframework.boot.ApplicationRunner;
 import java.time.ZonedDateTime;
 import java.util.Random;
 
+import static java.util.Collections.singletonList;
 import static no.difi.statistics.model.MeasurementDistance.minutes;
 
 public class RandomIngester implements ApplicationRunner {
@@ -30,7 +30,7 @@ public class RandomIngester implements ApplicationRunner {
             long value = random.nextLong();
             service.ingest(
                     TimeSeriesDefinition.builder().name("random").distance(minutes).owner("randomOrganizationNumber"),
-                    TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", value)).build()
+                    singletonList(TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", value)).build())
             );
         }
     }

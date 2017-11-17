@@ -1,7 +1,7 @@
 package no.difi.statistics.query.api;
 
-import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.query.TimeSeriesFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.config.BackendConfig;
@@ -58,7 +58,7 @@ public class QueryRestControllerTest {
                         .contentType(MediaType.APPLICATION_JSON_UTF8)
         );
         assertNormalResponse(result);
-        verify(backendConfig.queryService()).last(timeSeries, minutes, aSeriesOwner(), parseTimestamp(from), parseTimestamp(to));
+        verify(backendConfig.queryService()).last(TimeSeriesDefinition.builder().name(timeSeries).distance(minutes).owner(aSeriesOwner()), parseTimestamp(from), parseTimestamp(to));
     }
 
     @Test
@@ -82,8 +82,7 @@ public class QueryRestControllerTest {
         );
         assertNormalResponse(result);
         verify(backendConfig.queryService()).query(
-                timeSeries,
-                MeasurementDistance.minutes, aSeriesOwner(),
+                TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(aSeriesOwner()),
                 parseTimestamp(from),
                 parseTimestamp(to),
                 filter
@@ -95,9 +94,8 @@ public class QueryRestControllerTest {
         final String timeSeries = "test";
         ResultActions result = mockMvc.perform(get("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries));
         assertNormalResponse(result);
-        verify(backendConfig.queryService()).minutes(
-                timeSeries,
-                aSeriesOwner(),
+        verify(backendConfig.queryService()).query(
+                TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(aSeriesOwner()),
                 null,
                 null
         );
@@ -109,9 +107,8 @@ public class QueryRestControllerTest {
         final String timeSeries = "test";
         ResultActions result = mockMvc.perform(get("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries).param("to", endTime));
         assertNormalResponse(result);
-        verify(backendConfig.queryService()).minutes(
-                timeSeries,
-                aSeriesOwner(),
+        verify(backendConfig.queryService()).query(
+                TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(aSeriesOwner()),
                 null,
                 parseTimestamp(endTime)
         );
@@ -123,9 +120,8 @@ public class QueryRestControllerTest {
         final String timeSeries = "test";
         ResultActions result = mockMvc.perform(get("/{owner}/{series}/minutes", aSeriesOwner(), timeSeries).param("from", startTime));
         assertNormalResponse(result);
-        verify(backendConfig.queryService()).minutes(
-                timeSeries,
-                aSeriesOwner(),
+        verify(backendConfig.queryService()).query(
+                TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(aSeriesOwner()),
                 parseTimestamp(startTime),
                 null
         );

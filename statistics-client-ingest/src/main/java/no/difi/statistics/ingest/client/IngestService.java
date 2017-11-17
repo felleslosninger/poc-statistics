@@ -8,8 +8,6 @@ import java.util.Optional;
 
 public interface IngestService {
 
-    void ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint timeSeriesPoint);
-
     void ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints);
 
     Optional<TimeSeriesPoint> last(TimeSeriesDefinition seriesDefinition);

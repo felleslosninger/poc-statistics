@@ -51,10 +51,12 @@ public class ResultParser {
 
     private static List<Measurement> measurements(SearchHit hit) {
         List<Measurement> measurements = new ArrayList<>();
-        hit.getSource().keySet().stream().filter(field -> !field.equals(timeFieldName)).forEach(field -> {
-            long value = Long.valueOf(hit.getSource().get(field).toString());
-            measurements.add(new Measurement(field, value));
-        });
+        hit.getSource().keySet().stream()
+                .filter(field -> !field.equals(timeFieldName) && !field.startsWith("category."))
+                .forEach(field -> {
+                    long value = Long.valueOf(hit.getSource().get(field).toString());
+                    measurements.add(new Measurement(field, value));
+                });
         return measurements;
     }
 

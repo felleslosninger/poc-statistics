@@ -1,9 +1,11 @@
 package no.difi.statistics.ingest.elasticsearch;
 
 import no.difi.statistics.elasticsearch.Client;
+import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.ingest.api.IngestResponse;
 import no.difi.statistics.ingest.config.AppConfig;
 import no.difi.statistics.ingest.elasticsearch.config.ElasticsearchConfig;
+import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
 import org.json.JSONException;
@@ -21,7 +23,6 @@ import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
@@ -38,13 +39,13 @@ import java.util.concurrent.ExecutionException;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ofPattern;
-import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.joining;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
-import static no.difi.statistics.ingest.api.IngestResponse.Status.Failed;
+import static no.difi.statistics.ingest.api.IngestResponse.Status.Conflict;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Ok;
+import static no.difi.statistics.model.TimeSeriesDefinition.builder;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -126,9 +127,12 @@ public class ElasticsearchIngestServiceTest {
             point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build(),
             point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build()
         );
-        ResponseEntity<IngestResponse> response = ingest("series", points.get(0), points.get(1), points.get(2));
-        assertEquals(200, response.getStatusCodeValue());
-        assertIngested(points, response.getBody());
+        TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
+        ResponseEntity<IngestResponse> response = ingest(seriesDefinition, points.get(0), points.get(1), points.get(2));
+        assertEquals(3, response.getBody().getStatuses().size());
+        for (IngestResponse.Status status : response.getBody().getStatuses())
+            assertEquals(Ok, status);
+        assertIngested(seriesDefinition, points, response.getBody());
     }
 
     @Test
@@ -136,11 +140,12 @@ public class ElasticsearchIngestServiceTest {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
         TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
         TimeSeriesPoint point2 = point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 567543L).build();
-        ResponseEntity<IngestResponse> response = ingest("series", point1, duplicateOfPoint1, point2);
-        assertEquals(200, response.getStatusCodeValue());
-        assertIngested(0, point1, response.getBody());
+        TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
+        ResponseEntity<IngestResponse> response = ingest(seriesDefinition, point1, duplicateOfPoint1, point2);
+        assertEquals(3, response.getBody().getStatuses().size());
+        assertIngested(seriesDefinition, 0, point1, response.getBody());
         assertNotIngested(1, response.getBody());
-        assertIngested(2, point2, response.getBody());
+        assertIngested(seriesDefinition, 2, point2, response.getBody());
     }
 
     @Test
@@ -148,24 +153,49 @@ public class ElasticsearchIngestServiceTest {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
         TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
         TimeSeriesPoint point2 = point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 567543L).build();
-        ResponseEntity<Void> response1 = ingest("minutes", "series", point1);
-        ResponseEntity<Void> response2 = ingest("minutes", "series", duplicateOfPoint1);
-        ResponseEntity<Void> response3 = ingest("minutes", "series", point2);
-        assertEquals(200, response1.getStatusCodeValue());
-        assertEquals(409, response2.getStatusCodeValue());
-        assertEquals(200, response3.getStatusCodeValue());
-        assertIngested(point1);
-        assertIngested(point2);
+        TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
+        ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition, point1);
+        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition, duplicateOfPoint1);
+        ResponseEntity<IngestResponse> response3 = ingest(seriesDefinition, point2);
+        assertEquals(Ok, response1.getBody().getStatuses().get(0));
+        assertEquals(Conflict, response2.getBody().getStatuses().get(0));
+        assertEquals(Ok, response3.getBody().getStatuses().get(0));
+        assertIngested(seriesDefinition, point1);
+        assertIngested(seriesDefinition, point2);
+    }
+
+    @Test
+    public void whenIngestingTwoPointsWithSameTimestampAndDifferentCategoriesThenBothAreIngested() {
+        TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
+        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
+        TimeSeriesDefinition seriesDefinition1 = seriesDefinition().name("series").category("category1", "abc").category("category2", "def").minutes().owner(owner);
+        TimeSeriesDefinition seriesDefinition2 = seriesDefinition().name("series").category("category1", "abc").minutes().owner(owner);
+        ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition1, point1);
+        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition2, duplicateOfPoint1);
+        assertIngested(seriesDefinition1, 0, point1, response1.getBody());
+        assertIngested(seriesDefinition2, 0, duplicateOfPoint1, response2.getBody());
+    }
+
+    @Test
+    public void whenIngestingTwoPointsWithSameTimestampAndSameCategoriesThenLastPointIsNotIngested() {
+        TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
+        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
+        TimeSeriesDefinition seriesDefinition1 = seriesDefinition().name("series").category("category", "abc").minutes().owner(owner);
+        TimeSeriesDefinition seriesDefinition2 = seriesDefinition().name("series").category("category", "abc").minutes().owner(owner);
+        ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition1, point1);
+        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition2, duplicateOfPoint1);
+        assertIngested(seriesDefinition1, 0, point1, response1.getBody());
+        assertNotIngested(0, response2.getBody());
     }
 
     @Test
     public void whenIngestingAPointThenProperlyNamedIndexIsCreated() {
-        final String series = "series";
-        ResponseEntity<Void> response =
-                ingest("minutes", owner, password, series, point().timestamp(now).measurement("aMeasurement", 103L).build());
-        assertEquals(200, response.getStatusCodeValue());
+        TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
+        ResponseEntity<IngestResponse> response =
+                ingest(seriesDefinition, password, point().timestamp(now).measurement("aMeasurement", 103L).build());
+        assertEquals(Ok, response.getBody().getStatuses().get(0));
         assertEquals(
-                format("%s:%s:minute%d", owner, series, now.getYear()),
+                format("%s:%s:minute%d", owner, seriesDefinition.getName(), now.getYear()),
                 elasticsearchHelper.indices()[0]
         );
     }
@@ -176,14 +206,15 @@ public class ElasticsearchIngestServiceTest {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 105L).build();
         TimeSeriesPoint pointSameHourAsFirst = point().timestamp(now.plusMinutes(addMinute)).measurement("aMeasurement", 108L).build();
         TimeSeriesPoint pointNextHour = point().timestamp(now.plusHours(1)).measurement("aMeasurement", 115L).build();
-        ResponseEntity<Void> response1 = ingest("hours", "series", point1);
-        ResponseEntity<Void> response3 = ingest("hours", "series", pointSameHourAsFirst);
-        ResponseEntity<Void> response4 = ingest("hours", "series", pointNextHour);
-        assertEquals(HttpStatus.OK.value(), response1.getStatusCodeValue());
-        assertEquals(HttpStatus.CONFLICT.value(), response3.getStatusCodeValue());
-        assertEquals(HttpStatus.OK.value(), response4.getStatusCodeValue());
-        assertIngestedHour(point1);
-        assertIngestedHour(pointNextHour);
+        TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").hours().owner(owner);
+        ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition, point1);
+        ResponseEntity<IngestResponse> response3 = ingest(seriesDefinition, pointSameHourAsFirst);
+        ResponseEntity<IngestResponse> response4 = ingest(seriesDefinition, pointNextHour);
+        assertEquals(Ok, response1.getBody().getStatuses().get(0));
+        assertEquals(Conflict, response3.getBody().getStatuses().get(0));
+        assertEquals(Ok, response4.getBody().getStatuses().get(0));
+        assertIngestedHour(seriesDefinition, point1);
+        assertIngestedHour(seriesDefinition, pointNextHour);
     }
 
     @Test
@@ -193,7 +224,8 @@ public class ElasticsearchIngestServiceTest {
                 point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build(),
                 point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build()
         );
-        ingest("series", points.get(0), points.get(1), points.get(2));
+        TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
+        ingest(seriesDefinition, points.get(0), points.get(1), points.get(2));
         elasticsearchHelper.refresh();
         JSONObject lastPoint = new JSONObject(last("series").getBody());
         assertEquals(now.plusMinutes(2).format(ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")), lastPoint.get("timestamp"));
@@ -204,40 +236,46 @@ public class ElasticsearchIngestServiceTest {
         assertNull(last("series").getBody());
     }
 
-    private void assertIngested(List<TimeSeriesPoint> points, IngestResponse response) {
+    private void assertIngested(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> points, IngestResponse response) {
         elasticsearchHelper.refresh();
         for (int i = 0; i < points.size(); i++)
-            assertIngested(i, points.get(i), response);
-        assertEquals(points.size(), elasticsearchHelper.search(singletonList("*"), now.minusDays(1), now.plusDays(1)).getHits().totalHits());
+            assertIngested(seriesDefinition, i, points.get(i), response);
+        assertEquals(points.size(), elasticsearchHelper.search(singletonList("*"), now.minusDays(1), now.plusDays(1)).getHits().getTotalHits());
     }
 
     private void assertNotIngested(int index, IngestResponse response) {
-        assertEquals(Failed, response.getStatuses().get(index));
+        assertEquals(Conflict, response.getStatuses().get(index));
     }
 
-    private void assertIngested(int index, TimeSeriesPoint point, IngestResponse response) {
+    private void assertIngested(TimeSeriesDefinition seriesDefinition, int index, TimeSeriesPoint point, IngestResponse response) {
         assertEquals(Ok, response.getStatuses().get(index));
-        assertIngested(point);
+        assertIngested(seriesDefinition, point);
     }
 
-    private void assertIngested(TimeSeriesPoint point) {
-        String id = documentId(point.getTimestamp());
+    private void assertIngested(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint point) {
+        String id = IdResolver.id(point, seriesDefinition);
         assertEquals(
                 (Long)point.getMeasurement("aMeasurement").get().getValue(),
                 elasticsearchHelper.get(
-                        resolveIndexName().seriesName("series").owner(owner).minutes().at(point.getTimestamp()).single(),
+                        resolveIndexName()
+                                .seriesDefinition(builder().name("series").minutes().owner(owner))
+                                .at(point.getTimestamp())
+                                .single(),
                         id,
                         "aMeasurement"
                 )
         );
     }
 
-    private void assertIngestedHour(TimeSeriesPoint point) {
-        String id = documentId(point.getTimestamp());
+    private void assertIngestedHour(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint point) {
+        String id = IdResolver.id(point, seriesDefinition);
         assertEquals(
                 (Long)point.getMeasurement("aMeasurement").get().getValue(),
                 elasticsearchHelper.get(
-                        resolveIndexName().seriesName("series").owner(owner).hours().at(point.getTimestamp()).single(),
+                        resolveIndexName()
+                                .seriesDefinition(builder().name("series").hours().owner(owner))
+                                .at(point.getTimestamp())
+                                .single(),
                         id,
                         "aMeasurement"
                 )
@@ -248,29 +286,30 @@ public class ElasticsearchIngestServiceTest {
         return TimeSeriesPoint.builder();
     }
 
-    private ResponseEntity<Void> ingest(String uriPart, String series, TimeSeriesPoint point) {
-        return ingest(uriPart, owner, password, series, point);
+    private TimeSeriesDefinition.NameEntry seriesDefinition() {
+        return TimeSeriesDefinition.builder();
     }
 
-    private ResponseEntity<Void> ingest(String distance, String owner, String password, String series, TimeSeriesPoint point) {
+    private ResponseEntity<IngestResponse> ingest(TimeSeriesDefinition seriesDefinition, String password, TimeSeriesPoint...points) {
         return restTemplate.postForEntity(
-                "/{owner}/{seriesName}/{distance}",
-                request(point, owner, password),
-                Void.class,
-                owner,
-                series,
-                distance
-        );
-    }
-
-    private ResponseEntity<IngestResponse> ingest(String series, TimeSeriesPoint...points) {
-        return restTemplate.postForEntity(
-                "/{owner}/{seriesName}/minutes?bulk",
-                request(points, owner, password),
+                "/{owner}/{seriesName}/{distance}" + categoriesAsString(seriesDefinition),
+                request(points, seriesDefinition.getOwner(), password),
                 IngestResponse.class,
-                owner,
-                series
+                seriesDefinition.getOwner(),
+                seriesDefinition.getName(),
+                seriesDefinition.getDistance()
         );
+    }
+
+    private String categoriesAsString(TimeSeriesDefinition seriesDefinition) {
+        return seriesDefinition.getCategories().map(cs ->
+                format("?%s", cs.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).sorted().collect(joining("&")))
+        ).orElse("");
+    }
+
+
+    private ResponseEntity<IngestResponse> ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint...points) {
+        return ingest(seriesDefinition, password, points);
     }
 
     private ResponseEntity<String> last(String series) {
@@ -291,11 +330,4 @@ public class ElasticsearchIngestServiceTest {
         );
     }
 
-    private static String documentId(ZonedDateTime timestamp) {
-        return normalize(timestamp).toString();
-    }
-
-    private static ZonedDateTime normalize(ZonedDateTime timestamp) {
-        return timestamp.truncatedTo(MINUTES).withZoneSameInstant(UTC);
-    }
 }

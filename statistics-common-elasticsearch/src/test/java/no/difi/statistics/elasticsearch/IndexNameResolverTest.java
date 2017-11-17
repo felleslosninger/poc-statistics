@@ -10,6 +10,7 @@ import java.util.List;
 import static java.time.ZoneOffset.UTC;
 import static java.time.ZonedDateTime.now;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
+import static no.difi.statistics.model.TimeSeriesDefinition.builder;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.Assert.assertThat;
 
@@ -20,28 +21,28 @@ public class IndexNameResolverTest {
 
     @Test
     public void givenYearSeriesWhenResolvingThenResultIsOneNameWithoutDate() {
-        List<String> indexNames = resolveIndexName().seriesName("test").owner("owner").years()
+        List<String> indexNames = resolveIndexName().seriesDefinition(builder().name("test").years().owner("owner"))
                 .from(now()).to(now()).list();
         assertThat(indexNames, contains("owner:test:year"));
     }
 
     @Test
     public void givenMinuteSeriesWithinDayWhenResolvingThenResultIsOneNameWithYear() {
-        List<String> indexNames = resolveIndexName().seriesName("test").owner("owner").minutes()
+        List<String> indexNames = resolveIndexName().seriesDefinition(builder().name("test").minutes().owner("owner"))
                 .from(timestamp(2016, 3, 22, 1, 23)).to(timestamp(2016, 3, 22, 17, 18)).list();
         assertThat(indexNames, contains("owner:test:minute2016"));
     }
 
     @Test
     public void givenMonthSeriesWithinYearWhenResolvingThenResultIsOneNameWithYear() {
-        List<String> indexNames = resolveIndexName().seriesName("test").owner("owner").months()
+        List<String> indexNames = resolveIndexName().seriesDefinition(builder().name("test").months().owner("owner"))
                 .from(timestamp(2016, 1, 22)).to(timestamp(2016, 6, 30)).list();
         assertThat(indexNames, contains("owner:test:month2016"));
     }
 
     @Test
     public void givenMonthSeriesCrossingYearsWhenResolvingThenResultIsOneNamePerYear() {
-        List<String> indexNames = resolveIndexName().seriesName("test").owner("owner").months()
+        List<String> indexNames = resolveIndexName().seriesDefinition(builder().name("test").months().owner("owner"))
                 .from(timestamp(2014, 1, 22)).to(timestamp(2016, 6, 30)).list();
         assertThat(indexNames, contains("owner:test:month2014", "owner:test:month2015", "owner:test:month2016"));
     }

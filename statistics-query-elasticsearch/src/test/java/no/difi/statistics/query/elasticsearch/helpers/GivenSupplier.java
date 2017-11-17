@@ -88,15 +88,16 @@ public class GivenSupplier implements Supplier<TimeSeries> {
         } else {
             throw new IllegalArgumentException("Invalid time bounds specified");
         }
+        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(this.seriesName).distance(this.distance).owner(this.owner);
         this.series = new TimeSeries(
-                TimeSeriesDefinition.builder().name(this.seriesName).distance(this.distance).owner(this.owner),
+                seriesDefinition,
                 iterate(from, from -> from.plus(1, unit(distance)))
                         .map(t -> TimeSeriesPoint.builder().timestamp(t).measurements(randomMeasurements(measurementIds)).build())
                         .limit(size)
                         .collect(toList())
         );
         try {
-            helper.indexPoints(this.owner, this.seriesName, this.distance, this.series.getPoints());
+            helper.indexPoints(seriesDefinition, this.series.getPoints());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

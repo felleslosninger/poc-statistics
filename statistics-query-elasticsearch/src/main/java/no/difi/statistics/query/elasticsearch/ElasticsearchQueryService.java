@@ -36,6 +36,7 @@ import static java.util.stream.Collectors.*;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.elasticsearch.QueryBuilders.*;
 import static no.difi.statistics.model.MeasurementDistance.days;
+import static no.difi.statistics.model.MeasurementDistance.minutes;
 import static no.difi.statistics.model.MeasurementDistance.months;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
@@ -62,36 +63,21 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
-        return search(resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(), from, to);
-    }
-
-    @Override
-    public List<TimeSeriesPoint> query(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
-        return searchWithPercentileFilter(
-                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
-                from, to, filter
-        );
-    }
-
-    @Override
-    public List<TimeSeriesPoint> hours(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
-        return search(
-                resolveIndexName().seriesName(seriesName).owner(owner).hours().from(from).to(to).list(),
-                from, to
-        );
-    }
-
-    @Override
-    public List<TimeSeriesPoint> days(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
-        List<TimeSeriesPoint> result = search(
-                resolveIndexName().seriesName(seriesName).owner(owner).days().from(from).to(to).list(),
-                from, to
-        );
-        if (result.isEmpty()) {
+    public List<TimeSeriesPoint> query(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to) {
+        List<TimeSeriesPoint> result = search(resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(), from, to);
+        if (result.isEmpty() && seriesDefinition.getDistance().equals(days)) {
             logger.info("Empty result for day series search. Attempting to aggregate minute series...");
+            seriesDefinition = TimeSeriesDefinition.builder().name(seriesDefinition.getName()).distance(minutes).owner(seriesDefinition.getOwner());
             result = sumPerDistance(
-                    resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
+                    resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
+                    days,
+                    from, to
+            );
+        } else if (result.isEmpty() && seriesDefinition.getDistance().equals(months)) {
+            logger.info("Empty result for month series search. Attempting to aggregate minute series...");
+            seriesDefinition = TimeSeriesDefinition.builder().name(seriesDefinition.getName()).distance(minutes).owner(seriesDefinition.getOwner());
+            result = sumPerDistance(
+                    resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
                     days,
                     from, to
             );
@@ -100,67 +86,48 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> months(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
-        List<TimeSeriesPoint> result = search(
-                resolveIndexName().seriesName(seriesName).owner(owner).months().from(from).to(to).list(),
-                from, to
+    public List<TimeSeriesPoint> query(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+        return searchWithPercentileFilter(
+                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
+                from, to, filter
         );
-        if (result.isEmpty()) {
-            logger.info("Empty result for month series search. Attempting to aggregate minute series...");
-            result = sumPerDistance(
-                    resolveIndexName().seriesName(seriesName).owner(owner).minutes().from(from).to(to).list(),
-                    months,
-                    from, to
-            );
-        }
-        return result;
     }
 
     @Override
     public List<TimeSeriesPoint> lastPerDistance(
-            String seriesName,
-            MeasurementDistance distance,
+            TimeSeriesDefinition seriesDefinition,
             MeasurementDistance targetDistance,
-            String owner,
             ZonedDateTime from,
             ZonedDateTime to
     ){
         return lastPerDistance(
-                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
+                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
                 targetDistance,
                 from,
                 to);
     }
 
     @Override
-    public List<TimeSeriesPoint> years(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to) {
-        return search(
-                resolveIndexName().seriesName(seriesName).owner(owner).years().from(from).to(to).list(),
-                from, to
-        );
-    }
-
-    @Override
-    public TimeSeriesPoint sum(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to) {
+    public TimeSeriesPoint sum(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to) {
         return sumAggregate(
-                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
+                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
                 from, to
         );
     }
 
     @Override
-    public List<TimeSeriesPoint> sumPerDistance(String seriesName, MeasurementDistance distance, MeasurementDistance targetDistance, String owner, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> sumPerDistance(TimeSeriesDefinition seriesDefinition, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to) {
         return sumPerDistance(
-                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
+                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
                 targetDistance,
                 from,
                 to);
     }
 
     @Override
-    public TimeSeriesPoint last(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to) {
+    public TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to) {
         return last(
-                resolveIndexName().seriesName(seriesName).owner(owner).distance(distance).from(from).to(to).list(),
+                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
                 from, to
         );
     }

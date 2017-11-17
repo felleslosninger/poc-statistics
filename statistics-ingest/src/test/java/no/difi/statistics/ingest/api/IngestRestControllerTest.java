@@ -25,8 +25,10 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Collections;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static no.difi.statistics.model.MeasurementDistance.minutes;
 import static org.apache.tomcat.util.codec.binary.Base64.encodeBase64;
 import static org.hamcrest.core.IsEqual.equalTo;
@@ -94,14 +96,14 @@ public class IngestRestControllerTest {
         TimeSeriesPoint timeSeriesPoint = aPoint();
         mockMvc.perform(
                 request()
-                        .content(json(timeSeriesPoint))
+                        .content(json(singletonList(timeSeriesPoint)))
                         .distance("minutes")
                         .ingest()
         )
                 .andExpect(status().is(HttpStatus.OK.value()));
         verify(service).ingest(
                 eq(TimeSeriesDefinition.builder().name("aTimeSeries").distance(minutes).owner("aUser")),
-                eq(timeSeriesPoint)
+                eq(singletonList(timeSeriesPoint))
         );
     }
 
@@ -110,7 +112,7 @@ public class IngestRestControllerTest {
         validCredentials("aUser", "aPassword");
         mockMvc.perform(
                 request()
-                        .content(json(aPoint()))
+                        .content(json(singletonList(aPoint())))
                         .distance("minutes")
                         .ingest()
         )
@@ -159,14 +161,14 @@ public class IngestRestControllerTest {
     @Test
     public void whenSendingValidHourRequestThenExpectNormalResponse() throws Exception {
         validCredentials("aUser", "aPassword");
-        mockMvc.perform(request().content(json(aPoint())).distance("hours").ingest())
+        mockMvc.perform(request().content(json(singletonList(aPoint()))).distance("hours").ingest())
                 .andExpect(status().is(HttpStatus.OK.value()));
     }
 
     @Test
     public void whenBulkIngestingTwoPointThenExpectOkResponse() throws Exception {
         validCredentials("aUser", "aPassword");
-        mockMvc.perform(request().content(json(asList(aPoint(), aPoint()))).distance("hours").bulkIngest())
+        mockMvc.perform(request().content(json(asList(aPoint(), aPoint()))).distance("hours").ingest())
                 .andExpect(status().is(HttpStatus.OK.value()));
     }
 
@@ -225,13 +227,6 @@ public class IngestRestControllerTest {
 
         MockHttpServletRequestBuilder ingest() {
             return post("/{owner}/{seriesName}/{distance}", owner, series, distance)
-                    .contentType(MediaType.APPLICATION_JSON_UTF8)
-                    .header("Authorization", authorizationHeader(user, password))
-                    .content(content);
-        }
-
-        MockHttpServletRequestBuilder bulkIngest() {
-            return post("/{owner}/{seriesName}/{distance}?bulk=y", owner, series, distance)
                     .contentType(MediaType.APPLICATION_JSON_UTF8)
                     .header("Authorization", authorizationHeader(user, password))
                     .content(content);

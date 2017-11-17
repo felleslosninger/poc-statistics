@@ -17,10 +17,11 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.net.HttpURLConnection.*;
+import static java.util.stream.Collectors.joining;
 
 public class IngestClient implements IngestService {
 
@@ -52,20 +53,9 @@ public class IngestClient implements IngestService {
     }
 
     @Override
-    public void ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint timeSeriesPoint) {
-        try {
-            HttpURLConnection connection = getConnection(ingestUrlFor(seriesDefinition), "POST");
-            writeJsonToOutputStream(timeSeriesPoint, connection);
-            handleResponse(connection.getResponseCode());
-        } catch (IOException e) {
-            throw new ConnectFailed(e);
-        }
-    }
-
-    @Override
     public void ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
         try {
-            HttpURLConnection connection = getConnection(bulkIngestUrlFor(seriesDefinition), "POST");
+            HttpURLConnection connection = getConnection(ingestUrlFor(seriesDefinition), "POST");
             writeJsonListToOutputStream(dataPoints, connection);
             handleResponse(connection.getResponseCode());
         } catch (IOException e) {
@@ -79,20 +69,28 @@ public class IngestClient implements IngestService {
     }
 
     private URL ingestUrlFor(TimeSeriesDefinition seriesDefinition) {
-        return urlFor("%s/%s/%s/%s", this.baseUrl, this.owner, seriesDefinition.getName(), seriesDefinition.getDistance().name());
-    }
-
-    private URL bulkIngestUrlFor(TimeSeriesDefinition seriesDefinition) {
-        return urlFor("%s/%s/%s/%s?bulk=true", this.baseUrl, this.owner, seriesDefinition.getName(), seriesDefinition.getDistance().name());
+        return url(format("%s/%s/%s/%s", seriesDefinition) + categoriesAsString("?", seriesDefinition));
     }
 
     private URL lastUrlFor(TimeSeriesDefinition seriesDefinition) {
-        return urlFor("%s/%s/%s/%s/last", this.baseUrl, this.owner, seriesDefinition.getName(), seriesDefinition.getDistance().name());
+        return url(format("%s/%s/%s/%s/last", seriesDefinition) + categoriesAsString("?", seriesDefinition));
     }
 
-    private URL urlFor(String template, Object...parameters) {
+    private String categoriesAsString(String prefix, TimeSeriesDefinition seriesDefinition) {
+        return seriesDefinition.getCategories().map(cs -> prefix + categoriesAsString(cs)).orElse("");
+    }
+
+    private String categoriesAsString(Map<String, String> categories) {
+        return categories.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).sorted().collect(joining("&"));
+    }
+
+    private String format(String template, TimeSeriesDefinition seriesDefinition) {
+        return String.format(template, this.baseUrl, this.owner, seriesDefinition.getName(), seriesDefinition.getDistance().name());
+    }
+
+    private URL url(String s) {
         try {
-            return new URL(format(template, parameters));
+            return new URL(s);
         } catch (MalformedURLException e) {
             throw new MalformedUrl(e);
         }
@@ -109,7 +107,7 @@ public class IngestClient implements IngestService {
             case HTTP_FORBIDDEN:
                 throw new Unauthorized("Failed to authorize Ingest service (" + responseCode + ")");
             case HTTP_NOT_FOUND:
-                throw new Failed("URL not found");
+                throw new Failed("Not found");
             default:
                 throw new Failed("Ingest failed (" + responseCode + ")");
         }
@@ -122,7 +120,7 @@ public class IngestClient implements IngestService {
             if (connection.getResponseCode() == 204)
                 return Optional.empty();
             if (connection.getResponseCode() != 200)
-                throw new Failed(format(
+                throw new Failed(String.format(
                         "Failed to get response from ingest service [%d %s]",
                         connection.getResponseCode(),
                         connection.getResponseMessage()
@@ -160,14 +158,6 @@ public class IngestClient implements IngestService {
 
     private String createBase64EncodedCredentials(){
         return Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
-    }
-
-    private void writeJsonToOutputStream(TimeSeriesPoint timeSeriesPoint, HttpURLConnection conn) throws IOException {
-        OutputStream outputStream = conn.getOutputStream();
-        ObjectWriter objectWriter = objectMapper.writerFor(TimeSeriesPoint.class);
-        String jsonString = objectWriter.writeValueAsString(timeSeriesPoint);
-        outputStream.write(jsonString.getBytes());
-        outputStream.flush();
     }
 
     private void writeJsonListToOutputStream(List<TimeSeriesPoint> timeSeriesPoint, HttpURLConnection conn) throws IOException {

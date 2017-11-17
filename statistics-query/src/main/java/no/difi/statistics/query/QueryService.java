@@ -12,23 +12,15 @@ public interface QueryService {
 
     List<TimeSeriesDefinition> availableTimeSeries();
 
-    TimeSeriesPoint last(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to);
+    TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> minutes(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> query(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> query(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter);
+    List<TimeSeriesPoint> query(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter);
 
-    List<TimeSeriesPoint> hours(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> lastPerDistance(TimeSeriesDefinition seriesDefinition, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> days(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
+    TimeSeriesPoint sum(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to);
 
-    List<TimeSeriesPoint> months(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
-
-    List<TimeSeriesPoint> lastPerDistance(String seriesName, MeasurementDistance distance, MeasurementDistance targetDistance, String owner, ZonedDateTime from, ZonedDateTime to);
-
-    List<TimeSeriesPoint> years(String seriesName, String owner, ZonedDateTime from, ZonedDateTime to);
-
-    TimeSeriesPoint sum(String seriesName, MeasurementDistance distance, String owner, ZonedDateTime from, ZonedDateTime to);
-
-    List<TimeSeriesPoint> sumPerDistance(String seriesName, MeasurementDistance distance, MeasurementDistance targetDistance, String owner, ZonedDateTime from, ZonedDateTime to);
+    List<TimeSeriesPoint> sumPerDistance(TimeSeriesDefinition seriesDefinition, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to);
 }
