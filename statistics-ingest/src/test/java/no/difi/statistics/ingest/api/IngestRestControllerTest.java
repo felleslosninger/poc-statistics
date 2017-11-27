@@ -1,6 +1,7 @@
 package no.difi.statistics.ingest.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.ingest.config.AppConfig;
@@ -241,6 +242,7 @@ public class IngestRestControllerTest {
     private String json(Object object) throws Exception {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())
+                .registerModule(new Jdk8Module())
                 .writeValueAsString(object);
     }
 

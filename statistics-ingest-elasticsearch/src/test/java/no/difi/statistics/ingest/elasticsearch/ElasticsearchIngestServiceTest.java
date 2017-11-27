@@ -41,7 +41,6 @@ import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ofPattern;
 import static java.util.Collections.singletonList;
-import static java.util.stream.Collectors.joining;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Conflict;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Ok;
@@ -166,25 +165,23 @@ public class ElasticsearchIngestServiceTest {
 
     @Test
     public void whenIngestingTwoPointsWithSameTimestampAndDifferentCategoriesThenBothAreIngested() {
-        TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
-        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
-        TimeSeriesDefinition seriesDefinition1 = seriesDefinition().name("series").category("category1", "abc").category("category2", "def").minutes().owner(owner);
-        TimeSeriesDefinition seriesDefinition2 = seriesDefinition().name("series").category("category1", "abc").minutes().owner(owner);
-        ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition1, point1);
-        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition2, duplicateOfPoint1);
-        assertIngested(seriesDefinition1, 0, point1, response1.getBody());
-        assertIngested(seriesDefinition2, 0, duplicateOfPoint1, response2.getBody());
+        TimeSeriesPoint point = point().timestamp(now).category("category1", "abc").category("category2", "def").measurement("aMeasurement", 103L).build();
+        TimeSeriesPoint pointWithDifferentCategory = point().timestamp(now).category("category1", "abc").measurement("aMeasurement", 2354L).build();
+        TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
+        ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition, point);
+        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition, pointWithDifferentCategory);
+        assertIngested(seriesDefinition, 0, point, response1.getBody());
+        assertIngested(seriesDefinition, 0, pointWithDifferentCategory, response2.getBody());
     }
 
     @Test
     public void whenIngestingTwoPointsWithSameTimestampAndSameCategoriesThenLastPointIsNotIngested() {
-        TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
-        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
-        TimeSeriesDefinition seriesDefinition1 = seriesDefinition().name("series").category("category", "abc").minutes().owner(owner);
-        TimeSeriesDefinition seriesDefinition2 = seriesDefinition().name("series").category("category", "abc").minutes().owner(owner);
-        ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition1, point1);
-        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition2, duplicateOfPoint1);
-        assertIngested(seriesDefinition1, 0, point1, response1.getBody());
+        TimeSeriesPoint point1 = point().timestamp(now).category("category", "abc").measurement("aMeasurement", 103L).build();
+        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).category("category", "abc").measurement("aMeasurement", 2354L).build();
+        TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
+        ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition, point1);
+        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition, duplicateOfPoint1);
+        assertIngested(seriesDefinition, 0, point1, response1.getBody());
         assertNotIngested(0, response2.getBody());
     }
 
@@ -292,7 +289,7 @@ public class ElasticsearchIngestServiceTest {
 
     private ResponseEntity<IngestResponse> ingest(TimeSeriesDefinition seriesDefinition, String password, TimeSeriesPoint...points) {
         return restTemplate.postForEntity(
-                "/{owner}/{seriesName}/{distance}" + categoriesAsString(seriesDefinition),
+                "/{owner}/{seriesName}/{distance}",
                 request(points, seriesDefinition.getOwner(), password),
                 IngestResponse.class,
                 seriesDefinition.getOwner(),
@@ -300,13 +297,6 @@ public class ElasticsearchIngestServiceTest {
                 seriesDefinition.getDistance()
         );
     }
-
-    private String categoriesAsString(TimeSeriesDefinition seriesDefinition) {
-        return seriesDefinition.getCategories().map(cs ->
-                format("?%s", cs.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).sorted().collect(joining("&")))
-        ).orElse("");
-    }
-
 
     private ResponseEntity<IngestResponse> ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint...points) {
         return ingest(seriesDefinition, password, points);

@@ -1,10 +1,12 @@
 package no.difi.statistics.ingest.client;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
@@ -17,11 +19,9 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static java.net.HttpURLConnection.*;
-import static java.util.stream.Collectors.joining;
 
 public class IngestClient implements IngestService {
 
@@ -42,7 +42,10 @@ public class IngestClient implements IngestService {
     public IngestClient(URL baseURL, int readTimeoutMillis, int connectionTimeoutMillis, String owner, String username, String password) throws MalformedUrl {
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
+                .registerModule(new Jdk8Module())
                 .setDateFormat(new ISO8601DateFormat())
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         this.baseUrl = baseURL;
         this.connectionTimeoutMillis = connectionTimeoutMillis;
@@ -69,19 +72,11 @@ public class IngestClient implements IngestService {
     }
 
     private URL ingestUrlFor(TimeSeriesDefinition seriesDefinition) {
-        return url(format("%s/%s/%s/%s", seriesDefinition) + categoriesAsString("?", seriesDefinition));
+        return url(format("%s/%s/%s/%s", seriesDefinition));
     }
 
     private URL lastUrlFor(TimeSeriesDefinition seriesDefinition) {
-        return url(format("%s/%s/%s/%s/last", seriesDefinition) + categoriesAsString("?", seriesDefinition));
-    }
-
-    private String categoriesAsString(String prefix, TimeSeriesDefinition seriesDefinition) {
-        return seriesDefinition.getCategories().map(cs -> prefix + categoriesAsString(cs)).orElse("");
-    }
-
-    private String categoriesAsString(Map<String, String> categories) {
-        return categories.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).sorted().collect(joining("&"));
+        return url(format("%s/%s/%s/%s/last", seriesDefinition));
     }
 
     private String format(String template, TimeSeriesDefinition seriesDefinition) {

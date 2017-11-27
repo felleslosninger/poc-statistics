@@ -38,15 +38,14 @@ public class IngestRestController {
             value = "{owner}/{seriesName}/{distance}",
             consumes = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
-    public IngestResponse bulkIngest(
+    public IngestResponse ingest(
             @PathVariable String owner,
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
-            @RequestParam Map<String, String> categories,
             @RequestBody List<TimeSeriesPoint> dataPoints
     ) {
         return ingestService.ingest(
-                TimeSeriesDefinition.builder().name(seriesName).categories(categories).distance(distance).owner(owner),
+                TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner),
                 dataPoints
         );
     }

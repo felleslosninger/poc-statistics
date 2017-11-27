@@ -15,7 +15,10 @@ import static no.difi.statistics.elasticsearch.Timestamp.truncate;
 public class IdResolver {
 
     public static String id(TimeSeriesPoint dataPoint, TimeSeriesDefinition seriesDefinition) {
-        return nameUUID(format(dataPoint.getTimestamp(), seriesDefinition));
+        return nameUUID(
+                normalizeTimestamp(dataPoint.getTimestamp(), seriesDefinition.getDistance()).toString()
+                        + categoriesAsString(dataPoint)
+        );
     }
 
     private static String nameUUID(String name) {
@@ -26,16 +29,11 @@ public class IdResolver {
         }
     }
 
-    private static String format(ZonedDateTime timestamp, TimeSeriesDefinition seriesDefinition) {
-        return normalizeTimestamp(timestamp, seriesDefinition.getDistance()).toString() + categoriesAsString(seriesDefinition);
-    }
-
-    private static String categoriesAsString(TimeSeriesDefinition seriesDefinition) {
-        return seriesDefinition.getCategories().map(cs ->
+    private static String categoriesAsString(TimeSeriesPoint dataPoint) {
+        return dataPoint.getCategories().map(cs ->
             cs.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).sorted().collect(joining("&"))
         ).orElse("");
     }
-
 
     private static ZonedDateTime normalizeTimestamp(ZonedDateTime timestamp, MeasurementDistance distance) {
         return truncate(timestamp, distance).withZoneSameInstant(UTC);

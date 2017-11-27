@@ -1,9 +1,11 @@
 package no.difi.statistics.ingest.client;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import no.difi.statistics.ingest.client.model.Measurement;
@@ -66,7 +68,10 @@ public class IngestClientTest {
     public void before() throws MalformedURLException {
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
+                .registerModule(new Jdk8Module())
                 .setDateFormat(new ISO8601DateFormat())
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         ingestClient = new IngestClient(new URL("http://localhost:" + wireMockRule.port()), read_timeout, connection_timeout, owner, username, password);
         timeSeriesPoint = buildValidTimeSeriesPoint();

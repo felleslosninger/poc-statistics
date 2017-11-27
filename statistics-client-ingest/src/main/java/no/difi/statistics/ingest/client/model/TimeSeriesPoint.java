@@ -12,12 +12,17 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.function.Function;
 
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.stream.Collectors.joining;
+
 
 @XmlRootElement
 public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
 
     private ZonedDateTime timestamp;
     private List<Measurement> measurements = new ArrayList<>();
+    private Map<String, String> categories;
 
     private TimeSeriesPoint() {
         // Use builder
@@ -37,6 +42,11 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
         return measurements.stream().filter(m -> m.getId().equals(name)).findFirst();
     }
 
+    @XmlElement
+    public Optional<Map<String, String>> getCategories() {
+        return categories == null ? Optional.empty() : Optional.of(unmodifiableMap(categories));
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -49,6 +59,7 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
     public static class Builder {
         private TimeSeriesPoint instance;
         private Map<String, Measurement> measurements = new HashMap<>();
+        private Map<String, String> categories = new HashMap<>();
         private Function<ZonedDateTime, ZonedDateTime> timestampModifier;
 
         Builder() {
@@ -83,6 +94,17 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
             return this;
         }
 
+        public Builder category(String key, String value) {
+            categories.put(key, value);
+            return this;
+        }
+
+        public Builder categories(Map<String, String> categories) {
+            categories.forEach(this::category);
+            return this;
+        }
+
+
         public Builder add(TimeSeriesPoint other) {
             measurements(other.measurements);
             instance.timestamp = other.timestamp;
@@ -94,6 +116,10 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
             if (timestampModifier != null)
                 instance.timestamp = timestampModifier.apply(instance.timestamp);
             instance.measurements.addAll(measurements.values());
+            if (!categories.isEmpty()) {
+                instance.categories = new HashMap<>();
+                instance.categories.putAll(categories);
+            }
             return instance;
         }
 
@@ -116,7 +142,12 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
         return "TimeSeriesPoint{" +
                 "timestamp=" + timestamp +
                 ", measurements=" + measurements +
-                '}';
+                (categories != null ? format(", categories=%s", categoriesAsString()) : "") +
+        '}';
+    }
+
+    private String categoriesAsString() {
+        return categories.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).sorted().collect(joining("&"));
     }
 
     @Override
@@ -126,14 +157,16 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
 
         TimeSeriesPoint that = (TimeSeriesPoint) o;
 
-        return timestamp.equals(that.timestamp) && measurements.equals(that.measurements);
-
+        if (!timestamp.equals(that.timestamp)) return false;
+        if (!measurements.equals(that.measurements)) return false;
+        return categories != null ? categories.equals(that.categories) : that.categories == null;
     }
 
     @Override
     public int hashCode() {
         int result = timestamp.hashCode();
         result = 31 * result + measurements.hashCode();
+        result = 31 * result + (categories != null ? categories.hashCode() : 0);
         return result;
     }
 

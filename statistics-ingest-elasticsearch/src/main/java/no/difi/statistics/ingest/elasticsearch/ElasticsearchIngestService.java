@@ -110,7 +110,7 @@ public class ElasticsearchIngestService implements IngestService {
         try {
             XContentBuilder builder = jsonBuilder().startObject();
             addField(builder, timeFieldName, format(dataPoint.getTimestamp(), seriesDefinition.getDistance()));
-            seriesDefinition.getCategories().ifPresent(cs -> cs.forEach((key, value) -> addCategoryField(builder, key, value)));
+            dataPoint.getCategories().ifPresent(cs -> cs.forEach((key, value) -> addCategoryField(builder, key, value)));
             dataPoint.getMeasurements().forEach(m -> addMeasurementField(builder, m.getId(), m.getValue()));
             return builder.endObject();
         } catch (IOException e) {
