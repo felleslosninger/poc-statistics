@@ -56,6 +56,17 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
         return timestamp.compareTo(other.timestamp);
     }
 
+    public boolean hasCategories(Map<String, String> categories) {
+        if (categories == null) throw new NullPointerException();
+        if (categories.isEmpty()) return true;
+        if (this.categories == null) return false;
+        return categories.entrySet().stream()
+                .allMatch(entry ->
+                        this.categories.getOrDefault(entry.getKey(), "")
+                                .equals(entry.getValue())
+                );
+    }
+
     public static class Builder {
         private TimeSeriesPoint instance;
         private Map<String, Measurement> measurements = new HashMap<>();

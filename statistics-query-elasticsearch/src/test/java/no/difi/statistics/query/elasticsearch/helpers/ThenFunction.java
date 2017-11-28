@@ -5,10 +5,12 @@ import no.difi.statistics.model.*;
 import no.difi.statistics.test.utils.DataOperations;
 
 import java.time.ZonedDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 
 import static java.util.Collections.singletonList;
+import static java.util.Collections.sort;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.test.utils.TimeSeriesSumCollector.summarize;
 
@@ -16,12 +18,16 @@ public class ThenFunction<T> implements Function<List<TimeSeries>, T> {
 
     private Function<List<TimeSeries>, T> function;
 
-    public static SumHistogramBuilder sumHistogram() {
-        return new SumHistogramBuilder();
+    public static SumHistogramBuilder sumPer(MeasurementDistance targetDistance) {
+        return new SumHistogramBuilder().per(targetDistance);
     }
 
     public static SumBuilder sum() {
         return new SumBuilder();
+    }
+
+    public static SeriesBuilder series() {
+        return new SeriesBuilder();
     }
 
     public static LastPointBuilder lastPoint() {
@@ -42,24 +48,65 @@ public class ThenFunction<T> implements Function<List<TimeSeries>, T> {
 
     }
 
-    public static class SumHistogramBuilder implements Builder<List<TimeSeriesPoint>> {
+    public static class SeriesBuilder implements Builder<List<TimeSeriesPoint>> {
 
-        private MeasurementDistance targetDistance;
         private MeasurementDistance distance;
+        private Map<String, String> categories = new HashMap<>();
 
-        public SumHistogramBuilder per(MeasurementDistance targetDistance) {
-            this.targetDistance = targetDistance;
+        public SeriesBuilder withDistance(MeasurementDistance distance) {
+            this.distance = distance;
             return this;
         }
 
-        public SumHistogramBuilder fromSeriesWithDistance(MeasurementDistance distance) {
-            this.distance = distance;
+        public SeriesBuilder withCategory(String key, String value) {
+            categories.put(key, value);
             return this;
         }
 
         public ThenFunction<List<TimeSeriesPoint>> build() {
             ThenFunction<List<TimeSeriesPoint>> thenFunction = new ThenFunction<>();
-            thenFunction.function = givenSeries -> DataOperations.sumPer(seriesForDistance(givenSeries, distance), targetDistance);
+            thenFunction.function = givenSeries -> {
+                TimeSeries series = seriesForDistance(givenSeries, distance);
+                Collection<TimeSeriesPoint> points = series.getPoints().stream()
+                        .filter(point -> point.hasCategories(categories))
+                        .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize()))
+                        .values();
+                List<TimeSeriesPoint> result = new ArrayList<>(points);
+                sort(result);
+                return result;
+            };
+            return thenFunction;
+        }
+
+    }
+
+    public static class SumHistogramBuilder implements Builder<List<TimeSeriesPoint>> {
+
+        private MeasurementDistance targetDistance;
+        private MeasurementDistance distance;
+        private Map<String, String> categories = new HashMap<>();
+
+        private SumHistogramBuilder per(MeasurementDistance targetDistance) {
+            this.targetDistance = targetDistance;
+            return this;
+        }
+
+        public SumHistogramBuilder withDistance(MeasurementDistance distance) {
+            this.distance = distance;
+            return this;
+        }
+
+        public SumHistogramBuilder withCategory(String key, String value) {
+            categories.put(key, value);
+            return this;
+        }
+
+        public ThenFunction<List<TimeSeriesPoint>> build() {
+            ThenFunction<List<TimeSeriesPoint>> thenFunction = new ThenFunction<>();
+            thenFunction.function = givenSeries -> {
+                TimeSeries series = seriesForDistance(givenSeries, distance);
+                return DataOperations.sumPer(series, categories, targetDistance);
+            };
             return thenFunction;
         }
 
@@ -76,7 +123,7 @@ public class ThenFunction<T> implements Function<List<TimeSeries>, T> {
             return this;
         }
 
-        public SumBuilder fromSeriesWithDistance(MeasurementDistance distance) {
+        public SumBuilder withDistance(MeasurementDistance distance) {
             this.distance = distance;
             return this;
         }
@@ -106,20 +153,29 @@ public class ThenFunction<T> implements Function<List<TimeSeries>, T> {
 
         private MeasurementDistance targetDistance;
         private MeasurementDistance distance;
+        private Map<String, String> categories = new HashMap<>();
 
         public LastPointBuilder per(MeasurementDistance targetDistance) {
             this.targetDistance = targetDistance;
             return this;
         }
 
-        public LastPointBuilder fromSeriesWithDistance(MeasurementDistance distance) {
+        public LastPointBuilder withDistance(MeasurementDistance distance) {
             this.distance = distance;
+            return this;
+        }
+
+        public LastPointBuilder withCategory(String key, String value) {
+            categories.put(key, value);
             return this;
         }
 
         public ThenFunction<List<TimeSeriesPoint>> build() {
             ThenFunction<List<TimeSeriesPoint>> thenFunction = new ThenFunction<>();
-            thenFunction.function = givenSeries -> DataOperations.lastPer(seriesForDistance(givenSeries, distance), targetDistance);
+            thenFunction.function = givenSeries -> {
+                TimeSeries series = seriesForDistance(givenSeries, distance);
+                return DataOperations.lastPer(series, categories, targetDistance);
+            };
             return thenFunction;
         }
 

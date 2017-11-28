@@ -2,7 +2,8 @@ package no.difi.statistics.query.api;
 
 import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesDefinition;
-import no.difi.statistics.model.query.TimeSeriesFilter;
+import no.difi.statistics.model.query.PercentileFilter;
+import no.difi.statistics.model.query.QueryFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.config.BackendConfig;
 import org.apache.http.HttpStatus;
@@ -23,6 +24,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static no.difi.statistics.model.MeasurementDistance.minutes;
+import static no.difi.statistics.model.query.QueryFilter.queryFilter;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -58,7 +60,10 @@ public class QueryRestControllerTest {
                         .contentType(MediaType.APPLICATION_JSON_UTF8)
         );
         assertNormalResponse(result);
-        verify(backendConfig.queryService()).last(TimeSeriesDefinition.builder().name(timeSeries).distance(minutes).owner(aSeriesOwner()), parseTimestamp(from), parseTimestamp(to));
+        verify(backendConfig.queryService()).last(
+                TimeSeriesDefinition.builder().name(timeSeries).distance(minutes).owner(aSeriesOwner()),
+                queryFilter().from(parseTimestamp(from)).to(parseTimestamp(to)).build()
+        );
     }
 
     @Test
@@ -69,7 +74,7 @@ public class QueryRestControllerTest {
         final int percentile = 3;
         final String measurementId = "anId";
         final RelationalOperator operator = RelationalOperator.gt;
-        TimeSeriesFilter filter = new TimeSeriesFilter(percentile, measurementId, operator);
+        PercentileFilter filter = new PercentileFilter(percentile, measurementId, operator);
         ResultActions result;
         result = mockMvc.perform(
                 get("/{owner}/{series}/minutes/percentile", aSeriesOwner(), timeSeries)
@@ -83,8 +88,7 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).query(
                 TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(aSeriesOwner()),
-                parseTimestamp(from),
-                parseTimestamp(to),
+                queryFilter().from(parseTimestamp(from)).to(parseTimestamp(to)).build(),
                 filter
         );
     }
@@ -96,8 +100,7 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).query(
                 TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(aSeriesOwner()),
-                null,
-                null
+                queryFilter().build()
         );
     }
 
@@ -109,8 +112,7 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).query(
                 TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(aSeriesOwner()),
-                null,
-                parseTimestamp(endTime)
+                queryFilter().to(parseTimestamp(endTime)).build()
         );
     }
 
@@ -122,8 +124,7 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).query(
                 TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(aSeriesOwner()),
-                parseTimestamp(startTime),
-                null
+                queryFilter().from(parseTimestamp(startTime)).build()
         );
     }
 

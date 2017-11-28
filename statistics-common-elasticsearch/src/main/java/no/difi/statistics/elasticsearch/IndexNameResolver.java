@@ -14,7 +14,7 @@ import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.FOREVER;
 import static java.time.temporal.ChronoUnit.YEARS;
 import static java.util.Collections.singletonList;
-import static no.difi.statistics.elasticsearch.Timestamp.truncate;
+import static no.difi.statistics.elasticsearch.Timestamp.truncatedTimestamp;
 
 public class IndexNameResolver {
 
@@ -112,8 +112,8 @@ public class IndexNameResolver {
             } else {
                 if (instance.from == null) instance.from = ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
                 if (instance.to == null) instance.to = ZonedDateTime.of(2050, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
-                instance.from = truncate(instance.from, instance.baseTimeUnit);
-                instance.to = truncate(instance.to, instance.baseTimeUnit);
+                instance.from = truncatedTimestamp(instance.from, instance.baseTimeUnit);
+                instance.to = truncatedTimestamp(instance.to, instance.baseTimeUnit);
                 for (ZonedDateTime timestamp = instance.from; timestamp.isBefore(instance.to) || timestamp.isEqual(instance.to); timestamp = timestamp.plus(1, instance.baseTimeUnit)) {
                     if (indices.size() >= 10) {
                         // Use wildcard instead if number of indices exceeds 10

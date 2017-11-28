@@ -8,7 +8,6 @@ import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
-import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.range.Range;
 import org.elasticsearch.search.aggregations.metrics.sum.Sum;
 import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
@@ -19,13 +18,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+
 public class ResultParser {
 
     private static final String timeFieldName = "timestamp";
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     public static TimeSeriesPoint point(SearchHit hit) {
-        return TimeSeriesPoint.builder().timestamp(timestamp(hit)).measurements(measurements(hit)).build();
+        return TimeSeriesPoint.builder()
+                .timestamp(timestamp(hit))
+                .measurements(measurements(hit))
+                .categories(categories(hit))
+                .build();
     }
 
     public static TimeSeriesPoint pointFromLastAggregation(SearchResponse response) {
@@ -33,7 +39,7 @@ public class ResultParser {
             point(response.getAggregations().<TopHits>get("last").getHits().getAt(0)) : null;
     }
 
-    public static TimeSeriesPoint point(Histogram.Bucket bucket) {
+    public static TimeSeriesPoint point(MultiBucketsAggregation.Bucket bucket) {
         return point(bucket.getKeyAsString(), bucket);
     }
 
@@ -50,14 +56,16 @@ public class ResultParser {
     }
 
     private static List<Measurement> measurements(SearchHit hit) {
-        List<Measurement> measurements = new ArrayList<>();
-        hit.getSource().keySet().stream()
-                .filter(field -> !field.equals(timeFieldName) && !field.startsWith("category."))
-                .forEach(field -> {
-                    long value = Long.valueOf(hit.getSource().get(field).toString());
-                    measurements.add(new Measurement(field, value));
-                });
-        return measurements;
+        return hit.getSource().entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(timeFieldName) && !entry.getKey().startsWith("category."))
+                .map(entry -> new Measurement(entry.getKey(), Long.valueOf(entry.getValue().toString())))
+                .collect(toList());
+    }
+
+    private static Map<String, String> categories(SearchHit hit) {
+        return hit.getSource().entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith("category."))
+                .collect(toMap(entry -> entry.getKey().substring(9), entry -> entry.getValue().toString()));
     }
 
     private static List<Measurement> measurements(Aggregations aggregations) {

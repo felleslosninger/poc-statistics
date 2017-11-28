@@ -2,9 +2,11 @@ package no.difi.statistics.elasticsearch;
 
 import no.difi.statistics.model.MeasurementDistance;
 import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.range.date.DateRangeAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsAggregationBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
@@ -13,10 +15,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.dateHistogram;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.dateRange;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.sum;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.topHits;
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.*;
 
 public class QueryBuilders {
 
@@ -32,7 +32,18 @@ public class QueryBuilders {
         return builder;
     }
 
-    public static DateHistogramAggregationBuilder sumHistogramAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
+    public static TermQueryBuilder categoryQuery(String key, String value) {
+        return termQuery("category." + key, value);
+    }
+
+    public static TermsAggregationBuilder sumPerTimestampAggregation(String name, List<String> measurementIds) {
+        TermsAggregationBuilder builder = terms(name).field(timestampField).size(10_000);
+        for (String measurementId : measurementIds)
+            builder.subAggregation(sum(measurementId).field(measurementId));
+        return builder;
+    }
+
+    public static DateHistogramAggregationBuilder sumPerDistanceAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
         DateHistogramAggregationBuilder builder = dateHistogram(name).field(timestampField).dateHistogramInterval(dateHistogramInterval(targetDistance));
         for (String measurementId : measurementIds)
             builder.subAggregation(sum(measurementId).field(measurementId));
@@ -43,11 +54,11 @@ public class QueryBuilders {
         return topHits("last").size(1).sort(timestampField, SortOrder.DESC);
     }
 
-    public static DateHistogramAggregationBuilder lastHistogramAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
-        DateHistogramAggregationBuilder builder = dateHistogram(name).field(timestampField).dateHistogramInterval(dateHistogramInterval(targetDistance));
-        TopHitsAggregationBuilder topHitsBuilder = topHits(name).size(1).sort(timestampField, SortOrder.DESC);
-        measurementIds.forEach(topHitsBuilder::fieldDataField);
-        return builder.subAggregation(topHitsBuilder);
+    public static DateHistogramAggregationBuilder lastPerDistanceAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
+        DateHistogramAggregationBuilder dateHistogramAggregation = dateHistogram(name).field(timestampField).dateHistogramInterval(dateHistogramInterval(targetDistance));
+        TopHitsAggregationBuilder topHitsAggregation = topHits(name).size(1).sort(timestampField, SortOrder.DESC);
+        measurementIds.forEach(topHitsAggregation::fieldDataField);
+        return dateHistogramAggregation.subAggregation(topHitsAggregation);
     }
 
     public static DateRangeAggregationBuilder sumAggregation(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {

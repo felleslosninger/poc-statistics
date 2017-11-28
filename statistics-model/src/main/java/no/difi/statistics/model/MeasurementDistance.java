@@ -5,5 +5,14 @@ public enum MeasurementDistance {
     hours,
     days,
     months,
-    years
+    years;
+
+    public boolean lessThanOrEqualTo(MeasurementDistance targetDistance) {
+        return this.ordinal() <= targetDistance.ordinal();
+    }
+
+    public boolean greaterThan(MeasurementDistance targetDistance) {
+        return this.ordinal() > targetDistance.ordinal();
+    }
+
 }

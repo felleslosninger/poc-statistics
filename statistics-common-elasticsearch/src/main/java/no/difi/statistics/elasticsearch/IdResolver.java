@@ -10,7 +10,7 @@ import java.util.UUID;
 
 import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.joining;
-import static no.difi.statistics.elasticsearch.Timestamp.truncate;
+import static no.difi.statistics.elasticsearch.Timestamp.truncatedTimestamp;
 
 public class IdResolver {
 
@@ -36,7 +36,7 @@ public class IdResolver {
     }
 
     private static ZonedDateTime normalizeTimestamp(ZonedDateTime timestamp, MeasurementDistance distance) {
-        return truncate(timestamp, distance).withZoneSameInstant(UTC);
+        return truncatedTimestamp(timestamp, distance).withZoneSameInstant(UTC);
     }
 
 }

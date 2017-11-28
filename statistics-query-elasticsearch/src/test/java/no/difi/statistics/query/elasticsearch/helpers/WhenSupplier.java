@@ -47,6 +47,7 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
     private String owner = "test_owner"; // Index names must be lower case in Elasticsearch
     private String series = "test";
     private String measurementId;
+    private String categories;
     private MeasurementDistance distance;
     private MeasurementDistance targetDistance;
     private ZonedDateTime from;
@@ -87,6 +88,11 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
         return this;
     }
 
+    public WhenSupplier withCategory(String category) {
+        this.categories = category;
+        return this;
+    }
+
     public WhenSupplier lessThanPercentile(int percentile) {
         return relationalToPercentile(percentile, lt);
     }
@@ -110,13 +116,13 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
         return this;
     }
 
-    public WhenSupplier lastPer(MeasurementDistance targetDistance) {
+    public WhenSupplier withLastPer(MeasurementDistance targetDistance) {
         this.targetDistance = targetDistance;
         this.type = lastPer;
         return this;
     }
 
-    public WhenSupplier sumPer(MeasurementDistance targetDistance) {
+    public WhenSupplier withSumPer(MeasurementDistance targetDistance) {
         this.targetDistance = targetDistance;
         this.type = sumPer;
         return this;
@@ -185,6 +191,7 @@ public class WhenSupplier implements Supplier<List<TimeSeriesPoint>> {
         if (to != null) parameters.put("to", formatTimestamp(to));
         if (percentile != null) parameters.put("percentile", percentile);
         if (operator != null) parameters.put("operator", operator);
+        if (categories != null) parameters.put("categories", categories);
         return parameters;
     }
 

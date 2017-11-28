@@ -1,12 +1,11 @@
 package no.difi.statistics.query.elasticsearch.helpers;
 
-import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeries;
-import no.difi.statistics.model.TimeSeriesPoint;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 import static java.util.Arrays.stream;
 import static java.util.function.Function.identity;
@@ -17,16 +16,12 @@ public class Given {
 
     private Map<String, Supplier<TimeSeries>> suppliers = new HashMap<>();
 
-    private Given(GivenSupplier... givenSuppliers) {
-        this.suppliers = stream(givenSuppliers).collect(toMap(GivenSupplier::id, identity()));
+    private Given(TimeSeriesGenerator... timeSeriesGenerators) {
+        this.suppliers = stream(timeSeriesGenerators).collect(toMap(TimeSeriesGenerator::id, identity()));
     }
 
-    public static Given given(GivenSupplier...givenSuppliers) {
-        return new Given(givenSuppliers);
-    }
-
-    TimeSeries seriesForDistance(MeasurementDistance distance) {
-        return suppliers.get(distance.toString()).get();
+    public static Given given(TimeSeriesGenerator... timeSeriesGenerators) {
+        return new Given(timeSeriesGenerators);
     }
 
     List<TimeSeries> series() {

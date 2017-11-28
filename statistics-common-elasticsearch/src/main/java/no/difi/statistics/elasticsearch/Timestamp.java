@@ -14,7 +14,7 @@ import static java.time.temporal.ChronoUnit.YEARS;
 
 public class Timestamp {
 
-    public static ZonedDateTime truncate(ZonedDateTime timestamp, ChronoUnit toUnit) {
+    public static ZonedDateTime truncatedTimestamp(ZonedDateTime timestamp, ChronoUnit toUnit) {
         switch (toUnit) {
             case YEARS:
                 return ZonedDateTime.of(timestamp.getYear(), 1, 1, 0, 0, 0, 0, timestamp.getZone());
@@ -26,8 +26,8 @@ public class Timestamp {
         return timestamp.truncatedTo(toUnit);
     }
 
-    public static ZonedDateTime truncate(ZonedDateTime timestamp, MeasurementDistance distance) {
-        return truncate(timestamp, chronoUnit(distance));
+    public static ZonedDateTime truncatedTimestamp(ZonedDateTime timestamp, MeasurementDistance distance) {
+        return truncatedTimestamp(timestamp, chronoUnit(distance));
     }
 
     public static ZonedDateTime normalize(ZonedDateTime timestamp, MeasurementDistance distance) {

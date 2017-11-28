@@ -9,13 +9,16 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static java.time.temporal.ChronoUnit.*;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
-import static no.difi.statistics.elasticsearch.Timestamp.truncate;
+import static no.difi.statistics.elasticsearch.Timestamp.truncatedTimestamp;
 import static no.difi.statistics.test.utils.TimeSeriesSumCollector.summarize;
 import static org.hamcrest.Matchers.*;
 
@@ -60,27 +63,46 @@ public class DataOperations {
         return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
     }
 
-    public static List<TimeSeriesPoint> sumPer(TimeSeries series, MeasurementDistance distance) {
+    public static List<TimeSeriesPoint> sumPer(TimeSeries series, Map<String, String> categories, MeasurementDistance targetDistance) {
         List<TimeSeriesPoint> sums = new ArrayList<>(
                 series.getPoints().stream()
-                        .collect(groupingBy(point -> truncate(point.getTimestamp(), distance),
-                                summarize(timestamp -> truncate(timestamp, distance)))
+                        // Discard points with irrelevant categories
+                        .filter(point -> point.hasCategories(categories))
+                        // Summarize per timestamp (as there might be several points with different categories per timestamp)
+                        .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize()))
+                        .values().stream()
+                        // Then summarize per target distance
+                        .collect(
+                                groupingBy(
+                                        point -> truncatedTimestamp(point.getTimestamp(), targetDistance),
+                                        summarize(timestamp -> truncatedTimestamp(timestamp, targetDistance))
+                                )
                         )
-                .values());
+                        .values());
         sums.sort(null);
         return sums;
     }
 
-    public static List<TimeSeriesPoint> lastPer(TimeSeries series, MeasurementDistance distance) {
-        Map<ZonedDateTime,TimeSeriesPoint> unitMap = new HashMap<>();
-        series.getPoints().forEach(point -> unitMap.put(truncate(point.getTimestamp(), distance), normalizeTimestamp(point, distance)));
-        List<TimeSeriesPoint> result = new ArrayList<>(unitMap.values());
-        result.sort(null);
-        return result;
+    public static List<TimeSeriesPoint> lastPer(TimeSeries series, Map<String, String> categories, MeasurementDistance targetDistance) {
+        return series.getPoints().stream()
+                // Discard points with irrelevant categories
+                .filter(point -> point.hasCategories(categories))
+                // Summarize per timestamp (as there might be several points with different categories per timestamp)
+                .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize()))
+                .values().stream().sorted() // Reestablish ordering after grouping
+                // Group points by target distance
+                .collect(groupingBy(point -> truncatedTimestamp(point.getTimestamp(), targetDistance)))
+                .values().stream()
+                // Pick last point bucket
+                .map(list -> list.get(list.size() - 1))
+                // Normalize the points' timestamps
+                .map(point -> normalizeTimestamp(point, targetDistance))
+                .sorted()
+                .collect(toList());
     }
 
     private static TimeSeriesPoint normalizeTimestamp(TimeSeriesPoint point, MeasurementDistance distance) {
-        return TimeSeriesPoint.builder().timestamp(truncate(point.getTimestamp(), distance)).measurements(point.getMeasurements()).build();
+        return TimeSeriesPoint.builder().timestamp(truncatedTimestamp(point.getTimestamp(), distance)).measurements(point.getMeasurements()).build();
     }
 
     public static Function<TimeSeries, List<TimeSeriesPoint>> relativeToPercentile(

@@ -2,7 +2,6 @@ package no.difi.statistics.test.utils;
 
 import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.IdResolver;
-import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
@@ -122,40 +121,69 @@ public class ElasticsearchHelper {
 
     public void indexPoints(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> points) throws IOException {
         for (TimeSeriesPoint point : points)
-            indexPoint(indexNameForSeries(seriesDefinition, point.getTimestamp()), IdResolver.id(point, seriesDefinition), point);
+            indexPoint(seriesDefinition, point);
     }
 
     public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, MeasurementDistance distance, long...values) throws IOException {
         return indexPointsFrom(timestamp, TimeSeriesDefinition.builder().name("test").distance(distance).owner("test_owner"), values);
     }
 
-    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, TimeSeriesDefinition seriesDefinition, long... values) throws IOException {
+    private List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, TimeSeriesDefinition seriesDefinition, long... values) throws IOException {
         List<TimeSeriesPoint> points = new ArrayList<>(values.length);
         for (long value : values) {
             TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
             points.add(point);
-            indexPoint(indexNameForSeries(seriesDefinition, timestamp), IdResolver.id(point, seriesDefinition), point);
+            indexPoint(seriesDefinition, point);
             timestamp = timestamp.plus(1, unit(seriesDefinition.getDistance()));
         }
         return points;
     }
 
     public TimeSeriesPoint indexPoint(MeasurementDistance distance, ZonedDateTime timestamp, long value) throws IOException {
-        return indexPoint(TimeSeriesDefinition.builder().name("test").distance(distance).owner("test_owner"), timestamp, value);
+        return indexPoint(
+                TimeSeriesDefinition.builder().name("test").distance(distance).owner("test_owner"),
+                TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build()
+        );
     }
 
-    public TimeSeriesPoint indexPoint(TimeSeriesDefinition seriesDefinition, ZonedDateTime timestamp, long value) throws IOException {
-        TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
-        indexPoint(indexNameForSeries(seriesDefinition, timestamp), IdResolver.id(point, seriesDefinition), point);
+    private TimeSeriesPoint indexPoint(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint point) throws IOException {
+        XContentBuilder document = document(point, seriesDefinition);
+        index(
+                indexNameForSeries(seriesDefinition, point.getTimestamp()),
+                "default",
+                IdResolver.id(point, seriesDefinition), document.string()
+        );
         return point;
     }
 
-    private void indexPoint(String indexName, String id, TimeSeriesPoint point) throws IOException {
-        XContentBuilder sourceBuilder = jsonBuilder().startObject()
-                .field(timeFieldName, formatTimestamp(point.getTimestamp()));
-        for (Measurement measurement : point.getMeasurements())
-            sourceBuilder.field(measurement.getId(), measurement.getValue());
-        index(indexName, "default", id, sourceBuilder.endObject().string());
+    private static XContentBuilder document(TimeSeriesPoint dataPoint, TimeSeriesDefinition seriesDefinition) {
+        try {
+            XContentBuilder builder = jsonBuilder().startObject();
+            addField(builder, timeFieldName, formatTimestamp(dataPoint.getTimestamp()));
+            dataPoint.getCategories().ifPresent(cs -> cs.forEach((key, value) -> addCategoryField(builder, key, value)));
+            dataPoint.getMeasurements().forEach(m -> addMeasurementField(builder, m.getId(), m.getValue()));
+            return builder.endObject();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void addMeasurementField(XContentBuilder builder, String id, long value) {
+        if (id.startsWith("category.")) throw new IllegalArgumentException("Measurement ids cannot be prefixed with \"category.\"");
+        if (id.equals(timeFieldName)) throw new IllegalArgumentException("Measurement ids cannot be named \"" + timeFieldName + "\"");
+        addField(builder, id, value);
+    }
+
+    private static void addCategoryField(XContentBuilder builder, String key, String value) {
+        addField(builder, "category." + key, value);
+    }
+
+    private static void addField(XContentBuilder builder, String key, Object value) {
+        try {
+            builder.field(key, value);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public SearchResponse search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
@@ -185,20 +213,21 @@ public class ElasticsearchHelper {
     }
 
     public void waitForGreenStatus() {
+        logger.info("Waiting for Elasticsearch to have green status...");
+        long t0 = System.currentTimeMillis();
         try {
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 200; i++) {
                 try {
                     client.lowLevel().performRequest("GET", "/_cluster/health?wait_for_status=green&timeout=50s");
+                    logger.info("Green status after " + ((System.currentTimeMillis() - t0) / 1000) + " seconds (i=" + i + ")");
                     return;
                 } catch (IOException e) {
-                    logger.info("Waiting for green status (" + i + "/1000): " + e.toString());
                     Thread.sleep(100);
                 }
             }
         } catch (InterruptedException e) {
             throw new RuntimeException("Failed to check Elasticsearch status", e);
         }
-
     }
 
     private RangeQueryBuilder timeRangeQuery(ZonedDateTime from, ZonedDateTime to) {
@@ -214,7 +243,7 @@ public class ElasticsearchHelper {
         return resolveIndexName().seriesDefinition(seriesDefinition).at(timestamp).single();
     }
 
-    private String formatTimestamp(ZonedDateTime timestamp) {
+    private static String formatTimestamp(ZonedDateTime timestamp) {
         return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(timestamp);
     }
 

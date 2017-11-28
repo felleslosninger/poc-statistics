@@ -4,7 +4,7 @@ import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.query.TimeSeriesFilter;
+import no.difi.statistics.model.query.PercentileFilter;
 import no.difi.statistics.query.QueryService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +15,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import static java.lang.String.format;
+import static no.difi.statistics.model.query.QueryFilter.queryFilter;
 
 @RestController
 public class QueryRestController {
@@ -47,11 +48,12 @@ public class QueryRestController {
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
+            @RequestParam(required = false) String categories
     )
     {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.last(seriesDefinition, from, to);
+        return service.last(seriesDefinition, queryFilter().from(from).to(to).categories(categories).build());
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}")
@@ -60,10 +62,11 @@ public class QueryRestController {
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
+            @RequestParam(required = false) String categories
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.query(seriesDefinition, from, to);
+        return service.query(seriesDefinition, queryFilter().from(from).to(to).categories(categories).build());
     }
 
     @GetMapping(path = "{owner}/{seriesName}/{distance}/percentile", params = {"percentile", "measurementId", "operator"})
@@ -73,12 +76,13 @@ public class QueryRestController {
             @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
+            @RequestParam(required = false) String categories,
             @RequestParam int percentile,
             @RequestParam String measurementId,
             @RequestParam RelationalOperator operator
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.query(seriesDefinition, from, to, new TimeSeriesFilter(percentile, measurementId, operator));
+        return service.query(seriesDefinition, queryFilter().from(from).to(to).build(), new PercentileFilter(percentile, measurementId, operator));
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/last/{targetDistance}")
@@ -88,12 +92,13 @@ public class QueryRestController {
             @PathVariable MeasurementDistance distance,
             @PathVariable MeasurementDistance targetDistance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
+            @RequestParam(required = false) String categories
     ) {
         if (distance.ordinal() > targetDistance.ordinal())
             throw new IllegalArgumentException(format("Distance %s is greater than target distance %s", distance, targetDistance));
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.lastPerDistance(seriesDefinition, targetDistance, from, to);
+        return service.lastPerDistance(seriesDefinition, targetDistance, queryFilter().from(from).to(to).categories(categories).build());
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/sum")
@@ -102,10 +107,11 @@ public class QueryRestController {
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
+            @RequestParam(required = false) String categories
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.sum(seriesDefinition, from, to);
+        return service.sum(seriesDefinition, queryFilter().from(from).to(to).categories(categories).build());
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/sum/{targetDistance}")
@@ -115,10 +121,11 @@ public class QueryRestController {
             @PathVariable MeasurementDistance distance,
             @PathVariable MeasurementDistance targetDistance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
+            @RequestParam(required = false) String categories
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.sumPerDistance(seriesDefinition, targetDistance, from, to);
+        return service.sumPerDistance(seriesDefinition, targetDistance, queryFilter().from(from).to(to).categories(categories).build());
     }
 
 }

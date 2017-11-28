@@ -6,7 +6,8 @@ import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.query.TimeSeriesFilter;
+import no.difi.statistics.model.query.PercentileFilter;
+import no.difi.statistics.model.query.QueryFilter;
 import no.difi.statistics.query.QueryService;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -14,6 +15,7 @@ import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -24,7 +26,6 @@ import javax.json.Json;
 import javax.json.JsonReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -35,12 +36,9 @@ import static java.lang.String.join;
 import static java.util.stream.Collectors.*;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.elasticsearch.QueryBuilders.*;
-import static no.difi.statistics.model.MeasurementDistance.days;
-import static no.difi.statistics.model.MeasurementDistance.minutes;
-import static no.difi.statistics.model.MeasurementDistance.months;
+import static no.difi.statistics.model.MeasurementDistance.*;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
-import static org.elasticsearch.search.builder.SearchSourceBuilder.searchSource;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 
 public class ElasticsearchQueryService implements QueryService {
@@ -63,33 +61,36 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     @Override
-    public List<TimeSeriesPoint> query(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to) {
-        List<TimeSeriesPoint> result = search(resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(), from, to);
+    public List<TimeSeriesPoint> query(TimeSeriesDefinition seriesDefinition, QueryFilter queryFilter) {
+        List<TimeSeriesPoint> result = search(
+                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
+                queryFilter
+        );
         if (result.isEmpty() && seriesDefinition.getDistance().equals(days)) {
             logger.info("Empty result for day series search. Attempting to aggregate minute series...");
             seriesDefinition = TimeSeriesDefinition.builder().name(seriesDefinition.getName()).distance(minutes).owner(seriesDefinition.getOwner());
             result = sumPerDistance(
-                    resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
+                    resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
                     days,
-                    from, to
+                    queryFilter
             );
         } else if (result.isEmpty() && seriesDefinition.getDistance().equals(months)) {
             logger.info("Empty result for month series search. Attempting to aggregate minute series...");
             seriesDefinition = TimeSeriesDefinition.builder().name(seriesDefinition.getName()).distance(minutes).owner(seriesDefinition.getOwner());
             result = sumPerDistance(
-                    resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
+                    resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
                     days,
-                    from, to
+                    queryFilter
             );
         }
         return result;
     }
 
     @Override
-    public List<TimeSeriesPoint> query(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+    public List<TimeSeriesPoint> query(TimeSeriesDefinition seriesDefinition, QueryFilter queryFilter, PercentileFilter filter) {
         return searchWithPercentileFilter(
-                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
-                from, to, filter
+                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
+                queryFilter, filter
         );
     }
 
@@ -97,77 +98,75 @@ public class ElasticsearchQueryService implements QueryService {
     public List<TimeSeriesPoint> lastPerDistance(
             TimeSeriesDefinition seriesDefinition,
             MeasurementDistance targetDistance,
-            ZonedDateTime from,
-            ZonedDateTime to
+            QueryFilter queryFilter
     ){
         return lastPerDistance(
-                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
+                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
                 targetDistance,
-                from,
-                to);
+                queryFilter
+        );
     }
 
     @Override
-    public TimeSeriesPoint sum(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to) {
+    public TimeSeriesPoint sum(TimeSeriesDefinition seriesDefinition, QueryFilter queryFilter) {
         return sumAggregate(
-                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
-                from, to
+                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
+                queryFilter
         );
     }
 
     @Override
-    public List<TimeSeriesPoint> sumPerDistance(TimeSeriesDefinition seriesDefinition, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to) {
+    public List<TimeSeriesPoint> sumPerDistance(TimeSeriesDefinition seriesDefinition, MeasurementDistance targetDistance, QueryFilter queryFilter) {
         return sumPerDistance(
-                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
+                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
                 targetDistance,
-                from,
-                to);
-    }
-
-    @Override
-    public TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition, ZonedDateTime from, ZonedDateTime to) {
-        return last(
-                resolveIndexName().seriesDefinition(seriesDefinition).from(from).to(to).list(),
-                from, to
+                queryFilter
         );
     }
 
-    private TimeSeriesPoint last(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
-        SearchResponse response = search(indexNames, searchSource()
-                .query(timeRangeQuery(from, to))
+    @Override
+    public TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition, QueryFilter queryFilter) {
+        return last(
+                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
+                queryFilter
+        );
+    }
+
+    private TimeSeriesPoint last(List<String> indexNames, QueryFilter queryFilter) {
+        SearchResponse response = search(indexNames, searchSource(queryFilter)
                 .aggregation(lastAggregation())
                 .size(0) // We are after aggregation and not the search hits
         );
         return ResultParser.pointFromLastAggregation(response);
     }
 
-    private List<TimeSeriesPoint> search(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
+    private List<TimeSeriesPoint> search(List<String> indexNames, QueryFilter queryFilter) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
                     "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
                     indexNames.stream().collect(joining(",\n  ")),
                     indexType,
-                    from,
-                    to
+                    queryFilter.from(),
+                    queryFilter.to()
             ));
         }
-        SearchResponse response = search(indexNames, searchSource()
-                .query(timeRangeQuery(from, to))
+        SearchResponse response = search(indexNames, searchSource(queryFilter)
+                .aggregation(sumPerTimestampAggregation("categoryAggregation", measurementIds(indexNames)))
                 .size(10_000) // 10 000 is maximum
         );
         List<TimeSeriesPoint> series = new ArrayList<>();
-        for (SearchHit hit : response.getHits()) {
-            series.add(ResultParser.point(hit));
+        if (response.getAggregations() != null) {
+            MultiBucketsAggregation categoryAggregation = response.getAggregations().get("categoryAggregation");
+            series.addAll(categoryAggregation.getBuckets().stream().map(ResultParser::point).collect(toList()));
         }
         return series;
     }
 
-    private TimeSeriesPoint sumAggregate(List<String> indexNames, ZonedDateTime from, ZonedDateTime to) {
-        if (from == null && to == null)
-            return sumAggregateUnbounded(indexNames);
-        SearchResponse response = search(indexNames, searchSource()
-                .query(timeRangeQuery(from, to))
-                .aggregation(sumAggregation("a", from, to, measurementIds(indexNames)))
+    private TimeSeriesPoint sumAggregate(List<String> indexNames, QueryFilter queryFilter) {
+        if (queryFilter.from() == null && queryFilter.to() == null)
+            return sumAggregateUnbounded(indexNames, queryFilter);
+        SearchResponse response = search(indexNames, searchSource(queryFilter)
+                .aggregation(sumAggregation("a", queryFilter.from(), queryFilter.to(), measurementIds(indexNames)))
                 .size(0) // We are after aggregation and not the search hits
         );
         if (response.getAggregations() == null)
@@ -175,9 +174,8 @@ public class ElasticsearchQueryService implements QueryService {
         return ResultParser.sumPointFromRangeBucket(response.getAggregations().get("a"));
     }
 
-    private TimeSeriesPoint sumAggregateUnbounded(List<String> indexNames) {
-        SearchSourceBuilder searchSourceBuilder = searchSource()
-                .query(timeRangeQuery(null, null))
+    private TimeSeriesPoint sumAggregateUnbounded(List<String> indexNames, QueryFilter queryFilter) {
+        SearchSourceBuilder searchSourceBuilder = searchSource(queryFilter)
                 .size(0); // We are after aggregation and not the search hits
         measurementIds(indexNames).forEach(mid -> searchSourceBuilder.aggregation(AggregationBuilders.sum(mid).field(mid)));
         searchSourceBuilder.aggregation(lastAggregation());
@@ -185,21 +183,20 @@ public class ElasticsearchQueryService implements QueryService {
         return ResultParser.sumPoint(response.getAggregations());
     }
 
-    private List<TimeSeriesPoint> sumPerDistance(List<String> indexNames, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to) {
+    private List<TimeSeriesPoint> sumPerDistance(List<String> indexNames, MeasurementDistance targetDistance, QueryFilter queryFilter) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
                     "Executing sum point per %s:\nIndexes: %s\nFrom: %s\nTo: %s\n",
                     targetDistance,
                     indexNames.stream().collect(joining(",\n  ")),
-                    from,
-                    to
+                    queryFilter.from(),
+                    queryFilter.to()
             ));
         }
-        SearchResponse response = search(indexNames, searchSource()
-                .query(timeRangeQuery(from, to))
-                .aggregation(sumHistogramAggregation("a", targetDistance, measurementIds(indexNames)))
-                .size(0) // We are after aggregation and not the search hits
-        );
+        SearchSourceBuilder searchSource = searchSource(queryFilter)
+                .aggregation(sumPerDistanceAggregation("a", targetDistance, measurementIds(indexNames)))
+                .size(0); // We are after aggregation and not the search hits
+        SearchResponse response = search(indexNames, searchSource);
         List<TimeSeriesPoint> series = new ArrayList<>();
         if (response.getAggregations() != null) {
             Histogram histogram = response.getAggregations().get("a");
@@ -208,19 +205,18 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
-    private List<TimeSeriesPoint> lastPerDistance(List<String> indexNames, MeasurementDistance targetDistance, ZonedDateTime from, ZonedDateTime to) {
+    private List<TimeSeriesPoint> lastPerDistance(List<String> indexNames, MeasurementDistance targetDistance, QueryFilter queryFilter) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
                     "Executing last point per %s:\nIndexes: %s\nFrom: %s\nTo: %s\n",
                     targetDistance,
                     indexNames.stream().collect(joining(",\n  ")),
-                    from,
-                    to
+                    queryFilter.from(),
+                    queryFilter.to()
             ));
         }
-        SearchResponse response = search(indexNames, searchSource()
-                .query(timeRangeQuery(from, to))
-                .aggregation(lastHistogramAggregation("a", targetDistance, measurementIds(indexNames)))
+        SearchResponse response = search(indexNames, searchSource(queryFilter)
+                .aggregation(lastPerDistanceAggregation("a", targetDistance, measurementIds(indexNames)))
                 .size(0) // We are after aggregation and not the search hits
         );
         List<TimeSeriesPoint> series = new ArrayList<>();
@@ -231,20 +227,19 @@ public class ElasticsearchQueryService implements QueryService {
         return series;
     }
 
-    private List<TimeSeriesPoint> searchWithPercentileFilter(List<String> indexNames, ZonedDateTime from, ZonedDateTime to, TimeSeriesFilter filter) {
+    private List<TimeSeriesPoint> searchWithPercentileFilter(List<String> indexNames, QueryFilter queryFilter, PercentileFilter filter) {
         if (logger.isDebugEnabled()) {
             logger.debug(format(
                     "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
                     indexNames.stream().collect(joining(",\n  ")),
                     indexType,
-                    from,
-                    to
+                    queryFilter.from(),
+                    queryFilter.to()
             ));
         }
-        double percentileValue = percentileValue(indexNames, filter.getMeasurementId(), filter.getPercentile(), from, to);
+        double percentileValue = percentileValue(indexNames, filter.getMeasurementId(), filter.getPercentile(), queryFilter);
         logger.info(filter.getPercentile() + ". percentile value: " + percentileValue);
-        SearchResponse response = search(indexNames, searchSource()
-                .query(timeRangeQuery(from, to))
+        SearchResponse response = search(indexNames, searchSource(queryFilter)
                 .postFilter(range(filter.getMeasurementId(), filter.getRelationalOperator(), percentileValue))
                 .size(10_000) // 10 000 is maximum
         );
@@ -271,15 +266,21 @@ public class ElasticsearchQueryService implements QueryService {
         return builder;
     }
 
-    private double percentileValue(List<String> indexNames, String measurementId, int percentile, ZonedDateTime from, ZonedDateTime to) {
-        SearchResponse response = search(indexNames, searchSource()
-                        .query(timeRangeQuery(from, to))
+    private double percentileValue(List<String> indexNames, String measurementId, int percentile, QueryFilter queryFilter) {
+        SearchResponse response = search(indexNames, searchSource(queryFilter)
                         .size(0) // We are after aggregation and not the search hits
                         .aggregation(percentiles("p").field(measurementId).percentiles(percentile).compression(10000))
         );
         if (response.getAggregations() == null)
             return 0.0;
         return ((Percentiles)response.getAggregations().get("p")).percentile(percentile);
+    }
+
+    private SearchSourceBuilder searchSource(QueryFilter queryFilter) {
+        SearchSourceBuilder builder = SearchSourceBuilder.searchSource();
+        builder.query(timeRangeQuery(queryFilter.from(), queryFilter.to()));
+        queryFilter.categories().forEach((k, v) -> builder.query(categoryQuery(k, v)));
+        return builder;
     }
 
     private SearchResponse search(List<String> indexNames, SearchSourceBuilder searchSource) {
@@ -305,7 +306,10 @@ public class ElasticsearchQueryService implements QueryService {
                     (key, value) -> result.addAll(
                             value.asJsonObject().getJsonObject("mappings").getJsonObject("default")
                                     .getJsonObject("properties").keySet().stream()
-                                    .filter(p -> !p.equals(timeFieldName)).collect(toSet())
+                                    .filter(p -> !p.startsWith("category."))
+                                    .filter(p -> !p.equals("category"))
+                                    .filter(p -> !p.equals(timeFieldName))
+                                    .collect(toSet())
                     )
             );
         } catch (IOException e) {
