@@ -9,14 +9,10 @@ run() {
     local applicationHost=$5
     workDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     stackFile="${workDir}/stack.yml"
-    [[ ${version} != 'DEV-SNAPSHOT' ]] && \
-        echo ${registryPassword} | docker login $(__registry) -u ${registryUser} --password-stdin
     # See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
     __serviceExists "${stackName}_elasticsearch" && __isServiceAvailable 'elasticsearch' ${applicationHost} && \
         { __disableShardAllocation ${applicationHost} || { >&2 echo "Failed to disable shard allocation"; return 1; } }
-    VERSION=${version} docker stack deploy --prune --with-registry-auth --resolve-image never -c ${stackFile} ${stackName} || return 1
-    [[ ${version} != 'DEV-SNAPSHOT' ]] && \
-        docker logout $(__registry)
+    VERSION=${version} docker stack deploy --prune --resolve-image never -c ${stackFile} ${stackName} || return 1
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch" || return $?
     __waitForServiceUpdateToComplete "${stackName}_elasticsearch_gossip" || return $?
     __waitForServiceToBeAvailable 'elasticsearch' ${applicationHost} || return $?
@@ -138,10 +134,6 @@ __ok() {
 __duration() {
     local from=$1
     echo -n $(( SECONDS - ${from} ))
-}
-
-__registry() {
-    echo -n 'eid-jenkins02.dmz.local:8081'
 }
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && run ${@}

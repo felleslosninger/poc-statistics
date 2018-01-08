@@ -222,7 +222,10 @@ public class ElasticsearchHelper {
                     logger.info("Green status after " + ((System.currentTimeMillis() - t0) / 1000) + " seconds (i=" + i + ")");
                     return;
                 } catch (IOException e) {
-                    Thread.sleep(100);
+                    if (i >= 199)
+                        logger.error("Could not get green status with client " + client + ". Reason is: " + e);
+                    else
+                        Thread.sleep(100);
                 }
             }
         } catch (InterruptedException e) {

@@ -29,7 +29,11 @@ public class ElasticsearchConfig implements BackendConfig {
 
     @Bean
     public Client elasticsearchClient() {
-        return new Client(elasticsearchHighLevelClient(), elasticsearchLowLevelClient());
+        return new Client(
+                elasticsearchHighLevelClient(),
+                elasticsearchLowLevelClient(),
+                "http://" + elasticsearchHost() + ":" + elasticsearchPort()
+        );
     }
 
     @Bean
@@ -42,6 +46,14 @@ public class ElasticsearchConfig implements BackendConfig {
         String host = environment.getRequiredProperty("no.difi.statistics.elasticsearch.host");
         int port = environment.getRequiredProperty("no.difi.statistics.elasticsearch.port", Integer.class);
         return RestClient.builder(new HttpHost(host, port, "http")).build();
+    }
+
+    private String elasticsearchHost() {
+        return environment.getRequiredProperty("no.difi.statistics.elasticsearch.host");
+    }
+
+    private int elasticsearchPort() {
+        return environment.getRequiredProperty("no.difi.statistics.elasticsearch.port", Integer.class);
     }
 
 }

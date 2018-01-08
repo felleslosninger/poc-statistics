@@ -32,7 +32,7 @@
         <elasticsearch.version>5.6.3</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <difi.docker.registry>eid-jenkins02.dmz.local:8081</difi.docker.registry>
+        <difi.docker.registry>docker.io/difi</difi.docker.registry>
         <artifactory.url>http://eid-artifactory.dmz.local:8080/artifactory</artifactory.url>
     </properties>
 
@@ -326,28 +326,4 @@
         </plugins>
     </build>
 
-    <repositories>
-        <repository>
-            <id>spring-milestones</id>
-            <url>http://repo.spring.io/milestone</url>
-        </repository>
-    </repositories>
-
-    <pluginRepositories>
-        <pluginRepository>
-            <id>spring-milestones</id>
-            <url>http://repo.spring.io/milestone</url>
-        </pluginRepository>
-    </pluginRepositories>
-
-    <distributionManagement>
-        <repository>
-            <id>eid-releases</id>
-            <url>${artifactory.url}/libs-release-local</url>
-        </repository>
-        <snapshotRepository>
-            <id>eid-snapshots</id>
-            <url>${artifactory.url}/libs-snapshot-local</url>
-        </snapshotRepository>
-    </distributionManagement>
 </project>

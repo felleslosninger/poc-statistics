@@ -2,7 +2,7 @@ version: '3.4'
 
 services:
   query:
-    image: eid-jenkins02.dmz.local:8081/statistics-query-elasticsearch:${VERSION}
+    image: difi/statistics-query-elasticsearch:${VERSION}
     ports:
       - "8080:8080"
     networks:
@@ -10,7 +10,7 @@ services:
     deploy:
       mode: global
   ingest:
-    image: eid-jenkins02.dmz.local:8081/statistics-ingest-elasticsearch:${VERSION}
+    image: difi/statistics-ingest-elasticsearch:${VERSION}
     ports:
       - "8081:8080"
     networks:
@@ -18,7 +18,7 @@ services:
     deploy:
       mode: global
   authenticate:
-    image: eid-jenkins02.dmz.local:8081/statistics-authenticate:${VERSION}
+    image: difi/statistics-authenticate:${VERSION}
     ports:
       - "8083:8080"
     networks:
@@ -26,7 +26,7 @@ services:
     deploy:
       mode: global
   elasticsearch:
-    image: eid-jenkins02.dmz.local:8081/statistics-elasticsearch:${VERSION}
+    image: difi/statistics-elasticsearch:${VERSION}
     ports:
       - "8082:9200"
     command: -Ediscovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Enode.master=false
@@ -38,7 +38,7 @@ services:
     deploy:
       mode: global
   elasticsearch_gossip:
-    image: eid-jenkins02.dmz.local:8081/statistics-elasticsearch:${VERSION}
+    image: difi/statistics-elasticsearch:${VERSION}
     ports:
       - "9201:9200"
     command: -Etransport.tcp.port=9301 -Enode.data=false
