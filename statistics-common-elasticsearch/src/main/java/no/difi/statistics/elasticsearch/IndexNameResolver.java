@@ -18,11 +18,16 @@ import static no.difi.statistics.elasticsearch.Timestamp.truncatedTimestamp;
 
 public class IndexNameResolver {
 
+    private static String partSeparator = ":";
     private TimeSeriesDefinition seriesDefinition;
     private ChronoUnit baseTimeUnit;
     private ZonedDateTime from;
     private ZonedDateTime to;
     private ZonedDateTime at;
+
+    public static String generic(String indexName) {
+        return indexName.substring(0, indexName.lastIndexOf(partSeparator) + 1) + "*";
+    }
 
     public static SeriesDefinitionEntry resolveIndexName() {
         return new Fluent();
@@ -134,11 +139,12 @@ public class IndexNameResolver {
 
         private String formatName(ZonedDateTime timestamp) {
             return format(
-                    "%s:%s:%s%s",
+                    "%1$s%5$s%2$s%5$s%3$s%4$s", // <owner><partSeparator><seriesName><partSeparator><distance><timeUnit>
                     instance.seriesDefinition.getOwner(),
                     instance.seriesDefinition.getName(),
                     measurementDistanceName(instance.seriesDefinition.getDistance()),
-                    timestamp != null ? dateTimeFormatter(instance.baseTimeUnit).format(timestamp) : "*"
+                    timestamp != null ? dateTimeFormatter(instance.baseTimeUnit).format(timestamp) : "*",
+                    partSeparator
             );
         }
 

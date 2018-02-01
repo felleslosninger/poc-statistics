@@ -2,7 +2,7 @@ version: '3.4'
 
 services:
   query:
-    image: difi/statistics-query-elasticsearch:${VERSION}
+    image: ${REGISTRY}/statistics-query-elasticsearch:${VERSION}
     ports:
       - "8080:8080"
     networks:
@@ -10,7 +10,7 @@ services:
     deploy:
       mode: global
   ingest:
-    image: difi/statistics-ingest-elasticsearch:${VERSION}
+    image: ${REGISTRY}/statistics-ingest-elasticsearch:${VERSION}
     ports:
       - "8081:8080"
     networks:
@@ -18,7 +18,7 @@ services:
     deploy:
       mode: global
   authenticate:
-    image: difi/statistics-authenticate:${VERSION}
+    image: ${REGISTRY}/statistics-authenticate:${VERSION}
     ports:
       - "8083:8080"
     networks:
@@ -26,11 +26,13 @@ services:
     deploy:
       mode: global
   elasticsearch:
-    image: difi/statistics-elasticsearch:${VERSION}
+    image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
     ports:
       - "8082:9200"
-    command: -Ediscovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Enode.master=false
+    command: bin/elasticsearch -Ediscovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Enode.master=false
     stop_grace_period: 5m
+    environment:
+      - bootstrap.memory_lock=true
     volumes:
       - statistics-data:/usr/share/elasticsearch/data
     networks:
@@ -38,11 +40,13 @@ services:
     deploy:
       mode: global
   elasticsearch_gossip:
-    image: difi/statistics-elasticsearch:${VERSION}
+    image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
     ports:
       - "9201:9200"
-    command: -Etransport.tcp.port=9301 -Enode.data=false
+    command: bin/elasticsearch -Etransport.tcp.port=9301 -Enode.data=false
     stop_grace_period: 5m
+    environment:
+      - bootstrap.memory_lock=true
     networks:
       - net
     deploy:

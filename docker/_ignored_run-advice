@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 
-prepare() {
+before() {
     [[ $# -eq 2 ]] || { >&2 echo "Usage: $0 STACK_NAME APPLICATION_HOST"; return 1; }
     local stackName=$1
     local applicationHost=$2
     # See https://www.elastic.co/guide/en/elasticsearch/reference/current/rolling-upgrades.html
     __serviceExists "${stackName}_elasticsearch" && __isServiceAvailable 'elasticsearch' ${applicationHost} && \
         { __disableShardAllocation ${applicationHost} || { >&2 echo "Failed to disable shard allocation"; return 1; } }
+    return 0
 }
 
-finish() {
+after() {
     [[ $# -eq 2 ]] || { >&2 echo "Usage: $0 STACK_NAME APPLICATION_HOST"; return 1; }
     local stackName=$1
     local applicationHost=$2
@@ -137,12 +138,12 @@ __duration() {
 }
 
 case $1 in
-"prepare")
+"before")
     shift
-    prepare ${@} || exit 1
+    before ${@} || exit 1
     ;;
-"finish")
+"after")
     shift
-    finish ${@} || exit 1
+    after ${@} || exit 1
     ;;
 esac

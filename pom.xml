@@ -29,10 +29,10 @@
     <properties>
         <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
         <springboot.version>1.5.8.RELEASE</springboot.version>
-        <elasticsearch.version>5.6.3</elasticsearch.version>
+        <elasticsearch.version>6.1.2</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <difi.docker.registry>docker.io/difi</difi.docker.registry>
+        <no.difi.jenkins-pipeline.docker-registry>placeholder</no.difi.jenkins-pipeline.docker-registry>
         <artifactory.url>http://eid-artifactory.dmz.local:8080/artifactory</artifactory.url>
     </properties>
 
@@ -110,7 +110,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers</artifactId>
-                <version>1.4.3</version>
+                <version>1.6.0</version>
             </dependency>
             <dependency>
                 <groupId>junit</groupId>
@@ -258,7 +258,7 @@
                                         <runCmd>apk add --no-cache curl</runCmd> <!-- Used for health checks -->
                                     </runCmds>
                                 </build>
-                                <name>${difi.docker.registry}/${project.artifactId}:${project.version}</name>
+                                <name>${no.difi.jenkins-pipeline.docker-registry}/${project.artifactId}:${project.version}</name>
                             </image>
                         </images>
                     </configuration>
@@ -287,7 +287,7 @@
                             <configuration>
                                 <images>
                                     <image>
-                                        <name>${difi.docker.registry}/${project.artifactId}:${project.version}</name>
+                                        <name>${no.difi.jenkins-pipeline.docker-registry}/${project.artifactId}:${project.version}</name>
                                         <build>
                                             <labels>
                                                 <label>ScmId=${buildNumber}</label>

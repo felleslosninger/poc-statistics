@@ -56,10 +56,10 @@ public class ElasticsearchHelper {
     public static GenericContainer startContainer() {
         GenericContainer container;
         try {
-            container = new GenericContainer("elasticsearch:5.6.3").withCommand("-Enetwork.host=_site_");
+            container = new GenericContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.2").withCommand("bin/elasticsearch -Enetwork.host=_site_");
         } catch (Exception e) {
             // try again as
-            container = new GenericContainer("elasticsearch:5.6.3").withCommand("-Enetwork.host=_site_");
+            container = new GenericContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.2").withCommand("bin/elasticsearch -Enetwork.host=_site_");
         }
         container.start();
         return container;

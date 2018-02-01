@@ -1,6 +1,7 @@
 package no.difi.statistics.query.elasticsearch;
 
 import no.difi.statistics.elasticsearch.Client;
+import no.difi.statistics.elasticsearch.IndexNameResolver;
 import no.difi.statistics.elasticsearch.ResultParser;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
@@ -298,9 +299,10 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private List<String> measurementIds(List<String> indexNames) {
+        String genericIndexName = IndexNameResolver.generic(indexNames.get(0));
         Set<String> result = new HashSet<>();
         try (InputStream response = elasticsearchClient.lowLevel()
-                .performRequest("GET", "/" + join(",", indexNames) + "/_mappings?ignore_unavailable=true").getEntity().getContent()) {
+                .performRequest("GET", "/" + genericIndexName + "/_mappings?ignore_unavailable=true").getEntity().getContent()) {
             JsonReader reader = Json.createReader(response);
             reader.readObject().forEach(
                     (key, value) -> result.addAll(

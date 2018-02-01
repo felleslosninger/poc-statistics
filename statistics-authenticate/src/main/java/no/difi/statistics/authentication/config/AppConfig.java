@@ -6,6 +6,7 @@ import no.difi.statistics.authentication.api.AuthenticationRestController;
 import no.difi.statistics.elasticsearch.Client;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.autoconfigure.ManagementWebSecurityAutoConfiguration;
@@ -68,19 +69,17 @@ public class AppConfig {
     public Client elasticsearchClient() {
         return new Client(
                 elasticsearchHighLevelClient(),
-                elasticsearchLowLevelClient(),
                 "http://" + elasticsearchHost() + ":" + elasticsearchPort()
         );
     }
 
-    @Bean
+    @Bean(destroyMethod = "close")
     public RestHighLevelClient elasticsearchHighLevelClient() {
         return new RestHighLevelClient(elasticsearchLowLevelClient());
     }
 
-    @Bean(destroyMethod = "close")
-    public RestClient elasticsearchLowLevelClient() {
-        return RestClient.builder(new HttpHost(elasticsearchHost(), elasticsearchPort(), "http")).build();
+    private RestClientBuilder elasticsearchLowLevelClient() {
+        return RestClient.builder(new HttpHost(elasticsearchHost(), elasticsearchPort(), "http"));
     }
 
     @Bean

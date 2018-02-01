@@ -1,4 +1,4 @@
-FROM elasticsearch:5.6.3
+FROM docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.2
 MAINTAINER Direktoratet for forvaltning og IKT <roy@difi.no>
 
 HEALTHCHECK --timeout=10s --interval=10s --retries=60 \

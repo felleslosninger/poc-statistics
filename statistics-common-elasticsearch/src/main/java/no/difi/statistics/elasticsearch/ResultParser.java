@@ -3,8 +3,8 @@ package no.difi.statistics.elasticsearch;
 import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
@@ -48,7 +48,7 @@ public class ResultParser {
     }
 
     private static ZonedDateTime timestamp(SearchHit hit) {
-        return timestamp(hit.getSource().get(timeFieldName).toString());
+        return timestamp(hit.getSourceAsMap().get(timeFieldName).toString());
     }
 
     private static ZonedDateTime timestamp(String value) {
@@ -56,14 +56,14 @@ public class ResultParser {
     }
 
     private static List<Measurement> measurements(SearchHit hit) {
-        return hit.getSource().entrySet().stream()
+        return hit.getSourceAsMap().entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(timeFieldName) && !entry.getKey().startsWith("category."))
                 .map(entry -> new Measurement(entry.getKey(), Long.valueOf(entry.getValue().toString())))
                 .collect(toList());
     }
 
     private static Map<String, String> categories(SearchHit hit) {
-        return hit.getSource().entrySet().stream()
+        return hit.getSourceAsMap().entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith("category."))
                 .collect(toMap(entry -> entry.getKey().substring(9), entry -> entry.getValue().toString()));
     }
@@ -76,7 +76,7 @@ public class ResultParser {
             } else if (aggregation instanceof TopHits) {
                 long numHits = ((TopHits)aggregation).getHits().getHits().length;
                 if (numHits != 1) throw new IllegalArgumentException("Expected 1 top hit but found " + numHits);
-                Map<String, SearchHitField> fieldsMap = ((TopHits) aggregation).getHits().getAt(0).getFields();
+                Map<String, DocumentField> fieldsMap = ((TopHits) aggregation).getHits().getAt(0).getFields();
                 for (String s : fieldsMap.keySet()) {
                     Number value = (Number) fieldsMap.get(s).getValues().get(0);
                     measurements.add(new Measurement(s, value.longValue()));

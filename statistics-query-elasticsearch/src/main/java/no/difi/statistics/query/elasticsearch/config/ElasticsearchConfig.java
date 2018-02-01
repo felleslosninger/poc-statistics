@@ -7,6 +7,7 @@ import no.difi.statistics.query.elasticsearch.ElasticsearchQueryService;
 import no.difi.statistics.query.elasticsearch.ListAvailableTimeSeries;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -34,28 +35,26 @@ public class ElasticsearchConfig implements BackendConfig {
 
     @Bean
     public ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand() {
-        return ListAvailableTimeSeries.builder().elasticsearchClient(elasticsearchLowLevelClient());
+        return ListAvailableTimeSeries.builder().elasticsearchClient(elasticsearchLowLevelClient().build());
     }
 
     @Bean
     public Client elasticsearchClient() {
         return new Client(
                 elasticsearchHighLevelClient(),
-                elasticsearchLowLevelClient(),
                 "http://" + elasticsearchHost() + ":" + elasticsearchPort()
         );
     }
 
-    @Bean
+    @Bean(destroyMethod = "close")
     public RestHighLevelClient elasticsearchHighLevelClient() {
         return new RestHighLevelClient(elasticsearchLowLevelClient());
     }
 
-    @Bean(destroyMethod = "close")
-    public RestClient elasticsearchLowLevelClient() {
+    private RestClientBuilder elasticsearchLowLevelClient() {
         String host = environment.getRequiredProperty("no.difi.statistics.elasticsearch.host");
         int port = environment.getRequiredProperty("no.difi.statistics.elasticsearch.port", Integer.class);
-        return RestClient.builder(new HttpHost(host, port, "http")).build();
+        return RestClient.builder(new HttpHost(host, port, "http"));
     }
 
     private String elasticsearchHost() {
