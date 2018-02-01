@@ -75,7 +75,7 @@ public class DataOperations {
                         .collect(
                                 groupingBy(
                                         point -> truncatedTimestamp(point.getTimestamp(), targetDistance),
-                                        summarize(timestamp -> truncatedTimestamp(timestamp, targetDistance))
+                                        summarize(timestamp -> truncatedTimestamp(timestamp, targetDistance), categories)
                                 )
                         )
                         .values());

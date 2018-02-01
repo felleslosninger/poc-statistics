@@ -26,6 +26,13 @@ public class ResultParser {
     private static final String timeFieldName = "timestamp";
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
+    public static List<TimeSeriesPoint> points(MultiBucketsAggregation aggregation, Map<String, String> categories) {
+        return aggregation.getBuckets().stream()
+                .map(ResultParser::point)
+                .map(p -> p.categories(categories).build())
+                .collect(toList());
+    }
+
     public static TimeSeriesPoint point(SearchHit hit) {
         return TimeSeriesPoint.builder()
                 .timestamp(timestamp(hit))
@@ -39,12 +46,12 @@ public class ResultParser {
             point(response.getAggregations().<TopHits>get("last").getHits().getAt(0)) : null;
     }
 
-    public static TimeSeriesPoint point(MultiBucketsAggregation.Bucket bucket) {
+    public static TimeSeriesPoint.Builder point(MultiBucketsAggregation.Bucket bucket) {
         return point(bucket.getKeyAsString(), bucket);
     }
 
-    private static TimeSeriesPoint point(String timestamp, MultiBucketsAggregation.Bucket bucket) {
-        return TimeSeriesPoint.builder().timestamp(timestamp(timestamp)).measurements(measurements(bucket.getAggregations())).build();
+    private static TimeSeriesPoint.Builder point(String timestamp, MultiBucketsAggregation.Bucket bucket) {
+        return TimeSeriesPoint.builder().timestamp(timestamp(timestamp)).measurements(measurements(bucket.getAggregations()));
     }
 
     private static ZonedDateTime timestamp(SearchHit hit) {

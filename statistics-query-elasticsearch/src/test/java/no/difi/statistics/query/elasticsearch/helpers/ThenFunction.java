@@ -69,7 +69,7 @@ public class ThenFunction<T> implements Function<List<TimeSeries>, T> {
                 TimeSeries series = seriesForDistance(givenSeries, distance);
                 Collection<TimeSeriesPoint> points = series.getPoints().stream()
                         .filter(point -> point.hasCategories(categories))
-                        .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize()))
+                        .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize(categories)))
                         .values();
                 List<TimeSeriesPoint> result = new ArrayList<>(points);
                 sort(result);

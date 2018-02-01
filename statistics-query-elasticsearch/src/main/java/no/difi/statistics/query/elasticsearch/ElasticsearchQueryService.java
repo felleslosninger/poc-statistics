@@ -34,6 +34,7 @@ import java.util.Set;
 
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.*;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.elasticsearch.QueryBuilders.*;
@@ -155,12 +156,10 @@ public class ElasticsearchQueryService implements QueryService {
                 .aggregation(sumPerTimestampAggregation("categoryAggregation", measurementIds(indexNames)))
                 .size(10_000) // 10 000 is maximum
         );
-        List<TimeSeriesPoint> series = new ArrayList<>();
-        if (response.getAggregations() != null) {
-            MultiBucketsAggregation categoryAggregation = response.getAggregations().get("categoryAggregation");
-            series.addAll(categoryAggregation.getBuckets().stream().map(ResultParser::point).collect(toList()));
-        }
-        return series;
+        if (response.getAggregations() != null)
+            return ResultParser.points(response.getAggregations().get("categoryAggregation"), queryFilter.categories());
+        else
+            return emptyList();
     }
 
     private TimeSeriesPoint sumAggregate(List<String> indexNames, QueryFilter queryFilter) {
@@ -198,12 +197,10 @@ public class ElasticsearchQueryService implements QueryService {
                 .aggregation(sumPerDistanceAggregation("a", targetDistance, measurementIds(indexNames)))
                 .size(0); // We are after aggregation and not the search hits
         SearchResponse response = search(indexNames, searchSource);
-        List<TimeSeriesPoint> series = new ArrayList<>();
-        if (response.getAggregations() != null) {
-            Histogram histogram = response.getAggregations().get("a");
-            series.addAll(histogram.getBuckets().stream().map(ResultParser::point).collect(toList()));
-        }
-        return series;
+        if (response.getAggregations() != null)
+            return ResultParser.points(response.getAggregations().get("a"), queryFilter.categories());
+        else
+            return emptyList();
     }
 
     private List<TimeSeriesPoint> lastPerDistance(List<String> indexNames, MeasurementDistance targetDistance, QueryFilter queryFilter) {
@@ -220,12 +217,10 @@ public class ElasticsearchQueryService implements QueryService {
                 .aggregation(lastPerDistanceAggregation("a", targetDistance, measurementIds(indexNames)))
                 .size(0) // We are after aggregation and not the search hits
         );
-        List<TimeSeriesPoint> series = new ArrayList<>();
-        if (response.getAggregations() != null) {
-            Histogram histogram = response.getAggregations().get("a");
-            series.addAll(histogram.getBuckets().stream().map(ResultParser::point).collect(toList()));
-        }
-        return series;
+        if (response.getAggregations() != null)
+            return ResultParser.points(response.getAggregations().get("a"), queryFilter.categories());
+        else
+            return emptyList();
     }
 
     private List<TimeSeriesPoint> searchWithPercentileFilter(List<String> indexNames, QueryFilter queryFilter, PercentileFilter filter) {
