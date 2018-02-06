@@ -42,8 +42,16 @@ public class ResultParser {
     }
 
     public static TimeSeriesPoint pointFromLastAggregation(SearchResponse response) {
-        return response.getAggregations() != null ?
-            point(response.getAggregations().<TopHits>get("last").getHits().getAt(0)) : null;
+        if (response.getAggregations() == null)
+            return null;
+        if (response.getAggregations().<TopHits>get("last") == null)
+            throw new RuntimeException("No last aggregation in result");
+        if (response.getAggregations().<TopHits>get("last").getHits().getHits().length == 0)
+            return null;
+        if (response.getAggregations().<TopHits>get("last").getHits().getHits().length > 1)
+            throw new RuntimeException("Too many hits in last aggregation: "
+                    + response.getAggregations().<TopHits>get("last").getHits().getHits().length);
+        return point(response.getAggregations().<TopHits>get("last").getHits().getAt(0));
     }
 
     public static TimeSeriesPoint.Builder point(MultiBucketsAggregation.Bucket bucket) {

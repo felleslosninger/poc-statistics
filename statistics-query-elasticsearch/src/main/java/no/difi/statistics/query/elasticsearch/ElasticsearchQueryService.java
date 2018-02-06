@@ -13,11 +13,10 @@ import no.difi.statistics.query.QueryService;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
-import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
@@ -33,12 +32,12 @@ import java.util.List;
 import java.util.Set;
 
 import static java.lang.String.format;
-import static java.lang.String.join;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.*;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.elasticsearch.QueryBuilders.*;
 import static no.difi.statistics.model.MeasurementDistance.*;
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.percentiles;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
@@ -273,10 +272,10 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private SearchSourceBuilder searchSource(QueryFilter queryFilter) {
-        SearchSourceBuilder builder = SearchSourceBuilder.searchSource();
-        builder.query(timeRangeQuery(queryFilter.from(), queryFilter.to()));
-        queryFilter.categories().forEach((k, v) -> builder.query(categoryQuery(k, v)));
-        return builder;
+        BoolQueryBuilder boolQuery = boolQuery();
+        boolQuery.filter(timeRangeQuery(queryFilter.from(), queryFilter.to()));
+        queryFilter.categories().forEach((k, v) -> boolQuery.filter(categoryQuery(k, v)));
+        return SearchSourceBuilder.searchSource().query(boolQuery);
     }
 
     private SearchResponse search(List<String> indexNames, SearchSourceBuilder searchSource) {

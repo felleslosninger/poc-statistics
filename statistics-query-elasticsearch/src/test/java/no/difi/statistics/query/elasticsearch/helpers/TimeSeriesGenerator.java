@@ -116,11 +116,7 @@ public class TimeSeriesGenerator implements Supplier<TimeSeries> {
                         .flatMap(Collection::stream)
                         .collect(toList())
         );
-        try {
-            helper.indexPoints(seriesDefinition, this.series.getPoints());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        helper.indexPoints(seriesDefinition, this.series.getPoints());
     }
 
     private List<TimeSeriesPoint> categorizedPoints(ZonedDateTime timestamp) {

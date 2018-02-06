@@ -1,19 +1,20 @@
 package no.difi.statistics.test.utils;
 
-import com.arakelian.docker.junit.DockerRule;
-import com.arakelian.docker.junit.model.ImmutableDockerConfig;
 import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.apache.http.ConnectionClosedException;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -23,15 +24,20 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Field;
 import java.net.ConnectException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 
+import static no.difi.statistics.elasticsearch.IdResolver.id;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
+import static no.difi.statistics.elasticsearch.Timestamp.normalize;
 import static no.difi.statistics.test.utils.DataOperations.unit;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
+import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.common.xcontent.XContentType.JSON;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
@@ -100,27 +106,33 @@ public class ElasticsearchHelper {
         }
     }
 
-    public void indexPoints(MeasurementDistance distance, List<TimeSeriesPoint> points) throws IOException {
+    public void indexPoints(MeasurementDistance distance, List<TimeSeriesPoint> points) {
         indexPoints(TimeSeriesDefinition.builder().name("test").distance(distance).owner("test_owner"), points);
     }
 
-    public void indexPoints(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> points) throws IOException {
-        for (TimeSeriesPoint point : points)
-            indexPoint(seriesDefinition, point);
+    public void indexPoints(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> points) {
+        BulkRequest bulkRequest = new BulkRequest().setRefreshPolicy(IMMEDIATE).timeout(timeValueMinutes(1));
+        points.forEach(point -> bulkRequest.add(indexRequest(seriesDefinition, point)));
+        try {
+            BulkResponse response = client.highLevel().bulk(bulkRequest);
+            if (response.hasFailures())
+                throw new RuntimeException("Failed to bulk index points: " + response.buildFailureMessage());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to bulk index points", e);
+        }
     }
 
-    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, MeasurementDistance distance, long...values) throws IOException {
+    public List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, MeasurementDistance distance, long...values) {
         return indexPointsFrom(timestamp, TimeSeriesDefinition.builder().name("test").distance(distance).owner("test_owner"), values);
     }
 
-    private List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, TimeSeriesDefinition seriesDefinition, long... values) throws IOException {
+    private List<TimeSeriesPoint> indexPointsFrom(ZonedDateTime timestamp, TimeSeriesDefinition seriesDefinition, long... values) {
         List<TimeSeriesPoint> points = new ArrayList<>(values.length);
         for (long value : values) {
-            TimeSeriesPoint point = TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build();
-            points.add(point);
-            indexPoint(seriesDefinition, point);
+            points.add(TimeSeriesPoint.builder().timestamp(timestamp).measurement(aMeasurementId, value).build());
             timestamp = timestamp.plus(1, unit(seriesDefinition.getDistance()));
         }
+        indexPoints(seriesDefinition, points);
         return points;
     }
 
@@ -139,6 +151,19 @@ public class ElasticsearchHelper {
                 IdResolver.id(point, seriesDefinition), document.string()
         );
         return point;
+    }
+
+    private IndexRequest indexRequest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint point) {
+        return new IndexRequest(
+                resolveIndexName()
+                        .seriesDefinition(seriesDefinition)
+                        .at(normalize(point.getTimestamp(), seriesDefinition.getDistance()))
+                        .single(),
+                "default",
+                id(point, seriesDefinition)
+        )
+                .source(BytesReference.toBytes(document(point).bytes()), JSON)
+                .create(true);
     }
 
     private static XContentBuilder document(TimeSeriesPoint dataPoint) {

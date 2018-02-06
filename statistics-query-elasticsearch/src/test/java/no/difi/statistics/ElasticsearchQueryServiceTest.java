@@ -79,6 +79,10 @@ public class ElasticsearchQueryServiceTest {
 
     private final static ZoneId UTC = ZoneId.of("UTC");
     private ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, UTC);
+    private ZonedDateTime startOf2017 = ZonedDateTime.of(2017, 1, 1, 0, 0, 0, 0, UTC);
+    private ZonedDateTime startOf2018 = ZonedDateTime.of(2018, 1, 1, 0, 0, 0, 0, UTC);
+    private ZonedDateTime startOfOctober2017 = ZonedDateTime.of(2017, 10, 1, 0, 0, 0, 0, UTC);
+    private ZonedDateTime startOfNovember2017 = ZonedDateTime.of(2017, 11, 1, 0, 0, 0, 0, UTC);
     private final static String measurementId = "count";
     private final static String series = "test";
     private final static String owner = "test_owner"; // Index names must be lower case in Elasticsearch
@@ -166,10 +170,14 @@ public class ElasticsearchQueryServiceTest {
     }
 
     private void givenSeriesWhenQueryingForLastPointWithinRangeThenThatPointIsReturned(MeasurementDistance distance) throws IOException {
+        ZonedDateTime rangeStart = dateTime(2007, 1, 1, 0, 0);
+        ZonedDateTime rangeEnd = dateTime(2016, 3, 3, 13, 0);
+        ZonedDateTime lastTimeWithinRange = dateTime(2016, 3, 3, 12, 12);
+        ZonedDateTime lastTimeAfterRange = dateTime(2017, 4, 4, 1, 2);
         helper.indexPointsFrom(dateTime(2003, 1, 1, 11, 11), distance, 1, 2, 3, 4, 5, 6, 7, 8, 9); // Some random "old" points
-        TimeSeriesPoint expectedLastPoint = helper.indexPoint(distance, dateTime(2016, 3, 3, 12, 12), 123L);
-        helper.indexPoint(distance, dateTime(2017, 4, 4, 1, 2), 5675L); // Point after last
-        TimeSeriesPoint actualLastPoint = requestLast(series, distance, owner, dateTime(2007, 1, 1, 0, 0), dateTime(2016, 3, 3, 13, 0));
+        TimeSeriesPoint expectedLastPoint = helper.indexPoint(distance, lastTimeWithinRange, 123L);
+        helper.indexPoint(distance, lastTimeAfterRange, 5675L);
+        TimeSeriesPoint actualLastPoint = requestLast(series, distance, owner, rangeStart, rangeEnd);
         assertEquals(expectedLastPoint, actualLastPoint);
     }
 
@@ -223,6 +231,13 @@ public class ElasticsearchQueryServiceTest {
         given(aSeries().withDistance(minutes).withCategories("Category A=Value for category A", "Category B=Value for category B"))
                 .when(requestingPoints().withDistance(minutes).withCategory("Category A=Value for category A"))
                 .then(series().withDistance(minutes).withCategory("Category A", "Value for category A")).isReturned();
+    }
+
+    @Test
+    public void givenDaySeriesWhenQueryingWithCategoryAndClosedRangeThenPointsWithThatCategoryWithinTheRangeAreReturned() {
+        given(aSeries().withDistance(days).from(startOf2017).to(startOf2018).withCategories("a=b", "c=d"))
+                .when(requestingPoints().withDistance(days).from(startOfOctober2017).to(startOfNovember2017).withCategory("a=b"))
+                .then(series().withDistance(days).from(startOfOctober2017).to(startOfNovember2017).withCategory("a", "b")).isReturned();
     }
 
     @Test
@@ -658,7 +673,7 @@ public class ElasticsearchQueryServiceTest {
                 formatTimestamp(from),
                 formatTimestamp(to)
         );
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(response.getBody(), 200, response.getStatusCodeValue());
         return objectMapper.readerFor(TimeSeriesPoint.class).readValue(response.getBody());
     }
 

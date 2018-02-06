@@ -31,7 +31,7 @@ public class Timestamp {
     }
 
     public static ZonedDateTime normalize(ZonedDateTime timestamp, MeasurementDistance distance) {
-        return timestamp.truncatedTo(chronoUnit(distance)).withZoneSameInstant(UTC);
+        return truncatedTimestamp(timestamp, distance).withZoneSameInstant(UTC);
     }
 
     private static ChronoUnit chronoUnit(MeasurementDistance distance) {

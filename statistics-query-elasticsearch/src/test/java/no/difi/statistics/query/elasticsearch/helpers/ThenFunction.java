@@ -52,6 +52,8 @@ public class ThenFunction<T> implements Function<List<TimeSeries>, T> {
 
         private MeasurementDistance distance;
         private Map<String, String> categories = new HashMap<>();
+        private ZonedDateTime from;
+        private ZonedDateTime to;
 
         public SeriesBuilder withDistance(MeasurementDistance distance) {
             this.distance = distance;
@@ -63,11 +65,23 @@ public class ThenFunction<T> implements Function<List<TimeSeries>, T> {
             return this;
         }
 
+        public SeriesBuilder from(ZonedDateTime from) {
+            this.from = from;
+            return this;
+        }
+
+        public SeriesBuilder to(ZonedDateTime to) {
+            this.to = to;
+            return this;
+        }
+
         public ThenFunction<List<TimeSeriesPoint>> build() {
             ThenFunction<List<TimeSeriesPoint>> thenFunction = new ThenFunction<>();
             thenFunction.function = givenSeries -> {
                 TimeSeries series = seriesForDistance(givenSeries, distance);
                 Collection<TimeSeriesPoint> points = series.getPoints().stream()
+                        .filter(point -> from == null || point.getTimestamp().compareTo(from) >= 0)
+                        .filter(point -> to == null || point.getTimestamp().compareTo(to) <= 0)
                         .filter(point -> point.hasCategories(categories))
                         .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize(categories)))
                         .values();
