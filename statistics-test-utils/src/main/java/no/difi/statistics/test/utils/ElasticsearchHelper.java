@@ -1,5 +1,7 @@
 package no.difi.statistics.test.utils;
 
+import com.arakelian.docker.junit.DockerRule;
+import com.arakelian.docker.junit.model.ImmutableDockerConfig;
 import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.model.MeasurementDistance;
@@ -18,19 +20,14 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.GenericContainer;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.net.ConnectException;
-import java.net.MalformedURLException;
-import java.net.UnknownHostException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.test.utils.DataOperations.unit;
@@ -49,20 +46,8 @@ public class ElasticsearchHelper {
 
     private Client client;
 
-    public ElasticsearchHelper(Client client) throws UnknownHostException, MalformedURLException {
+    public ElasticsearchHelper(Client client) {
         this.client = client;
-    }
-
-    public static GenericContainer startContainer() {
-        GenericContainer container;
-        try {
-            container = new GenericContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.2").withCommand("bin/elasticsearch -Enetwork.host=_site_");
-        } catch (Exception e) {
-            // try again as
-            container = new GenericContainer("docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.2").withCommand("bin/elasticsearch -Enetwork.host=_site_");
-        }
-        container.start();
-        return container;
     }
 
     public void clear() {
@@ -147,7 +132,7 @@ public class ElasticsearchHelper {
     }
 
     private TimeSeriesPoint indexPoint(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint point) throws IOException {
-        XContentBuilder document = document(point, seriesDefinition);
+        XContentBuilder document = document(point);
         index(
                 indexNameForSeries(seriesDefinition, point.getTimestamp()),
                 "default",
@@ -156,7 +141,7 @@ public class ElasticsearchHelper {
         return point;
     }
 
-    private static XContentBuilder document(TimeSeriesPoint dataPoint, TimeSeriesDefinition seriesDefinition) {
+    private static XContentBuilder document(TimeSeriesPoint dataPoint) {
         try {
             XContentBuilder builder = jsonBuilder().startObject();
             addField(builder, timeFieldName, formatTimestamp(dataPoint.getTimestamp()));
@@ -213,12 +198,12 @@ public class ElasticsearchHelper {
     }
 
     public void waitForGreenStatus() {
-        logger.info("Waiting for Elasticsearch to have green status...");
+        logger.info("Waiting for Elasticsearch to have green status (" + client + ")...");
         long t0 = System.currentTimeMillis();
         try {
             for (int i = 0; i < 200; i++) {
                 try {
-                    client.lowLevel().performRequest("GET", "/_cluster/health?wait_for_status=green&timeout=50s");
+                    client.lowLevel().performRequest("GET", "/_cluster/health?wait_for_status=green&timeout=10s");
                     logger.info("Green status after " + ((System.currentTimeMillis() - t0) / 1000) + " seconds (i=" + i + ")");
                     return;
                 } catch (IOException e) {

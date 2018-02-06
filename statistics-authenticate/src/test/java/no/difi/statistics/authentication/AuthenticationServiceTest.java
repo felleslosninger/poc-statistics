@@ -6,11 +6,10 @@ import no.difi.statistics.authentication.api.CredentialsResponse;
 import no.difi.statistics.authentication.config.AppConfig;
 import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
+import no.difi.statistics.test.utils.ElasticsearchRule;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,11 +23,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.testcontainers.containers.GenericContainer;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 import static org.junit.Assert.*;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
@@ -38,22 +35,22 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @RunWith(SpringRunner.class)
 public class AuthenticationServiceTest {
 
+    @ClassRule
+    public static ElasticsearchRule elasticsearchRule = new ElasticsearchRule();
+
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            GenericContainer backend = ElasticsearchHelper.startContainer();
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),
-                    "no.difi.statistics.elasticsearch.host=" + backend.getContainerIpAddress(),
-                    "no.difi.statistics.elasticsearch.port=" + backend.getMappedPort(9200)
+                    "no.difi.statistics.elasticsearch.host=" + elasticsearchRule.getHost(),
+                    "no.difi.statistics.elasticsearch.port=" + elasticsearchRule.getPort()
             );
-            AuthenticationServiceTest.backend = backend;
         }
 
     }
 
-    private static GenericContainer backend;
     private ElasticsearchHelper elasticsearchHelper;
 
     @Autowired
@@ -62,19 +59,14 @@ public class AuthenticationServiceTest {
     private TestRestTemplate restTemplate;
 
     @Before
-    public void prepare() throws Exception {
+    public void prepare() {
         elasticsearchHelper = new ElasticsearchHelper(client);
         elasticsearchHelper.waitForGreenStatus();
     }
 
     @After
-    public void cleanup() throws ExecutionException, InterruptedException {
+    public void cleanup() {
         elasticsearchHelper.clear();
-    }
-
-    @AfterClass
-    public static void cleanupAll() {
-        backend.stop();
     }
 
     @Test

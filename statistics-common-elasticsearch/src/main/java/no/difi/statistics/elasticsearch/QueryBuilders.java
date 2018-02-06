@@ -1,8 +1,8 @@
 package no.difi.statistics.elasticsearch;
 
 import no.difi.statistics.model.MeasurementDistance;
+import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
@@ -14,8 +14,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.*;
 
 public class QueryBuilders {
@@ -32,8 +32,8 @@ public class QueryBuilders {
         return builder;
     }
 
-    public static TermQueryBuilder categoryQuery(String key, String value) {
-        return termQuery("category." + key, value);
+    public static MatchQueryBuilder categoryQuery(String key, String value) {
+        return matchQuery("category." + key, value);
     }
 
     public static TermsAggregationBuilder sumPerTimestampAggregation(String name, List<String> measurementIds) {

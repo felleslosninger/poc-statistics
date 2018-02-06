@@ -1,5 +1,6 @@
 package no.difi.statistics.ingest.elasticsearch;
 
+import com.arakelian.docker.junit.DockerRule;
 import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.ingest.api.IngestResponse;
@@ -8,11 +9,12 @@ import no.difi.statistics.ingest.elasticsearch.config.ElasticsearchConfig;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
+import no.difi.statistics.test.utils.ElasticsearchRule;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,14 +30,11 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
-import org.testcontainers.containers.GenericContainer;
 
-import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Base64;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
@@ -66,23 +65,23 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 @RunWith(SpringRunner.class)
 public class ElasticsearchIngestServiceTest {
 
+    @ClassRule
+    public static ElasticsearchRule elasticsearchRule = new ElasticsearchRule();
+
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            GenericContainer backend = ElasticsearchHelper.startContainer();
             EnvironmentTestUtils.addEnvironment(
                     applicationContext.getEnvironment(),
-                    "no.difi.statistics.elasticsearch.host=" + backend.getContainerIpAddress(),
-                    "no.difi.statistics.elasticsearch.port=" + backend.getMappedPort(9200)
+                    "no.difi.statistics.elasticsearch.host=" + elasticsearchRule.getHost(),
+                    "no.difi.statistics.elasticsearch.port=" + elasticsearchRule.getPort()
             );
-            ElasticsearchIngestServiceTest.backend = backend;
         }
 
     }
 
     private final ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneOffset.UTC);
-    private static GenericContainer backend;
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -96,7 +95,7 @@ public class ElasticsearchIngestServiceTest {
     private String password = "aPassword";
 
     @Before
-    public void prepare() throws Exception {
+    public void prepare() {
         authenticationService = MockRestServiceServer.bindTo(authenticationRestTemplate).build();
         authenticationService
                 .expect(manyTimes(), requestTo("http://authenticate:8080/authentications"))
@@ -110,17 +109,12 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @After
-    public void cleanup() throws ExecutionException, InterruptedException {
+    public void cleanup() {
         elasticsearchHelper.clear();
     }
 
-    @AfterClass
-    public static void cleanupAll() {
-        backend.stop();
-    }
-
     @Test
-    public void whenBulkIngestingPointsThenAllPointsAreIngested() throws InterruptedException, IOException {
+    public void whenBulkIngestingPointsThenAllPointsAreIngested() {
         List<TimeSeriesPoint> points = newArrayList(
             point().timestamp(now).measurement("aMeasurement", 10546L).build(),
             point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build(),
@@ -135,7 +129,7 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @Test
-    public void whenBulkIngestingDuplicatePointsThenAllPointsButDuplicatesAreIngested() throws InterruptedException, IOException {
+    public void whenBulkIngestingDuplicatePointsThenAllPointsButDuplicatesAreIngested() {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
         TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
         TimeSeriesPoint point2 = point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 567543L).build();
@@ -148,7 +142,7 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @Test
-    public void whenIngestingDuplicatePointThenFailAndPointIsNotIngested() throws InterruptedException, IOException {
+    public void whenIngestingDuplicatePointThenFailAndPointIsNotIngested() {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
         TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
         TimeSeriesPoint point2 = point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 567543L).build();
@@ -198,7 +192,7 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @Test
-    public void whenIngestingDuplicateOnTheHourPointThenFailAndPointIsNotIngested() throws InterruptedException, IOException {
+    public void whenIngestingDuplicateOnTheHourPointThenFailAndPointIsNotIngested() {
         int addMinute = now.getMinute() == 59 ? -1 : 1;
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 105L).build();
         TimeSeriesPoint pointSameHourAsFirst = point().timestamp(now.plusMinutes(addMinute)).measurement("aMeasurement", 108L).build();
