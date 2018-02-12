@@ -36,8 +36,10 @@ public class SumQuery extends TimeSeriesQuery {
     }
 
     private static TimeSeriesFunction verifier(TimeSeriesQuery query) {
-        return givenSeries -> singletonList(query.selectFrom(givenSeries).getPoints()
-                .stream().filter(query::withinRange).collect(summarize()));
+        return givenSeries -> singletonList(query.selectFrom(givenSeries).getPoints().stream()
+                .filter(query::withinRange)
+                .filter(point -> point.hasCategories(query.categories()))
+                .collect(summarize(query.categories())));
     }
 
 }

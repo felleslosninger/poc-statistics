@@ -625,43 +625,24 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
-    public void givenFixedMinuteSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenFixedSeriesWhenRequestingSumThenSumPointIsReturned(minutes);
-    }
-
-    @Test
-    public void givenFixedHourSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenFixedSeriesWhenRequestingSumThenSumPointIsReturned(hours);
-    }
-
-    @Test
-    public void givenFixedDaySeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenFixedSeriesWhenRequestingSumThenSumPointIsReturned(days);
-    }
-
-    @Test
-    public void givenFixedMonthSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenFixedSeriesWhenRequestingSumThenSumPointIsReturned(months);
-    }
-
-    @Test
-    public void givenFixedYearSeriesWhenRequestingSumThenSingleSummarizedPointIsReturned() throws IOException {
-        givenFixedSeriesWhenRequestingSumThenSumPointIsReturned(years);
-    }
-
-    private void givenFixedSeriesWhenRequestingSumThenSumPointIsReturned(MeasurementDistance distance) throws IOException {
-        // Note that sum which gives larger numbers than 2^52 will be inaccurate, as Elasticsearch uses doubles to avoid
-        // overflow.
-        List<TimeSeriesPoint> points = helper.indexPointsFrom(now.truncatedTo(DAYS), distance, (long)Math.pow(2, 51), (long)Math.pow(2, 51)+121);
-        TimeSeriesPoint resultingPoint = requestSum(
-                series,
-                distance,
-                now.truncatedTo(DAYS),
-                now.truncatedTo(DAYS).plus(100, unit(distance))
-        );
-        assertNotNull(resultingPoint);
-        assertEquals(DataOperations.sum(measurementId, points), measurementValue(measurementId, resultingPoint));
-        assertEquals(now.truncatedTo(DAYS).plus(1, unit(distance)).toInstant(), resultingPoint.getTimestamp().toInstant());
+    public void givenSeriesWhenRequestingSumThenSumPointIsReturned() {
+        given(
+                aSeries(withAttributes().distance(minutes).category("a", "b").category("c", "d")),
+                aSeries(withAttributes().distance(hours).category("a", "b").category("c", "d")),
+                aSeries(withAttributes().distance(days).category("a", "b").category("c", "d")),
+                aSeries(withAttributes().distance(months).category("a", "b").category("c", "d")),
+                aSeries(withAttributes().distance(years).category("a", "b").category("c", "d"))
+        )
+                .when(requestingSum().distance(minutes).category("a", "b"))
+                .thenThatSeriesIsReturned()
+                .when(requestingSum().distance(hours).category("a", "b"))
+                .thenThatSeriesIsReturned()
+                .when(requestingSum().distance(days).category("a", "b"))
+                .thenThatSeriesIsReturned()
+                .when(requestingSum().distance(months).category("a", "b"))
+                .thenThatSeriesIsReturned()
+                .when(requestingSum().distance(years).category("a", "b"))
+                .thenThatSeriesIsReturned();
     }
 
     private void forEachMeasurementDistance(Consumer<MeasurementDistance> action) {
@@ -697,22 +678,6 @@ public class ElasticsearchQueryServiceTest {
                 owner,
                 seriesName,
                 distance
-        );
-        assertEquals(200, response.getStatusCodeValue());
-        return objectMapper.readerFor(TimeSeriesPoint.class).readValue(response.getBody());
-    }
-
-    private TimeSeriesPoint requestSum(String seriesName, MeasurementDistance distance, ZonedDateTime from, ZonedDateTime to) throws IOException {
-        ResponseEntity<String> response = restTemplate.exchange(
-                "/{owner}/{seriesName}/{distance}/sum?from={from}&to={to}",
-                HttpMethod.GET,
-                null,
-                String.class,
-                owner,
-                seriesName,
-                distance,
-                formatTimestamp(from),
-                formatTimestamp(to)
         );
         assertEquals(200, response.getStatusCodeValue());
         return objectMapper.readerFor(TimeSeriesPoint.class).readValue(response.getBody());

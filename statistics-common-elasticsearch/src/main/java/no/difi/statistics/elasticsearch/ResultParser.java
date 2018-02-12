@@ -54,7 +54,7 @@ public class ResultParser {
         return point(response.getAggregations().<TopHits>get("last").getHits().getAt(0));
     }
 
-    public static TimeSeriesPoint.Builder point(MultiBucketsAggregation.Bucket bucket) {
+    private static TimeSeriesPoint.Builder point(MultiBucketsAggregation.Bucket bucket) {
         return point(bucket.getKeyAsString(), bucket);
     }
 
@@ -101,14 +101,14 @@ public class ResultParser {
         return measurements;
     }
 
-    public static TimeSeriesPoint sumPoint(Aggregations aggregations) {
+    public static TimeSeriesPoint.Builder sumPoint(Aggregations aggregations) {
         if (aggregations == null)
             return null;
         ZonedDateTime timestamp = timestamp(aggregations.<TopHits>get("last").getHits().getAt(0));
-        return TimeSeriesPoint.builder().timestamp(timestamp).measurements(measurements(aggregations)).build();
+        return TimeSeriesPoint.builder().timestamp(timestamp).measurements(measurements(aggregations));
     }
 
-    public static TimeSeriesPoint sumPointFromRangeBucket(Range range) {
+    public static TimeSeriesPoint.Builder sumPointFromRangeBucket(Range range) {
         if (range == null)
             return null;
         Range.Bucket bucket = range.getBuckets().get(0);

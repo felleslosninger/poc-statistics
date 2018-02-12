@@ -170,7 +170,7 @@ public class ElasticsearchQueryService implements QueryService {
         );
         if (response.getAggregations() == null)
             return null;
-        return ResultParser.sumPointFromRangeBucket(response.getAggregations().get("a"));
+        return ResultParser.sumPointFromRangeBucket(response.getAggregations().get("a")).categories(queryFilter.categories()).build();
     }
 
     private TimeSeriesPoint sumAggregateUnbounded(List<String> indexNames, QueryFilter queryFilter) {
@@ -179,7 +179,7 @@ public class ElasticsearchQueryService implements QueryService {
         measurementIds(indexNames).forEach(mid -> searchSourceBuilder.aggregation(AggregationBuilders.sum(mid).field(mid)));
         searchSourceBuilder.aggregation(lastAggregation());
         SearchResponse response = search(indexNames, searchSourceBuilder);
-        return ResultParser.sumPoint(response.getAggregations());
+        return ResultParser.sumPoint(response.getAggregations()).categories(queryFilter.categories()).build();
     }
 
     private List<TimeSeriesPoint> sumPerDistance(List<String> indexNames, MeasurementDistance targetDistance, QueryFilter queryFilter) {
