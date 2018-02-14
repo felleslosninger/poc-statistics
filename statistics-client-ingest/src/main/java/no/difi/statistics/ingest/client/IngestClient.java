@@ -1,6 +1,7 @@
 package no.difi.statistics.ingest.client;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -8,11 +9,11 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import no.difi.statistics.ingest.client.model.IngestResponse;
 import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
@@ -30,7 +31,9 @@ public class IngestClient implements IngestService {
     private static final String AUTHORIZATION_KEY = "Authorization";
     private static final String AUTH_METHOD = "Basic";
 
-    private final ObjectMapper objectMapper;
+    private final ObjectWriter requestWriter;
+    private final ObjectReader responseReader;
+    private final ObjectReader lastResponseReader;
 
     private final String username;
     private final String password;
@@ -39,14 +42,17 @@ public class IngestClient implements IngestService {
     private final int readTimeoutMillis;
     private final int connectionTimeoutMillis;
 
-    public IngestClient(URL baseURL, int readTimeoutMillis, int connectionTimeoutMillis, String owner, String username, String password) throws MalformedUrl {
-        this.objectMapper = new ObjectMapper()
+    public IngestClient(URL baseURL, int readTimeoutMillis, int connectionTimeoutMillis, String owner, String username, String password) {
+        ObjectMapper objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .registerModule(new Jdk8Module())
                 .setDateFormat(new ISO8601DateFormat())
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
                 .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        this.requestWriter = objectMapper.writerFor(new TypeReference<List<TimeSeriesPoint>>() {});
+        this.responseReader = objectMapper.readerFor(IngestResponse.class);
+        this.lastResponseReader = objectMapper.readerFor(TimeSeriesPoint.class);
         this.baseUrl = baseURL;
         this.connectionTimeoutMillis = connectionTimeoutMillis;
         this.readTimeoutMillis = readTimeoutMillis;
@@ -56,13 +62,18 @@ public class IngestClient implements IngestService {
     }
 
     @Override
-    public void ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
+    public IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
+        HttpURLConnection connection = getConnection(ingestUrlFor(seriesDefinition), "POST");
+        writeRequest(dataPoints, connection);
+        handleResponseCode(connection);
+        return readResponse(connection);
+    }
+
+    private IngestResponse readResponse(HttpURLConnection connection) {
         try {
-            HttpURLConnection connection = getConnection(ingestUrlFor(seriesDefinition), "POST");
-            writeJsonListToOutputStream(dataPoints, connection);
-            handleResponse(connection.getResponseCode());
+            return responseReader.readValue(connection.getInputStream());
         } catch (IOException e) {
-            throw new ConnectFailed(e);
+            throw new Failed("Response could not be read", e);
         }
     }
 
@@ -91,7 +102,13 @@ public class IngestClient implements IngestService {
         }
     }
 
-    private void handleResponse(int responseCode) throws IOException {
+    private void handleResponseCode(HttpURLConnection connection) {
+        int responseCode;
+        try {
+            responseCode = connection.getResponseCode();
+        } catch (IOException e) {
+            throw new Failed("Could not read response code", e);
+        }
         switch (responseCode) {
             case HTTP_OK:
             case HTTP_CREATED:
@@ -120,8 +137,7 @@ public class IngestClient implements IngestService {
                         connection.getResponseCode(),
                         connection.getResponseMessage()
                 ));
-            ObjectReader reader = objectMapper.readerFor(TimeSeriesPoint.class);
-            return Optional.of(reader.readValue(connection.getInputStream()));
+            return Optional.of(lastResponseReader.readValue(connection.getInputStream()));
         } catch (IOException e) {
             throw new Failed("Failed to get last point", e);
         } finally {
@@ -144,10 +160,15 @@ public class IngestClient implements IngestService {
         try {
             conn.setRequestMethod(requestMethod);
         } catch (ProtocolException e) {
-            throw new Failed("Unexpected error", e);
+            throw new ConnectFailed(e);
         }
         conn.setRequestProperty(CONTENT_TYPE_KEY, JSON_CONTENT_TYPE);
         conn.setRequestProperty(AUTHORIZATION_KEY, AUTH_METHOD + " " + createBase64EncodedCredentials());
+        try {
+            conn.connect(); // Connect early. Otherwise will be called implicitly later.
+        } catch (IOException e) {
+            throw new ConnectFailed(e);
+        }
         return conn;
     }
 
@@ -155,12 +176,12 @@ public class IngestClient implements IngestService {
         return Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
-    private void writeJsonListToOutputStream(List<TimeSeriesPoint> timeSeriesPoint, HttpURLConnection conn) throws IOException {
-        OutputStream stream = conn.getOutputStream();
-        ObjectWriter writer = objectMapper.writerFor(List.class);
-        String jsonString = writer.writeValueAsString(timeSeriesPoint);
-        stream.write(jsonString.getBytes());
-        stream.flush();
+    private void writeRequest(List<TimeSeriesPoint> requestData, HttpURLConnection connection) {
+        try {
+            requestWriter.writeValue(connection.getOutputStream(), requestData);
+        } catch (IOException e) {
+            throw new Failed("Could not write request", e);
+        }
     }
 
 }

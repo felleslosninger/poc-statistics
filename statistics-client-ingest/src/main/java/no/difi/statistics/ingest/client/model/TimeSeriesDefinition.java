@@ -22,7 +22,7 @@ public class TimeSeriesDefinition implements Comparable<TimeSeriesDefinition> {
         return distance;
     }
 
-    public static NameEntry builder() {
+    public static NameEntry timeSeriesDefinition() {
         return new Builder();
     }
 

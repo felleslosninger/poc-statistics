@@ -21,7 +21,6 @@
         <module>statistics-test-utils</module>
         <!--<module>statistics-query-influxdb</module>-->
         <module>statistics-client-ingest</module>
-        <module>statistics-demo-for-client-ingest</module>
         <module>statistics-elasticsearch</module>
         <module>statistics-authenticate</module>
     </modules>
@@ -164,7 +163,11 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>versions-maven-plugin</artifactId>
-                    <version>2.2</version>
+                    <version>2.5</version>
+                    <configuration>
+                        <processAllModules>true</processAllModules>
+                    </configuration>
+
                 </plugin>
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
@@ -194,7 +197,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.5.1</version>
+                    <version>3.7.0</version>
                     <configuration>
                         <source>1.8</source>
                         <target>1.8</target>

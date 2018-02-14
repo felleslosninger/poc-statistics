@@ -8,12 +8,10 @@ import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import no.difi.statistics.ingest.client.model.Measurement;
+import no.difi.statistics.ingest.client.model.IngestResponse;
 import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.ExpectedException;
 
 import java.net.HttpURLConnection;
@@ -21,98 +19,125 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static java.lang.String.format;
+import static java.time.ZonedDateTime.now;
+import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static no.difi.statistics.ingest.client.model.IngestResponse.Status.Ok;
 import static no.difi.statistics.ingest.client.model.MeasurementDistance.hours;
 import static no.difi.statistics.ingest.client.model.MeasurementDistance.minutes;
+import static no.difi.statistics.ingest.client.model.TimeSeriesDefinition.timeSeriesDefinition;
+import static no.difi.statistics.ingest.client.model.TimeSeriesPoint.timeSeriesPoint;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 public class IngestClientTest {
 
+    private static final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .registerModule(new Jdk8Module())
+            .setDateFormat(new ISO8601DateFormat())
+            .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+            .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
+            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+
     private static final String JSON = "application/json";
     private static final String content_type = "Content-Type";
     private static final String hostname = "localhost";
 
-    private static final String username = "984661185";
-    private static final String password = "123456";
     private static final String series_name = "seriesname";
-    private static final int read_timeout = 100;
-    private static final int connection_timeout = 5000;
 
     private static final String owner = "999888777";
     private static final String valid_url = "/999888777/seriesname/minutes";
-    private static final int delay_for_timeout = 200;
     private final ZonedDateTime aTimestamp = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
 
-    private IngestClient ingestClient;
-    private TimeSeriesPoint timeSeriesPoint;
-    private ObjectMapper objectMapper;
+    private static IngestClient ingestClient;
 
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(wireMockConfig()
             .bindAddress(hostname)
             .dynamicPort());
-
     @Rule
     public ExpectedException expectedEx = ExpectedException.none();
 
     @Before
     public void before() throws MalformedURLException {
-        this.objectMapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .registerModule(new Jdk8Module())
-                .setDateFormat(new ISO8601DateFormat())
-                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
-                .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
-                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        ingestClient = new IngestClient(new URL("http://localhost:" + wireMockRule.port()), read_timeout, connection_timeout, owner, username, password);
-        timeSeriesPoint = buildValidTimeSeriesPoint();
+        ingestClient = new IngestClient(new URL("http://localhost:" + wireMockRule.port()), 500, 500, owner, "aUser", "aPassword");
     }
 
     @Test
-    public void shouldSucceedWhenValidRequestWithAuthorizationForMinute() throws Exception {
-        createStub(HttpURLConnection.HTTP_OK);
+    public void shouldSucceedWhenValidRequest() {
+        givenOkResponse(1);
+        IngestResponse response = ingestClient.ingest(
+                timeSeriesDefinition().name("aSeries").distance(hours),
+                singletonList(aPoint())
+        );
+        assertEquals(1, response.getStatuses().size());
+        assertEquals(Ok, response.getStatuses().get(0));
+    }
 
-        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), singletonList(timeSeriesPoint));
+    @Test
+    public void shouldFailWithFailedWhenSomethingFailsInTransmission() {
+        createWiremockStub(HttpURLConnection.HTTP_OK);
+        wireMockRule.addRequestProcessingDelay(10000);
+        expectedEx.expect(IngestService.Failed.class);
+        ingestClient.ingest(aSeriesDefinition(), twoPoints());
+    }
 
+    @Test
+    public void shouldFailWithUnauthorizedExceptionWhenUnauthorized() {
+        createWiremockStub(HttpURLConnection.HTTP_UNAUTHORIZED);
+
+        expectedEx.expect(IngestClient.Unauthorized.class);
+        expectedEx.expectMessage("Failed to authorize Ingest service");
+
+        ingestClient.ingest(aSeriesDefinition(), twoPoints());
+    }
+
+    @Test
+    public void shouldFailWithUnauthorizedExceptionWhenForbidden() {
+        createWiremockStub(HttpURLConnection.HTTP_FORBIDDEN);
+
+        expectedEx.expect(IngestClient.Unauthorized.class);
+        expectedEx.expectMessage("Failed to authorize Ingest service");
+
+        ingestClient.ingest(aSeriesDefinition(), twoPoints());
+    }
+
+    @Test
+    public void shouldFailWithIngestFailExceptionWhenNotFound() {
+        createWiremockStub(HttpURLConnection.HTTP_NOT_FOUND);
+
+        expectedEx.expect(IngestService.Failed.class);
+        ingestClient.ingest(aSeriesDefinition(), twoPoints());
+    }
+
+    @Test
+    public void shouldSucceedWhenValidRequestWithAuthorizationForMinute() {
+        givenOkResponse(1);
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
         verify(postRequestedFor(urlEqualTo(valid_url))
                 .withHeader(content_type, equalTo(JSON)));
     }
 
     @Test
-    public void shouldSucceedWhenValidRequestWithAuthorizationForHour() throws Exception {
-        createStub(HttpURLConnection.HTTP_OK);
-
-        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), singletonList(timeSeriesPoint));
-
+    public void shouldSucceedWhenValidRequestWithAuthorizationForHour() {
+        givenOkResponse(1);
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
         verify(postRequestedFor(urlEqualTo(valid_url))
                 .withHeader(content_type, equalTo(JSON)));
     }
 
     @Test
-    public void shouldThrowExceptionWhenConnectionTimeoutOccur(){
-        wireMockRule.addRequestProcessingDelay(delay_for_timeout);
-
+    public void shouldThrowConnectFailedWhenConnectionFails(){
+        wireMockRule.stop();
         expectedEx.expect(IngestService.ConnectFailed.class);
-
-        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), singletonList(timeSeriesPoint));
-    }
-
-    @Test
-    public void shouldThrowExceptionWhenDatapointAlreadyExists(){
-        createStub(HttpURLConnection.HTTP_CONFLICT);
-
-        expectedEx.expect(IngestService.DataPointAlreadyExists.class);
-
-        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), singletonList(timeSeriesPoint));
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
     }
 
     @Test
@@ -122,37 +147,29 @@ public class IngestClientTest {
         expectedEx.expect(IngestService.Failed.class);
         expectedEx.expectMessage("Ingest failed (415)");
 
-        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), singletonList(timeSeriesPoint));
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
     }
 
     @Test
     public void shouldGetAuthenticationErrorWhenAuthenticationFails() {
         createStub(HttpURLConnection.HTTP_UNAUTHORIZED);
         expectedEx.expect(IngestService.Unauthorized.class);
-        ingestClient.ingest(TimeSeriesDefinition.builder().name(series_name).distance(minutes), singletonList(timeSeriesPoint));
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
     }
 
     @Test
     public void shouldReturnLastWhenLastRequested() {
-        TimeSeriesPoint expectedPoint = TimeSeriesPoint.builder().timestamp(aTimestamp).measurement("x", 3).build();
+        TimeSeriesPoint expectedPoint = timeSeriesPoint().timestamp(aTimestamp).measurement("x", 3).build();
         stubFor(get(urlMatching(format(".*/%s/test/hours/last", owner))).willReturn(aResponse().withBody(json(expectedPoint))));
-        Optional<TimeSeriesPoint> actualPoint = ingestClient.last(TimeSeriesDefinition.builder().name("test").distance(hours));
+        Optional<TimeSeriesPoint> actualPoint = ingestClient.last(timeSeriesDefinition().name("test").distance(hours));
         assertEquals(expectedPoint, actualPoint.orElse(null));
     }
 
     @Test
     public void shouldReturnEmptyWhenLastRequestedAndTimeSeriesIsEmpty() {
         stubFor(get(urlMatching(format(".*/%s/test/hours/last", owner))).willReturn(aResponse().withStatus(204)));
-        Optional<TimeSeriesPoint> actualPoint = ingestClient.last(TimeSeriesDefinition.builder().name("test").distance(hours));
+        Optional<TimeSeriesPoint> actualPoint = ingestClient.last(timeSeriesDefinition().name("test").distance(hours));
         assertFalse(actualPoint.isPresent());
-    }
-
-    private byte[] json(Object object) {
-        try {
-            return objectMapper.writeValueAsBytes(object);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException();
-        }
     }
 
     private void createStub(int status) {
@@ -161,12 +178,54 @@ public class IngestClientTest {
                     .willReturn(aResponse().withStatus(status)));
     }
 
-    private TimeSeriesPoint buildValidTimeSeriesPoint() {
-        List<Measurement> measurement = new ArrayList<>();
-        measurement.add(new Measurement("id1", 1));
-        measurement.add(new Measurement("id2", 2));
-
-        ZonedDateTime timestamp = ZonedDateTime.parse("2016-08-03T15:40:04.000+02:00");
-        return TimeSeriesPoint.builder().measurements(measurement).timestamp(timestamp).build();
+    private void createWiremockStub(int responseCode) {
+        wireMockRule.stubFor(
+                any(urlPathMatching(".*")).willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json").withStatus(responseCode)));
     }
+
+    private void givenOkResponse(int numberOfPoints) {
+        IngestResponse.Builder response = IngestResponse.builder();
+        for (int i = 0; i < numberOfPoints; i++)
+            response.status(Ok);
+        wireMockRule.stubFor(
+                any(urlPathMatching(".*"))
+                        .willReturn(aResponse()
+                                .withHeader("Content-Type", "application/json")
+                                .withStatus(HttpURLConnection.HTTP_OK)
+                                .withBody(json(response.build()))
+                        )
+        );
+    }
+
+    private static TimeSeriesPoint aPoint() {
+        return timeSeriesPoint().timestamp(now()).measurement("m1", 111L).build();
+    }
+
+    private TimeSeriesDefinition aSeriesDefinition() {
+        return timeSeriesDefinition().name("aSeries").distance(hours);
+    }
+
+    private List<TimeSeriesPoint> twoPoints() {
+        return asList(
+                timeSeriesPoint()
+                        .timestamp(now())
+                        .measurement("m1", 111L)
+                        .measurement("m2", 222L)
+                        .build(),
+                timeSeriesPoint()
+                        .timestamp(now())
+                        .measurement("m1", 111L)
+                        .build()
+        );
+    }
+
+    private String json(Object o) {
+        try {
+            return objectMapper.writer().writeValueAsString(o);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

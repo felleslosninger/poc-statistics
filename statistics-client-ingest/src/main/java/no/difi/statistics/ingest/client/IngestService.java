@@ -1,5 +1,6 @@
 package no.difi.statistics.ingest.client;
 
+import no.difi.statistics.ingest.client.model.IngestResponse;
 import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
 
@@ -8,7 +9,7 @@ import java.util.Optional;
 
 public interface IngestService {
 
-    void ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints);
+    IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints);
 
     Optional<TimeSeriesPoint> last(TimeSeriesDefinition seriesDefinition);
 
