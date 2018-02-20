@@ -1,6 +1,5 @@
 package no.difi.statistics.elasticsearch;
 
-import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.document.DocumentField;
@@ -14,7 +13,7 @@ import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -70,11 +69,10 @@ public class ResultParser {
         return ZonedDateTime.parse(value, dateTimeFormatter);
     }
 
-    private static List<Measurement> measurements(SearchHit hit) {
+    private static Map<String, Long> measurements(SearchHit hit) {
         return hit.getSourceAsMap().entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(timeFieldName) && !entry.getKey().startsWith("category."))
-                .map(entry -> new Measurement(entry.getKey(), Long.valueOf(entry.getValue().toString())))
-                .collect(toList());
+                .collect(toMap(Map.Entry::getKey, e -> Long.valueOf(e.getValue().toString())));
     }
 
     private static Map<String, String> categories(SearchHit hit) {
@@ -83,18 +81,18 @@ public class ResultParser {
                 .collect(toMap(entry -> entry.getKey().substring(9), entry -> entry.getValue().toString()));
     }
 
-    private static List<Measurement> measurements(Aggregations aggregations) {
-        List<Measurement> measurements = new ArrayList<>();
+    private static Map<String, Long> measurements(Aggregations aggregations) {
+        Map<String, Long> measurements = new HashMap<>();
         for (Aggregation aggregation : aggregations) {
             if (aggregation instanceof Sum) {
-                measurements.add(new Measurement(aggregation.getName(), (long) ((Sum) aggregation).getValue()));
+                measurements.put(aggregation.getName(), (long) ((Sum) aggregation).getValue());
             } else if (aggregation instanceof TopHits) {
                 long numHits = ((TopHits)aggregation).getHits().getHits().length;
                 if (numHits != 1) throw new IllegalArgumentException("Expected 1 top hit but found " + numHits);
                 Map<String, DocumentField> fieldsMap = ((TopHits) aggregation).getHits().getAt(0).getFields();
                 for (String s : fieldsMap.keySet()) {
                     Number value = (Number) fieldsMap.get(s).getValues().get(0);
-                    measurements.add(new Measurement(s, value.longValue()));
+                    measurements.put(s, value.longValue());
                 }
             }
         }

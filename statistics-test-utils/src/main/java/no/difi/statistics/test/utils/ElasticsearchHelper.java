@@ -171,7 +171,7 @@ public class ElasticsearchHelper {
             XContentBuilder builder = jsonBuilder().startObject();
             addField(builder, timeFieldName, formatTimestamp(dataPoint.getTimestamp()));
             dataPoint.getCategories().ifPresent(cs -> cs.forEach((key, value) -> addCategoryField(builder, key, value)));
-            dataPoint.getMeasurements().forEach(m -> addMeasurementField(builder, m.getId(), m.getValue()));
+            dataPoint.getMeasurements().forEach((key, value) -> addMeasurementField(builder, key, value));
             return builder.endObject();
         } catch (IOException e) {
             throw new RuntimeException(e);

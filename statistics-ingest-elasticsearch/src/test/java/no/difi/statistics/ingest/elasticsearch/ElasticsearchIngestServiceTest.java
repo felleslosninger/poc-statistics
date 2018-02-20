@@ -1,6 +1,5 @@
 package no.difi.statistics.ingest.elasticsearch;
 
-import com.arakelian.docker.junit.DockerRule;
 import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.ingest.api.IngestResponse;
@@ -246,7 +245,7 @@ public class ElasticsearchIngestServiceTest {
     private void assertIngested(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint point) {
         String id = IdResolver.id(point, seriesDefinition);
         assertEquals(
-                (Long)point.getMeasurement("aMeasurement").get().getValue(),
+                point.getMeasurement("aMeasurement").get(),
                 elasticsearchHelper.get(
                         resolveIndexName()
                                 .seriesDefinition(builder().name("series").minutes().owner(owner))
@@ -261,7 +260,7 @@ public class ElasticsearchIngestServiceTest {
     private void assertIngestedHour(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint point) {
         String id = IdResolver.id(point, seriesDefinition);
         assertEquals(
-                (Long)point.getMeasurement("aMeasurement").get().getValue(),
+                point.getMeasurement("aMeasurement").get(),
                 elasticsearchHelper.get(
                         resolveIndexName()
                                 .seriesDefinition(builder().name("series").hours().owner(owner))

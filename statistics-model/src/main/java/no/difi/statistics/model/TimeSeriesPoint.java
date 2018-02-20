@@ -9,7 +9,9 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.io.IOException;
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static java.lang.String.format;
@@ -21,7 +23,7 @@ import static java.util.stream.Collectors.joining;
 public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
 
     private ZonedDateTime timestamp;
-    private List<Measurement> measurements = new ArrayList<>();
+    private Map<String, Long> measurements = new HashMap<>();
     private Map<String, String> categories;
 
     private TimeSeriesPoint() {
@@ -34,12 +36,12 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
     }
 
     @XmlElement
-    public List<Measurement> getMeasurements() {
+    public Map<String, Long> getMeasurements() {
         return measurements;
     }
 
-    public Optional<Measurement> getMeasurement(String name) {
-        return measurements.stream().filter(m -> m.getId().equals(name)).findFirst();
+    public Optional<Long> getMeasurement(String name) {
+        return measurements.entrySet().stream().filter(e -> e.getKey().equals(name)).map(Map.Entry::getValue).findFirst();
     }
 
     @XmlElement
@@ -69,7 +71,7 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
 
     public static class Builder {
         private TimeSeriesPoint instance;
-        private Map<String, Measurement> measurements = new HashMap<>();
+        private Map<String, Long> measurements = new HashMap<>();
         private Map<String, String> categories = new HashMap<>();
         private Function<ZonedDateTime, ZonedDateTime> timestampModifier;
 
@@ -88,19 +90,11 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
         }
 
         public Builder measurement(String measurementId, long measurement) {
-            measurement(new Measurement(measurementId, measurement));
+            measurements.put(measurementId, measurement + measurements.getOrDefault(measurementId, 0L));
             return this;
         }
 
-        public Builder measurement(Measurement measurement) {
-            Measurement oldMeasurement = measurements.get(measurement.getId());
-            if (oldMeasurement != null)
-                measurement = new Measurement(measurement.getId(), measurement.getValue() + oldMeasurement.getValue());
-            measurements.put(measurement.getId(), measurement);
-            return this;
-        }
-
-        public Builder measurements(List<Measurement> measurements) {
+        public Builder measurements(Map<String, Long> measurements) {
             measurements.forEach(this::measurement);
             return this;
         }
@@ -126,7 +120,7 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
             if (instance.timestamp == null) throw new IllegalArgumentException("timestamp");
             if (timestampModifier != null)
                 instance.timestamp = timestampModifier.apply(instance.timestamp);
-            instance.measurements.addAll(measurements.values());
+            instance.measurements = measurements;
             if (!categories.isEmpty()) {
                 instance.categories = new HashMap<>();
                 instance.categories.putAll(categories);

@@ -1,6 +1,5 @@
 package no.difi.statistics.query.api;
 
-import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
@@ -137,11 +136,15 @@ public class QueryRestControllerTest {
     }
 
     private TimeSeriesPoint aPointWithoutCategory() {
-        return TimeSeriesPoint.builder().timestamp(aTimestamp()).measurement(aMeasurement()).build();
+        return TimeSeriesPoint.builder().timestamp(aTimestamp()).measurement(aMeasurementId(), aMeasurementValue()).build();
     }
 
-    private Measurement aMeasurement() {
-        return new Measurement("m1", 123L);
+    private String aMeasurementId() {
+        return "m1";
+    }
+
+    private long aMeasurementValue() {
+        return 123L;
     }
 
     private ZonedDateTime aTimestamp() {

@@ -1,10 +1,12 @@
 package no.difi.statistics.test.utils;
 
 import com.tdunning.math.stats.TDigest;
-import no.difi.statistics.model.*;
+import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.RelationalOperator;
+import no.difi.statistics.model.TimeSeries;
+import no.difi.statistics.model.TimeSeriesPoint;
 import org.hamcrest.Matcher;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
@@ -29,15 +31,15 @@ public class DataOperations {
     }
 
     public static long sum(String measurementId, List<TimeSeriesPoint> points) {
-        return points.stream().map(p -> p.getMeasurement(measurementId)).map(Optional::get).mapToLong(Measurement::getValue).sum();
+        return points.stream().map(p -> p.getMeasurement(measurementId)).mapToLong(Optional::get).sum();
     }
 
-    public static ZonedDateTime timestamp(int i, List<TimeSeriesPoint> timeSeries) throws IOException {
+    public static ZonedDateTime timestamp(int i, List<TimeSeriesPoint> timeSeries) {
         return timeSeries.get(i).getTimestamp();
     }
 
     public static long value(int index, String measurementId, List<TimeSeriesPoint> timeSeriesPoints){
-        return timeSeriesPoints.get(index).getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(IllegalArgumentException::new);
+        return timeSeriesPoints.get(index).getMeasurement(measurementId).orElseThrow(IllegalArgumentException::new);
     }
 
     public static ChronoUnit unit(MeasurementDistance distance) {
@@ -59,8 +61,8 @@ public class DataOperations {
         return measurementValue(measurementId, timeSeries.get(i));
     }
 
-    public static long measurementValue(String measurementId, TimeSeriesPoint point) {
-        return point.getMeasurement(measurementId).map(Measurement::getValue).orElseThrow(RuntimeException::new);
+    private static long measurementValue(String measurementId, TimeSeriesPoint point) {
+        return point.getMeasurement(measurementId).orElseThrow(RuntimeException::new);
     }
 
     public static List<TimeSeriesPoint> sumPer(TimeSeries series, Map<String, String> categories, MeasurementDistance targetDistance) {
@@ -113,7 +115,7 @@ public class DataOperations {
         return series -> {
             Double collectedValue = percentileValue(percentile, measurementId).apply(series);
             return series.getPoints().stream()
-                    .filter(point -> relationalMatcher(operator, collectedValue).matches(Long.valueOf(point.getMeasurement(measurementId).get().getValue()).doubleValue()))
+                    .filter(point -> relationalMatcher(operator, collectedValue).matches(point.getMeasurement(measurementId).get().doubleValue()))
                     .collect(toList());
         };
     }
@@ -121,7 +123,7 @@ public class DataOperations {
     private static Function<TimeSeries, Double> percentileValue(int percentile, String measurementId) {
         return (series) -> {
             TDigest tdigest = TDigest.createTreeDigest(100.0);
-            series.getPoints().forEach(point -> tdigest.add(point.getMeasurement(measurementId).get().getValue()));
+            series.getPoints().stream().map(p -> p.getMeasurement(measurementId).get()).forEach(tdigest::add);
             return tdigest.quantile(new BigDecimal(percentile).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP).doubleValue());
         };
     }

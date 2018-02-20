@@ -2,7 +2,6 @@ package no.difi.statistics.ingest.config;
 
 import no.difi.statistics.ingest.IngestAuthenticationProvider;
 import no.difi.statistics.ingest.api.IngestRestController;
-import no.difi.statistics.ingest.poc.DifiAdminIngester;
 import no.difi.statistics.ingest.poc.RandomIngesterRestController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -54,13 +53,8 @@ public class AppConfig extends WebSecurityConfigurerAdapter {
         return new RandomIngesterRestController(backendConfig.ingestService());
     }
 
-    @Bean
-    public DifiAdminIngester difiAdminIngester() {
-        return new DifiAdminIngester(backendConfig.ingestService());
-    }
-
     @Override
-    public void configure(AuthenticationManagerBuilder auth) throws Exception {
+    public void configure(AuthenticationManagerBuilder auth) {
         auth.authenticationProvider(authenticationProvider());
     }
 

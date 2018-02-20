@@ -1,6 +1,5 @@
 package no.difi.statistics.query.elasticsearch.helpers;
 
-import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeries;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
@@ -17,7 +16,9 @@ import java.util.function.Supplier;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Stream.iterate;
 import static no.difi.statistics.test.utils.DataOperations.unit;
 
@@ -28,7 +29,6 @@ public class TimeSeriesGenerator implements Supplier<TimeSeries> {
     private List<String> measurementIds = asList("m1", "m2", "m3", "m4");
     private TimeSeriesQuery attributes;
     private Long size = null;
-    private long defaultSize = 100L;
     private TimeSeries series;
     private ElasticsearchHelper helper;
 
@@ -64,6 +64,7 @@ public class TimeSeriesGenerator implements Supplier<TimeSeries> {
     }
 
     private void supply() {
+        long defaultSize = 100L;
         if (attributes.from() != null && attributes.to() != null && size == null) {
             size = unit(attributes.distance()).between(attributes.from(), attributes.to());
         } else if (attributes.from() == null && attributes.to() != null && size != null) {
@@ -108,8 +109,9 @@ public class TimeSeriesGenerator implements Supplier<TimeSeries> {
                 .measurements(randomMeasurements(measurementIds));
     }
 
-    private static List<Measurement> randomMeasurements(List<String> ids) {
-        return ids.stream().map(id -> new Measurement(id, random.nextInt(1_000_000))).collect(toList());
+    private static Map<String, Long> randomMeasurements(List<String> ids) {
+        return ids.stream()
+                .collect(toMap(identity(), id -> (long)random.nextInt(1_000_000)));
     }
 
     @Override

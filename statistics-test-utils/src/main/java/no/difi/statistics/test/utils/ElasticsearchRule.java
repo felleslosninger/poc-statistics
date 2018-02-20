@@ -17,9 +17,7 @@ public class ElasticsearchRule extends DockerRule {
                 .ports("9200/tcp")
                 .alwaysRemoveContainer(true)
                 .allowRunningBetweenUnitTests(true)
-                .addContainerConfigurer(c -> {
-                    c.env("network.host=_site_");
-                })
+                .addContainerConfigurer(c -> c.env("network.host=_site_"))
                 .build());
     }
 
@@ -42,10 +40,6 @@ public class ElasticsearchRule extends DockerRule {
             return Integer.parseInt(firstBinding.hostPort());
         }
         return -1;
-    }
-
-    private boolean runningInJenkinsContainer() {
-        return System.getenv("JENKINS_HOME") != null;
     }
 
 }

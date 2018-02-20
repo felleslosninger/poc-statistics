@@ -10,7 +10,6 @@ import javax.xml.bind.annotation.XmlRootElement;
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.function.Function;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
@@ -21,7 +20,7 @@ import static java.util.stream.Collectors.joining;
 public class TimeSeriesPoint {
 
     private ZonedDateTime timestamp;
-    private List<Measurement> measurements = new ArrayList<>();
+    private Map<String, Long> measurements = new HashMap<>();
     private Map<String, String> categories;
 
     private TimeSeriesPoint() {
@@ -34,12 +33,12 @@ public class TimeSeriesPoint {
     }
 
     @XmlElement
-    public List<Measurement> getMeasurements() {
+    public Map<String, Long> getMeasurements() {
         return measurements;
     }
 
-    public Optional<Measurement> getMeasurement(String name) {
-        return measurements.stream().filter(m -> m.getId().equals(name)).findFirst();
+    public Optional<Long> getMeasurement(String name) {
+        return measurements.entrySet().stream().filter(e -> e.getKey().equals(name)).map(Map.Entry::getValue).findFirst();
     }
 
     @XmlElement
@@ -57,7 +56,7 @@ public class TimeSeriesPoint {
 
     public interface MeasurementEntry {
         MeasurementOrCategoryOrBuildEntry measurement(String measurementId, long measurement);
-        MeasurementOrCategoryOrBuildEntry measurements(List<Measurement> measurements);
+        MeasurementOrCategoryOrBuildEntry measurements(Map<String, Long> measurements);
     }
 
     public interface CategoryEntry {
@@ -74,7 +73,6 @@ public class TimeSeriesPoint {
 
     public static class Builder implements TimestampEntry, MeasurementEntry, MeasurementOrCategoryOrBuildEntry, CategoryOrBuildEntry {
         private TimeSeriesPoint instance;
-        private Map<String, Measurement> measurements = new HashMap<>();
         private Map<String, String> categories = new HashMap<>();
 
         Builder() {
@@ -89,13 +87,13 @@ public class TimeSeriesPoint {
 
         @Override
         public MeasurementOrCategoryOrBuildEntry measurement(String measurementId, long measurement) {
-            measurements.put(measurementId, new Measurement(measurementId, measurement));
+            instance.measurements.put(measurementId, measurement);
             return this;
         }
 
         @Override
-        public MeasurementOrCategoryOrBuildEntry  measurements(List<Measurement> measurements) {
-            measurements.forEach(m -> measurement(m.getId(), m.getValue()));
+        public MeasurementOrCategoryOrBuildEntry  measurements(Map<String, Long> measurements) {
+            instance.measurements.putAll(measurements);
             return this;
         }
 
@@ -108,10 +106,8 @@ public class TimeSeriesPoint {
         @Override
         public TimeSeriesPoint build() {
             if (instance.timestamp == null) throw new IllegalArgumentException("timestamp");
-            instance.measurements.addAll(measurements.values());
             if (!categories.isEmpty()) {
-                instance.categories = new HashMap<>();
-                instance.categories.putAll(categories);
+                instance.categories = categories;
             }
             return instance;
         }

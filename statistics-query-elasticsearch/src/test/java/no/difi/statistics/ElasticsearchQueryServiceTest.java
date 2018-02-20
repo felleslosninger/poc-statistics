@@ -3,7 +3,6 @@ package no.difi.statistics;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import no.difi.statistics.elasticsearch.Client;
-import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesPoint;
 import no.difi.statistics.query.config.AppConfig;
@@ -56,7 +55,6 @@ import static no.difi.statistics.query.elasticsearch.helpers.Verification.given;
 import static no.difi.statistics.test.utils.DataGenerator.createRandomTimeSeries;
 import static no.difi.statistics.test.utils.DataOperations.*;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(webEnvironment = RANDOM_PORT)
@@ -511,7 +509,7 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
-    public void givenMinuteSeriesOverMoreThanOneMonthWhenQueryingForMonthSnapshotsThenLastPointInEveryMonthAreReturned() throws IOException {
+    public void givenMinuteSeriesOverMoreThanOneMonthWhenQueryingForMonthSnapshotsThenLastPointInEveryMonthAreReturned() {
         List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), minutes, 100, "measurementA", "measurementB");
         helper.indexPoints(minutes, points);
         List<TimeSeriesPoint> pointsMonth2 = createRandomTimeSeries(now.truncatedTo(DAYS).plusMonths(1), minutes, 100, "measurementA", "measurementB");
@@ -547,8 +545,8 @@ public class ElasticsearchQueryServiceTest {
                 now.truncatedTo(DAYS).plusMinutes(100)
         );
         assertEquals(1, size(resultingPoints));
-        assertEquals(DataOperations.sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
-        assertEquals(DataOperations.sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(DataOperations.sum("measurementA", points), resultingPoints.get(0).getMeasurement("measurementA").orElse(-1L).longValue());
+        assertEquals(DataOperations.sum("measurementB", points), resultingPoints.get(0).getMeasurement("measurementB").orElse(-1L).longValue());
         assertEquals(truncatedTimestamp(now, ChronoUnit.DAYS).toInstant(), timestamp(0, resultingPoints).toInstant());
     }
 
@@ -566,10 +564,10 @@ public class ElasticsearchQueryServiceTest {
         List<TimeSeriesPoint> pointsDayOne = points.subList(0,1440);
         List<TimeSeriesPoint> pointsDayTwo = points.subList(1440, points.size());
         assertEquals(2, size(resultingPoints));
-        assertEquals(DataOperations.sum("measurementA", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
-        assertEquals(DataOperations.sum("measurementA", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementA").map(Measurement::getValue).orElse(-1L).longValue());
-        assertEquals(DataOperations.sum("measurementB", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
-        assertEquals(DataOperations.sum("measurementB", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementB").map(Measurement::getValue).orElse(-1L).longValue());
+        assertEquals(DataOperations.sum("measurementA", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementA").orElse(-1L).longValue());
+        assertEquals(DataOperations.sum("measurementA", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementA").orElse(-1L).longValue());
+        assertEquals(DataOperations.sum("measurementB", pointsDayOne), resultingPoints.get(0).getMeasurement("measurementB").orElse(-1L).longValue());
+        assertEquals(DataOperations.sum("measurementB", pointsDayTwo), resultingPoints.get(1).getMeasurement("measurementB").orElse(-1L).longValue());
 
         assertEquals(DataOperations.sum("measurementA", points), DataOperations.sum("measurementA", resultingPoints));
         assertEquals(DataOperations.sum("measurementB", points), DataOperations.sum("measurementB", resultingPoints));

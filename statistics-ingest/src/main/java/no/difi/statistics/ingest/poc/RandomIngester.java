@@ -1,7 +1,6 @@
 package no.difi.statistics.ingest.poc;
 
 import no.difi.statistics.ingest.IngestService;
-import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
 import org.springframework.boot.ApplicationArguments;
@@ -22,7 +21,7 @@ public class RandomIngester implements ApplicationRunner {
     }
 
     @Override
-    public void run(ApplicationArguments applicationArguments) throws Exception {
+    public void run(ApplicationArguments applicationArguments) {
         if (!applicationArguments.containsOption("from")) return;
         ApplicationArgumentsReader argumentsReader = new ApplicationArgumentsReader(applicationArguments);
         Random random = new Random();
@@ -30,7 +29,7 @@ public class RandomIngester implements ApplicationRunner {
             long value = random.nextLong();
             service.ingest(
                     TimeSeriesDefinition.builder().name("random").distance(minutes).owner("randomOrganizationNumber"),
-                    singletonList(TimeSeriesPoint.builder().timestamp(t).measurement(new Measurement("count", value)).build())
+                    singletonList(TimeSeriesPoint.builder().timestamp(t).measurement("count", value).build())
             );
         }
     }

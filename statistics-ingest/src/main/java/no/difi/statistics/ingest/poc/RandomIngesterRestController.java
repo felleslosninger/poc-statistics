@@ -1,7 +1,6 @@
 package no.difi.statistics.ingest.poc;
 
 import no.difi.statistics.ingest.IngestService;
-import no.difi.statistics.model.Measurement;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
@@ -16,7 +15,6 @@ import java.util.List;
 import java.util.Random;
 
 import static java.time.temporal.ChronoUnit.*;
-import static java.time.temporal.ChronoUnit.YEARS;
 
 @RestController
 public class RandomIngesterRestController {
