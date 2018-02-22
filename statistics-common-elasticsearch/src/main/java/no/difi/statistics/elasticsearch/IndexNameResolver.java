@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.FOREVER;
@@ -18,12 +19,17 @@ import static no.difi.statistics.elasticsearch.Timestamp.truncatedTimestamp;
 
 public class IndexNameResolver {
 
-    private static String partSeparator = ":";
+    private static String partSeparator = "@";
+    private static Pattern pattern = Pattern.compile("(.+)@(.+)@(minute|hour|day|month|year).*");
     private TimeSeriesDefinition seriesDefinition;
     private ChronoUnit baseTimeUnit;
     private ZonedDateTime from;
     private ZonedDateTime to;
     private ZonedDateTime at;
+
+    public static Pattern pattern() {
+        return pattern;
+    }
 
     public static String generic(String indexName) {
         return indexName.substring(0, indexName.lastIndexOf(partSeparator) + 1) + "*";

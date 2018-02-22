@@ -119,7 +119,7 @@ public class TimeSeriesDefinition implements Comparable<TimeSeriesDefinition> {
 
     @Override
     public String toString() {
-        return format("%s:%s:%s", owner, name, distance);
+        return format("%s@%s@%s", owner, name, distance);
     }
 
     @Override

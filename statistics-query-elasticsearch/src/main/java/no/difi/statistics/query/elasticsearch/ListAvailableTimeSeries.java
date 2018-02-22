@@ -1,5 +1,6 @@
 package no.difi.statistics.query.elasticsearch;
 
+import no.difi.statistics.elasticsearch.IndexNameResolver;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import org.elasticsearch.client.RestClient;
@@ -10,14 +11,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.model.MeasurementDistance.*;
 
 public class ListAvailableTimeSeries {
 
-    private final static Pattern indexNamePattern = Pattern.compile("(.+):(.+):(minute|hour|day|month|year).*");
     private RestClient elasticSearchClient;
 
     private ListAvailableTimeSeries() {
@@ -33,7 +32,7 @@ public class ListAvailableTimeSeries {
             throw new RuntimeException("Failed to list available time series", e);
         }
         return indices.stream()
-                .map(indexNamePattern::matcher)
+                .map(IndexNameResolver.pattern()::matcher)
                 .filter(Matcher::find)
                 .map(matcher -> TimeSeriesDefinition.builder()
                         .name(matcher.group(2))
