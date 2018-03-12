@@ -500,7 +500,7 @@ public class ElasticsearchQueryServiceTest {
                                 .thenThatSeriesIsReturned()));
         forEachMeasurementDistance(distance ->
                 forEachMeasurementDistance(distance::greaterThan, targetDistance ->
-                        givenSomeSeries.when(requestingLastHistogram().per(targetDistance).distance(distance))
+                        givenSomeSeries.when(requestingSumHistogram().per(targetDistance).distance(distance))
                                 .thenFailsWithMessage(
                                         format("500/Distance %s is greater than target distance %s", distance, targetDistance)
                                 )
