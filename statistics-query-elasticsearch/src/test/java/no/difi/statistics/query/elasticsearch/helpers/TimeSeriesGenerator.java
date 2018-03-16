@@ -7,10 +7,7 @@ import no.difi.statistics.test.utils.ElasticsearchHelper;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.function.Supplier;
 
 import static java.lang.String.format;
@@ -27,6 +24,7 @@ public class TimeSeriesGenerator implements Supplier<TimeSeries> {
     private static final Random random = new Random();
 
     private List<String> measurementIds = asList("m1", "m2", "m3", "m4");
+    private List<Category> categories = new ArrayList<>();
     private TimeSeriesQuery attributes;
     private Long size = null;
     private TimeSeries series;
@@ -48,6 +46,11 @@ public class TimeSeriesGenerator implements Supplier<TimeSeries> {
 
     public TimeSeriesGenerator withMeasurements(String...measurements) {
         this.measurementIds = asList(measurements);
+        return this;
+    }
+
+    public TimeSeriesGenerator category(String key, String value) {
+        categories.add(new Category(key, value));
         return this;
     }
 
@@ -94,13 +97,13 @@ public class TimeSeriesGenerator implements Supplier<TimeSeries> {
     }
 
     private List<TimeSeriesPoint> categorizedPoints(ZonedDateTime timestamp) {
-        if (attributes.categories().isEmpty())
+        if (categories.isEmpty())
             return singletonList(aPoint(timestamp).build());
-        return attributes.categories().entrySet().stream().map(category -> aPoint(timestamp, category).build()).collect(toList());
+        return categories.stream().map(category -> aPoint(timestamp, category).build()).collect(toList());
     }
 
-    private TimeSeriesPoint.Builder aPoint(ZonedDateTime timestamp, Map.Entry<String, String> category) {
-        return aPoint(timestamp).category(category.getKey(), category.getValue());
+    private TimeSeriesPoint.Builder aPoint(ZonedDateTime timestamp, Category category) {
+        return aPoint(timestamp).category(category.key, category.value);
     }
 
     private TimeSeriesPoint.Builder aPoint(ZonedDateTime timestamp) {
@@ -117,5 +120,16 @@ public class TimeSeriesGenerator implements Supplier<TimeSeries> {
     @Override
     public String toString() {
         return format("%s:%s:%s", attributes.owner(), attributes.name(), attributes.distance());
+    }
+
+    private class Category {
+        private String key;
+        private String value;
+
+        public Category(String key, String value) {
+            this.key = key;
+            this.value = value;
+        }
+
     }
 }

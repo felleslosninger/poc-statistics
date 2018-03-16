@@ -227,21 +227,21 @@ public class ElasticsearchQueryServiceTest {
 
     @Test
     public void givenMinuteSeriesWhenQueryingWithCategoryThenPointsWithThatCategoryAreReturned() {
-        given(aSeries(withAttributes().distance(minutes).category("Category A", "Value for category A").category("Category B", "Value for category B")))
+        given(aSeries(withAttributes().distance(minutes)).category("Category A", "Value for category A").category("Category B", "Value for category B"))
                 .when(requestingSeries().distance(minutes).category("Category A", "Value for category A"))
                 .thenThatSeriesIsReturned();
     }
 
     @Test
     public void givenDaySeriesWhenQueryingWithCategoryAndClosedRangeThenPointsWithThatCategoryWithinTheRangeAreReturned() {
-        given(aSeries(withAttributes().distance(days).from(startOf2017).to(startOf2018).category("a", "b").category("c", "d")))
-                .when(requestingSeries().distance(days).from(startOfOctober2017).to(startOfNovember2017).category("a","b"))
+        given(aSeries(withAttributes().distance(days).from(startOf2017).to(startOf2018)).category("TL", "Bergen kommune").category("TL", "Alvdal kommune"))
+                .when(requestingSeries().distance(days).from(startOfOctober2017).to(startOfNovember2017).category("TL","Bergen kommune"))
                 .thenThatSeriesIsReturned();
     }
 
     @Test
     public void givenMinuteSeriesWhenQueryingWithoutCategoryThenPointsWithSummarizedCategoriesAreReturned() {
-        given(aSeries(withAttributes().distance(minutes).category("a", "b").category("c", "d")))
+        given(aSeries(withAttributes().distance(minutes)).category("a", "b").category("c", "d"))
                 .when(requestingSeries().distance(minutes))
                 .thenThatSeriesIsReturned();
     }
@@ -488,11 +488,11 @@ public class ElasticsearchQueryServiceTest {
     @Test
         public void givenSeriesWhenQueryingForSumPerMeasurementDistanceThenSumPointPerMeasurementDistanceIsReturned() {
         Verification.WhenStep givenSomeSeries = given(
-                aSeries(withAttributes().distance(minutes).category("a", "b").category("c", "d").category("e", "f")),
-                aSeries(withAttributes().distance(hours).category("a", "b").category("c", "d").category("e", "f")),
-                aSeries(withAttributes().distance(days).category("a", "b").category("c", "d").category("e", "f")),
-                aSeries(withAttributes().distance(months).category("a", "b").category("c", "d").category("e", "f")),
-                aSeries(withAttributes().distance(years).category("a", "b").category("c", "d").category("e", "f"))
+                aSeries(withAttributes().distance(minutes)).category("a", "b").category("c", "d").category("e", "f"),
+                aSeries(withAttributes().distance(hours)).category("a", "b").category("c", "d").category("e", "f"),
+                aSeries(withAttributes().distance(days)).category("a", "b").category("c", "d").category("e", "f"),
+                aSeries(withAttributes().distance(months)).category("a", "b").category("c", "d").category("e", "f"),
+                aSeries(withAttributes().distance(years)).category("a", "b").category("c", "d").category("e", "f")
         );
         forEachMeasurementDistance(distance ->
                 forEachMeasurementDistance(distance::lessThanOrEqualTo, targetDistance ->
@@ -625,11 +625,11 @@ public class ElasticsearchQueryServiceTest {
     @Test
     public void givenSeriesWhenRequestingSumThenSumPointIsReturned() {
         given(
-                aSeries(withAttributes().distance(minutes).category("a", "b").category("c", "d")),
-                aSeries(withAttributes().distance(hours).category("a", "b").category("c", "d")),
-                aSeries(withAttributes().distance(days).category("a", "b").category("c", "d")),
-                aSeries(withAttributes().distance(months).category("a", "b").category("c", "d")),
-                aSeries(withAttributes().distance(years).category("a", "b").category("c", "d"))
+                aSeries(withAttributes().distance(minutes)).category("a", "b").category("c", "d"),
+                aSeries(withAttributes().distance(hours)).category("a", "b").category("c", "d"),
+                aSeries(withAttributes().distance(days)).category("a", "b").category("c", "d"),
+                aSeries(withAttributes().distance(months)).category("a", "b").category("c", "d"),
+                aSeries(withAttributes().distance(years)).category("a", "b").category("c", "d")
         )
                 .when(requestingSum().distance(minutes).category("a", "b"))
                 .thenThatSeriesIsReturned()

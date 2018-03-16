@@ -2,6 +2,7 @@ package no.difi.statistics.elasticsearch;
 
 import no.difi.statistics.model.MeasurementDistance;
 import org.elasticsearch.index.query.MatchQueryBuilder;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
@@ -33,7 +34,7 @@ public class QueryBuilders {
     }
 
     public static MatchQueryBuilder categoryQuery(String key, String value) {
-        return matchQuery("category." + key, value);
+        return matchQuery("category." + key, value).operator(Operator.AND);
     }
 
     public static TermsAggregationBuilder sumPerTimestampAggregation(String name, List<String> measurementIds) {
