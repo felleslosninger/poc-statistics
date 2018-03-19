@@ -8,6 +8,7 @@ import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.range.Range;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.metrics.sum.Sum;
 import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
 
@@ -32,33 +33,36 @@ public class ResultParser {
                 .collect(toList());
     }
 
-    public static TimeSeriesPoint point(SearchHit hit) {
+    public static TimeSeriesPoint.Builder point(SearchHit hit) {
         return TimeSeriesPoint.builder()
                 .timestamp(timestamp(hit))
                 .measurements(measurements(hit))
-                .categories(categories(hit))
-                .build();
+                .categories(categories(hit));
     }
 
-    public static TimeSeriesPoint pointFromLastAggregation(SearchResponse response) {
+    public static TimeSeriesPoint pointFromLastAggregation(SearchResponse response, Map<String, String> categories) {
         if (response.getAggregations() == null)
             return null;
-        if (response.getAggregations().<TopHits>get("last") == null)
+        if (response.getAggregations().get("last") == null)
             throw new RuntimeException("No last aggregation in result");
-        if (response.getAggregations().<TopHits>get("last").getHits().getHits().length == 0)
+        if (response.getAggregations().<Terms>get("last").getBuckets().size() == 0)
             return null;
-        if (response.getAggregations().<TopHits>get("last").getHits().getHits().length > 1)
-            throw new RuntimeException("Too many hits in last aggregation: "
-                    + response.getAggregations().<TopHits>get("last").getHits().getHits().length);
-        return point(response.getAggregations().<TopHits>get("last").getHits().getAt(0));
+        if (response.getAggregations().<Terms>get("last").getBuckets().size() > 1)
+            throw new RuntimeException("Too many buckets in last aggregation: "
+                    + response.getAggregations().<Terms>get("last").getBuckets().size());
+        return point(response.getAggregations().<Terms>get("last").getBuckets().get(0)).categories(categories).build();
+    }
+
+    private static TimeSeriesPoint.Builder point(Terms.Bucket bucket) {
+        return TimeSeriesPoint.builder().timestamp(timestamp(bucket.getKeyAsString())).measurements(measurements(bucket.getAggregations()));
     }
 
     private static TimeSeriesPoint.Builder point(MultiBucketsAggregation.Bucket bucket) {
-        return point(bucket.getKeyAsString(), bucket);
+        return TimeSeriesPoint.builder().timestamp(timestamp(bucket.getKeyAsString())).measurements(measurements(bucket.getAggregations()));
     }
 
-    private static TimeSeriesPoint.Builder point(String timestamp, MultiBucketsAggregation.Bucket bucket) {
-        return TimeSeriesPoint.builder().timestamp(timestamp(timestamp)).measurements(measurements(bucket.getAggregations()));
+    private static ZonedDateTime timestamp(MultiBucketsAggregation.Bucket bucket) {
+        return timestamp(bucket.getKeyAsString());
     }
 
     private static ZonedDateTime timestamp(SearchHit hit) {
@@ -83,6 +87,10 @@ public class ResultParser {
 
     private static Map<String, Long> measurements(Aggregations aggregations) {
         Map<String, Long> measurements = new HashMap<>();
+        if (aggregations.get("timestampAggregation") != null) {
+            Aggregation timestampAggregation = aggregations.get("timestampAggregation");
+            aggregations = ((Terms)timestampAggregation).getBuckets().get(0).getAggregations();
+        }
         for (Aggregation aggregation : aggregations) {
             if (aggregation instanceof Sum) {
                 measurements.put(aggregation.getName(), (long) ((Sum) aggregation).getValue());
@@ -102,7 +110,7 @@ public class ResultParser {
     public static TimeSeriesPoint.Builder sumPoint(Aggregations aggregations) {
         if (aggregations == null)
             return null;
-        ZonedDateTime timestamp = timestamp(aggregations.<TopHits>get("last").getHits().getAt(0));
+        ZonedDateTime timestamp = timestamp(aggregations.<Terms>get("last").getBuckets().get(0));
         return TimeSeriesPoint.builder().timestamp(timestamp).measurements(measurements(aggregations));
     }
 
@@ -110,8 +118,9 @@ public class ResultParser {
         if (range == null)
             return null;
         Range.Bucket bucket = range.getBuckets().get(0);
-        return sumPoint(bucket.getAggregations());
-
+        Aggregations aggregations = bucket.getAggregations();
+        ZonedDateTime timestamp = timestamp(aggregations.<TopHits>get("last").getHits().getAt(0));
+        return TimeSeriesPoint.builder().timestamp(timestamp).measurements(measurements(aggregations));
     }
 
 }

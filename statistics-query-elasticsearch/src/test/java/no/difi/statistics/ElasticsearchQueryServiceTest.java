@@ -45,6 +45,7 @@ import static no.difi.statistics.model.MeasurementDistance.*;
 import static no.difi.statistics.query.elasticsearch.helpers.AvailableSeriesQuery.calculatedAvailableSeries;
 import static no.difi.statistics.query.elasticsearch.helpers.AvailableSeriesQuery.requestingAvailableTimeSeries;
 import static no.difi.statistics.query.elasticsearch.helpers.LastHistogramQuery.requestingLastHistogram;
+import static no.difi.statistics.query.elasticsearch.helpers.LastQuery.requestingLast;
 import static no.difi.statistics.query.elasticsearch.helpers.PercentileQuery.requestingPercentile;
 import static no.difi.statistics.query.elasticsearch.helpers.SumHistogramQuery.calculatedSumHistogram;
 import static no.difi.statistics.query.elasticsearch.helpers.SumHistogramQuery.requestingSumHistogram;
@@ -123,6 +124,20 @@ public class ElasticsearchQueryServiceTest {
         )
                 .when(requestingAvailableTimeSeries())
                 .thenIsReturned(calculatedAvailableSeries());
+    }
+
+    @Test
+    public void givenCategorizedSeriesWhenQueryingForLastPointThenThatIsReturned() {
+        given(aSeries(withAttributes().distance(minutes)).category("a", "b").category("a", "c").category("b", "c"))
+            .when(requestingLast().distance(minutes))
+                .thenThatSeriesIsReturned();
+    }
+
+    @Test
+    public void givenCategorizedSeriesWhenQueryingForLastPointWithASpecificCategoryThenThatIsReturned() {
+        given(aSeries(withAttributes().distance(minutes)).category("a", "b").category("a", "c").category("b", "c"))
+                .when(requestingLast().distance(minutes).category("a", "b"))
+                .thenThatSeriesIsReturned();
     }
 
     @Test
@@ -448,18 +463,49 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
-    public void givenMinuteSeriesWhenQueryingForLastPerMeasurementDistanceThenLastPointPerMeasurementDistanceIsReturned() {
-        given(aSeries(withAttributes().distance(minutes)))
-                .when(requestingLastHistogram().per(minutes).distance(minutes))
-                .thenThatSeriesIsReturned()
-                .when(requestingLastHistogram().per(hours).distance(minutes))
-                .thenThatSeriesIsReturned()
-                .when(requestingLastHistogram().per(days).distance(minutes))
-                .thenThatSeriesIsReturned()
-                .when(requestingLastHistogram().per(months).distance(minutes))
-                .thenThatSeriesIsReturned()
-                .when(requestingLastHistogram().per(years).distance(minutes))
-                .thenThatSeriesIsReturned();
+    public void givenCategorizedSeriesWhenQueryingForLastPerMeasurementDistanceThenThatSeriesIsReturned() {
+        Verification.WhenStep given = given(
+                aSeries(withAttributes().distance(minutes)).category("a", "b").category("a", "c").category("d", "e"),
+                aSeries(withAttributes().distance(hours)).category("a", "b").category("a", "c").category("d", "e"),
+                aSeries(withAttributes().distance(days)).category("a", "b").category("a", "c").category("d", "e"),
+                aSeries(withAttributes().distance(months)).category("a", "b").category("a", "c").category("d", "e"),
+                aSeries(withAttributes().distance(years)).category("a", "b").category("a", "c").category("d", "e")
+        );
+        forEachMeasurementDistance(distance ->
+                forEachMeasurementDistance(distance::lessThanOrEqualTo, targetDistance ->
+                        given.when(requestingLastHistogram().per(targetDistance).distance(distance))
+                                .thenThatSeriesIsReturned()));
+        forEachMeasurementDistance(distance ->
+                forEachMeasurementDistance(distance::greaterThan, targetDistance ->
+                        given.when(requestingLastHistogram().per(targetDistance).distance(distance))
+                                .thenFailsWithMessage(
+                                        format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                                )
+                )
+        );
+    }
+
+    @Test
+    public void givenCategorizedSeriesWhenQueryingForLastPerMeasurementDistanceForACategoryThenThatSeriesIsReturned() {
+        Verification.WhenStep given = given(
+                aSeries(withAttributes().distance(minutes)).category("a", "b").category("a", "c").category("d", "e"),
+                aSeries(withAttributes().distance(hours)).category("a", "b").category("a", "c").category("d", "e"),
+                aSeries(withAttributes().distance(days)).category("a", "b").category("a", "c").category("d", "e"),
+                aSeries(withAttributes().distance(months)).category("a", "b").category("a", "c").category("d", "e"),
+                aSeries(withAttributes().distance(years)).category("a", "b").category("a", "c").category("d", "e")
+        );
+        forEachMeasurementDistance(distance ->
+                forEachMeasurementDistance(distance::lessThanOrEqualTo, targetDistance ->
+                        given.when(requestingLastHistogram().per(targetDistance).distance(distance).category("a","c"))
+                                .thenThatSeriesIsReturned()));
+        forEachMeasurementDistance(distance ->
+                forEachMeasurementDistance(distance::greaterThan, targetDistance ->
+                        given.when(requestingLastHistogram().per(targetDistance).distance(distance).category("a", "c"))
+                                .thenFailsWithMessage(
+                                        format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                                )
+                )
+        );
     }
 
     @Test

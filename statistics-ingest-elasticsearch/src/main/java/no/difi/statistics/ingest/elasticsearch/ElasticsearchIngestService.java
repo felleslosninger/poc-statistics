@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static no.difi.statistics.elasticsearch.IdResolver.id;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.elasticsearch.QueryBuilders.lastAggregation;
@@ -74,7 +76,7 @@ public class ElasticsearchIngestService implements IngestService {
                 .indicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .source(searchSource()
                         .sort(timeFieldName, SortOrder.ASC)
-                        .aggregation(lastAggregation())
+                        .aggregation(lastAggregation(emptyList()))
                         .size(0) // We are after aggregation and not the search hits
                 );
         SearchResponse response;
@@ -83,7 +85,7 @@ public class ElasticsearchIngestService implements IngestService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to search", e);
         }
-        return pointFromLastAggregation(response);
+        return pointFromLastAggregation(response, emptyMap());
     }
 
     private IngestResponse response(BulkResponse response) {

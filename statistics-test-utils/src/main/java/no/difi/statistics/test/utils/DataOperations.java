@@ -99,8 +99,13 @@ public class DataOperations {
                 .map(list -> list.get(list.size() - 1))
                 // Normalize the points' timestamps
                 .map(point -> normalizeTimestamp(point, targetDistance))
+                .map(point -> addCategories(point, categories))
                 .sorted()
                 .collect(toList());
+    }
+
+    private static TimeSeriesPoint addCategories(TimeSeriesPoint point, Map<String, String> categories) {
+        return TimeSeriesPoint.builder().timestamp(point.getTimestamp()).measurements(point.getMeasurements()).categories(categories).build();
     }
 
     private static TimeSeriesPoint normalizeTimestamp(TimeSeriesPoint point, MeasurementDistance distance) {

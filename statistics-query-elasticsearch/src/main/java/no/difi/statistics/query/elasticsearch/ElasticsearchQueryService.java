@@ -135,10 +135,10 @@ public class ElasticsearchQueryService implements QueryService {
 
     private TimeSeriesPoint last(List<String> indexNames, QueryFilter queryFilter) {
         SearchResponse response = search(indexNames, searchSource(queryFilter)
-                .aggregation(lastAggregation())
+                .aggregation(lastAggregation(measurementIds(indexNames)))
                 .size(0) // We are after aggregation and not the search hits
         );
-        return ResultParser.pointFromLastAggregation(response);
+        return ResultParser.pointFromLastAggregation(response, queryFilter.categories());
     }
 
     private List<TimeSeriesPoint> search(List<String> indexNames, QueryFilter queryFilter) {
@@ -176,8 +176,9 @@ public class ElasticsearchQueryService implements QueryService {
     private TimeSeriesPoint sumAggregateUnbounded(List<String> indexNames, QueryFilter queryFilter) {
         SearchSourceBuilder searchSourceBuilder = searchSource(queryFilter)
                 .size(0); // We are after aggregation and not the search hits
-        measurementIds(indexNames).forEach(mid -> searchSourceBuilder.aggregation(AggregationBuilders.sum(mid).field(mid)));
-        searchSourceBuilder.aggregation(lastAggregation());
+        List<String> measurementIds = measurementIds(indexNames);
+        measurementIds.forEach(mid -> searchSourceBuilder.aggregation(AggregationBuilders.sum(mid).field(mid)));
+        searchSourceBuilder.aggregation(lastAggregation(measurementIds));
         SearchResponse response = search(indexNames, searchSourceBuilder);
         return ResultParser.sumPoint(response.getAggregations()).categories(queryFilter.categories()).build();
     }
@@ -240,7 +241,7 @@ public class ElasticsearchQueryService implements QueryService {
         );
         List<TimeSeriesPoint> series = new ArrayList<>();
         for (SearchHit hit : response.getHits()) {
-            series.add(ResultParser.point(hit));
+            series.add(ResultParser.point(hit).build());
         }
         return series;
     }

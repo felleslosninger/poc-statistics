@@ -18,7 +18,7 @@ import static org.junit.Assert.assertEquals;
 public class Verification<R> {
 
     private Map<String, TimeSeriesGenerator> generators;
-    private List<TimeSeries> generatedSeries;
+    private List<TimeSeries> givenSeries;
     private Query<R> whenQuery;
 
     private Verification(TimeSeriesGenerator...generators) {
@@ -30,12 +30,12 @@ public class Verification<R> {
     }
 
     private void start() {
-        if (generatedSeries == null)
-            generatedSeries = generators.values().stream().map(Supplier::get).collect(toList());
+        if (givenSeries == null)
+            givenSeries = generators.values().stream().map(Supplier::get).collect(toList());
     }
 
-    private List<TimeSeries> generatedSeries() {
-        return generatedSeries;
+    private List<TimeSeries> givenSeries() {
+        return givenSeries;
     }
 
     public interface WhenStep {
@@ -84,18 +84,17 @@ public class Verification<R> {
         @Override
         public WhenStep thenIsReturned(Query thenQuery, boolean log) {
             verification.start();
+            if (log) {
+                for (TimeSeries series : (List<TimeSeries>)verification.givenSeries()) {
+                    logger.info("Given:\n" + toString(series.getPoints()));
+                }
+                logger.info("When:\n" + toString(verification.whenQuery.execute()));
+                logger.info("Then:\n" + toString(thenQuery.execute(verification.givenSeries())));
+            }
             assertEquals(
-                    thenQuery.execute(verification.generatedSeries()),
+                    thenQuery.execute(verification.givenSeries()),
                     verification.whenQuery.execute()
             );
-            if (log) {
-                StringBuilder b = new StringBuilder();
-                Object r = thenQuery.execute(verification.generatedSeries());
-                if (r instanceof List)
-                    logger.info("\n" + ((List)r).stream().map(e -> e.toString()).collect(joining("\n")));
-                else
-                    logger.info("\n" + r);
-            }
             return this;
         }
 
@@ -104,6 +103,17 @@ public class Verification<R> {
             verification.start();
             assertEquals(message, verification.whenQuery.failure());
             return this;
+        }
+
+        private String toString(Object o) {
+            if (o instanceof List)
+                return toString((List)o);
+            else
+                return o.toString();
+        }
+
+        private String toString(List<?> objects) {
+            return objects.stream().map(Object::toString).collect(joining("\n"));
         }
 
     }

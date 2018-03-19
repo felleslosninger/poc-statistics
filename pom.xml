@@ -167,7 +167,6 @@
                     <configuration>
                         <processAllModules>true</processAllModules>
                     </configuration>
-
                 </plugin>
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
@@ -202,6 +201,10 @@
                         <source>1.8</source>
                         <target>1.8</target>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>2.21.0</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-jar-plugin</artifactId>
