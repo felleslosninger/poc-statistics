@@ -1,5 +1,6 @@
 package no.difi.statistics.query.api;
 
+import io.swagger.annotations.ApiOperation;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesDefinition;
@@ -70,6 +71,7 @@ public class QueryRestController {
     }
 
     @GetMapping(path = "{owner}/{seriesName}/{distance}/percentile", params = {"percentile", "measurementId", "operator"})
+    @ApiOperation(value = "", notes = "<b>Experimental feature -- use at your own risk. Categorized series are not supported.</b>")
     public List<TimeSeriesPoint> relationalToPercentile(
             @PathVariable String owner,
             @PathVariable String seriesName,
