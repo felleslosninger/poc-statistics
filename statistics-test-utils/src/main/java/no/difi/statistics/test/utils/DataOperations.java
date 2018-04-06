@@ -97,8 +97,6 @@ public class DataOperations {
                 .values().stream()
                 // Pick last point bucket
                 .map(list -> list.get(list.size() - 1))
-                // Normalize the points' timestamps
-                .map(point -> normalizeTimestamp(point, targetDistance))
                 .map(point -> addCategories(point, categories))
                 .sorted()
                 .collect(toList());
@@ -106,10 +104,6 @@ public class DataOperations {
 
     private static TimeSeriesPoint addCategories(TimeSeriesPoint point, Map<String, String> categories) {
         return TimeSeriesPoint.builder().timestamp(point.getTimestamp()).measurements(point.getMeasurements()).categories(categories).build();
-    }
-
-    private static TimeSeriesPoint normalizeTimestamp(TimeSeriesPoint point, MeasurementDistance distance) {
-        return TimeSeriesPoint.builder().timestamp(truncatedTimestamp(point.getTimestamp(), distance)).measurements(point.getMeasurements()).build();
     }
 
     public static Function<TimeSeries, List<TimeSeriesPoint>> relativeToPercentile(

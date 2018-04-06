@@ -5,7 +5,6 @@ import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -45,22 +44,8 @@ public class QueryBuilders {
         return builder;
     }
 
-    public static DateHistogramAggregationBuilder sumPerDistanceAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
-        DateHistogramAggregationBuilder builder = dateHistogram(name).field(timestampField).dateHistogramInterval(dateHistogramInterval(targetDistance));
-        for (String measurementId : measurementIds)
-            builder.subAggregation(sum(measurementId).field(measurementId));
-        return builder;
-    }
-
     public static AggregationBuilder lastAggregation(List<String> measurementIds) {
         return sumPerTimestampAggregation("last", measurementIds).order(key(false)).size(1);
-    }
-
-    public static DateHistogramAggregationBuilder lastPerDistanceAggregation(String name, MeasurementDistance targetDistance, List<String> measurementIds) {
-        DateHistogramAggregationBuilder dateHistogramAggregation = dateHistogram(name).field(timestampField).dateHistogramInterval(dateHistogramInterval(targetDistance));
-        return dateHistogramAggregation.subAggregation(
-                sumPerTimestampAggregation("timestampAggregation", measurementIds).order(key(false)).size(1)
-        );
     }
 
     public static DateRangeAggregationBuilder sumAggregation(String name, ZonedDateTime from, ZonedDateTime to, List<String> measurementIds) {
@@ -83,7 +68,7 @@ public class QueryBuilders {
         return dateTimeFormatter.format(timestamp);
     }
 
-    private static DateHistogramInterval dateHistogramInterval(MeasurementDistance distance) {
+    public static DateHistogramInterval dateHistogramInterval(MeasurementDistance distance) {
         switch (distance) {
             case minutes: return DateHistogramInterval.MINUTE;
             case hours: return DateHistogramInterval.HOUR;

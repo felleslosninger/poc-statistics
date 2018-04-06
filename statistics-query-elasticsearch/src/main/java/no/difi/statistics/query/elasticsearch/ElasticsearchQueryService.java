@@ -1,7 +1,6 @@
 package no.difi.statistics.query.elasticsearch;
 
 import no.difi.statistics.elasticsearch.Client;
-import no.difi.statistics.elasticsearch.IndexNameResolver;
 import no.difi.statistics.elasticsearch.ResultParser;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
@@ -22,14 +21,9 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.json.Json;
-import javax.json.JsonReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -49,16 +43,16 @@ public class ElasticsearchQueryService implements QueryService {
     private static final String indexType = "default";
 
     private Client elasticsearchClient;
-    private ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand;
+    private CommandFactory commandFactory;
 
-    public ElasticsearchQueryService(Client elasticsearchClient, ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand) {
+    public ElasticsearchQueryService(Client elasticsearchClient, CommandFactory commandFactory) {
         this.elasticsearchClient = elasticsearchClient;
-        this.listAvailableTimeSeriesCommand = listAvailableTimeSeriesCommand;
+        this.commandFactory = commandFactory;
     }
 
     @Override
     public List<TimeSeriesDefinition> availableTimeSeries() {
-        return listAvailableTimeSeriesCommand.execute();
+        return commandFactory.availableTimeSeries().execute();
     }
 
     @Override
@@ -70,19 +64,15 @@ public class ElasticsearchQueryService implements QueryService {
         if (result.isEmpty() && seriesDefinition.getDistance().equals(days)) {
             logger.info("Empty result for day series search. Attempting to aggregate minute series...");
             seriesDefinition = TimeSeriesDefinition.builder().name(seriesDefinition.getName()).distance(minutes).owner(seriesDefinition.getOwner());
-            result = sumPerDistance(
-                    resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
-                    days,
-                    queryFilter
-            );
+            result = commandFactory.sumHistogram()
+                    .seriesDefinition(seriesDefinition).targetDistance(days).queryFilter(queryFilter)
+                    .measurementIdentifiersCommand(commandFactory.measurementIdentifiers()).execute();
         } else if (result.isEmpty() && seriesDefinition.getDistance().equals(months)) {
             logger.info("Empty result for month series search. Attempting to aggregate minute series...");
             seriesDefinition = TimeSeriesDefinition.builder().name(seriesDefinition.getName()).distance(minutes).owner(seriesDefinition.getOwner());
-            result = sumPerDistance(
-                    resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
-                    days,
-                    queryFilter
-            );
+            result = commandFactory.sumHistogram()
+                    .seriesDefinition(seriesDefinition).targetDistance(months).queryFilter(queryFilter)
+                    .measurementIdentifiersCommand(commandFactory.measurementIdentifiers()).execute();
         }
         return result;
     }
@@ -101,11 +91,9 @@ public class ElasticsearchQueryService implements QueryService {
             MeasurementDistance targetDistance,
             QueryFilter queryFilter
     ){
-        return lastPerDistance(
-                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
-                targetDistance,
-                queryFilter
-        );
+        return commandFactory.lastHistogram()
+                .seriesDefinition(seriesDefinition).targetDistance(targetDistance).queryFilter(queryFilter)
+                .measurementIdentifiersCommand(commandFactory.measurementIdentifiers()).execute();
     }
 
     @Override
@@ -118,11 +106,9 @@ public class ElasticsearchQueryService implements QueryService {
 
     @Override
     public List<TimeSeriesPoint> sumPerDistance(TimeSeriesDefinition seriesDefinition, MeasurementDistance targetDistance, QueryFilter queryFilter) {
-        return sumPerDistance(
-                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
-                targetDistance,
-                queryFilter
-        );
+        return commandFactory.sumHistogram()
+                .seriesDefinition(seriesDefinition).targetDistance(targetDistance).queryFilter(queryFilter)
+                .measurementIdentifiersCommand(commandFactory.measurementIdentifiers()).execute();
     }
 
     @Override
@@ -142,15 +128,6 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private List<TimeSeriesPoint> search(List<String> indexNames, QueryFilter queryFilter) {
-        if (logger.isDebugEnabled()) {
-            logger.debug(format(
-                    "Executing search:\nIndexes: %s\nType: %s\nFrom: %s\nTo: %s\n",
-                    indexNames.stream().collect(joining(",\n  ")),
-                    indexType,
-                    queryFilter.from(),
-                    queryFilter.to()
-            ));
-        }
         SearchResponse response = search(indexNames, searchSource(queryFilter)
                 .aggregation(sumPerTimestampAggregation("categoryAggregation", measurementIds(indexNames)))
                 .size(10_000) // 10 000 is maximum
@@ -181,46 +158,6 @@ public class ElasticsearchQueryService implements QueryService {
         searchSourceBuilder.aggregation(lastAggregation(measurementIds));
         SearchResponse response = search(indexNames, searchSourceBuilder);
         return ResultParser.sumPoint(response.getAggregations()).categories(queryFilter.categories()).build();
-    }
-
-    private List<TimeSeriesPoint> sumPerDistance(List<String> indexNames, MeasurementDistance targetDistance, QueryFilter queryFilter) {
-        if (logger.isDebugEnabled()) {
-            logger.debug(format(
-                    "Executing sum point per %s:\nIndexes: %s\nFrom: %s\nTo: %s\n",
-                    targetDistance,
-                    indexNames.stream().collect(joining(",\n  ")),
-                    queryFilter.from(),
-                    queryFilter.to()
-            ));
-        }
-        SearchSourceBuilder searchSource = searchSource(queryFilter)
-                .aggregation(sumPerDistanceAggregation("a", targetDistance, measurementIds(indexNames)))
-                .size(0); // We are after aggregation and not the search hits
-        SearchResponse response = search(indexNames, searchSource);
-        if (response.getAggregations() != null)
-            return ResultParser.points(response.getAggregations().get("a"), queryFilter.categories());
-        else
-            return emptyList();
-    }
-
-    private List<TimeSeriesPoint> lastPerDistance(List<String> indexNames, MeasurementDistance targetDistance, QueryFilter queryFilter) {
-        if (logger.isDebugEnabled()) {
-            logger.debug(format(
-                    "Executing last point per %s:\nIndexes: %s\nFrom: %s\nTo: %s\n",
-                    targetDistance,
-                    indexNames.stream().collect(joining(",\n  ")),
-                    queryFilter.from(),
-                    queryFilter.to()
-            ));
-        }
-        SearchResponse response = search(indexNames, searchSource(queryFilter)
-                .aggregation(lastPerDistanceAggregation("a", targetDistance, measurementIds(indexNames)))
-                .size(0) // We are after aggregation and not the search hits
-        );
-        if (response.getAggregations() != null)
-            return ResultParser.points(response.getAggregations().get("a"), queryFilter.categories());
-        else
-            return emptyList();
     }
 
     private List<TimeSeriesPoint> searchWithPercentileFilter(List<String> indexNames, QueryFilter queryFilter, PercentileFilter filter) {
@@ -294,25 +231,7 @@ public class ElasticsearchQueryService implements QueryService {
     }
 
     private List<String> measurementIds(List<String> indexNames) {
-        String genericIndexName = IndexNameResolver.generic(indexNames.get(0));
-        Set<String> result = new HashSet<>();
-        try (InputStream response = elasticsearchClient.lowLevel()
-                .performRequest("GET", "/" + genericIndexName + "/_mappings?ignore_unavailable=true").getEntity().getContent()) {
-            JsonReader reader = Json.createReader(response);
-            reader.readObject().forEach(
-                    (key, value) -> result.addAll(
-                            value.asJsonObject().getJsonObject("mappings").getJsonObject("default")
-                                    .getJsonObject("properties").keySet().stream()
-                                    .filter(p -> !p.startsWith("category."))
-                                    .filter(p -> !p.equals("category"))
-                                    .filter(p -> !p.equals(timeFieldName))
-                                    .collect(toSet())
-                    )
-            );
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to get available measurement ids", e);
-        }
-        return new ArrayList<>(result);
+        return commandFactory.measurementIdentifiers().indexNames(indexNames).execute();
     }
 
 

@@ -34,7 +34,7 @@ public class QueryRestController {
     }
 
     @GetMapping("/")
-    public RedirectView index() throws IOException {
+    public RedirectView index() {
         return new RedirectView("swagger-ui.html");
     }
 

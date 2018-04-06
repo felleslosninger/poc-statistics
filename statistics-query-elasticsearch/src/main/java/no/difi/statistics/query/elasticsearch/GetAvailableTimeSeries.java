@@ -15,15 +15,15 @@ import java.util.regex.Matcher;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.model.MeasurementDistance.*;
 
-public class ListAvailableTimeSeries {
+public class GetAvailableTimeSeries {
 
     private RestClient elasticSearchClient;
 
-    private ListAvailableTimeSeries() {
+    private GetAvailableTimeSeries() {
         // Use builder
     }
 
-    List<TimeSeriesDefinition> execute() {
+    private List<TimeSeriesDefinition> doExecute() {
         List<String> indices = new ArrayList<>();
         try (InputStream response = elasticSearchClient.performRequest("GET", "/_cat/indices?h=index").getEntity().getContent();
              Scanner scanner = new Scanner(response)) {
@@ -55,28 +55,23 @@ public class ListAvailableTimeSeries {
         }
     }
 
-    public static Command builder() {
-        return new Command();
+    public static Builder builder() {
+        return new Builder();
     }
 
-    public static class Command {
+    public static class Builder {
 
-        private RestClient elasticSearchClient;
+        private GetAvailableTimeSeries instance = new GetAvailableTimeSeries();
 
-        public Command elasticsearchClient(RestClient client) {
-            this.elasticSearchClient = client;
+        public Builder elasticsearchClient(RestClient client) {
+            instance.elasticSearchClient = client;
             return this;
         }
 
         List<TimeSeriesDefinition> execute() {
-            ListAvailableTimeSeries command = new ListAvailableTimeSeries();
-            command.elasticSearchClient = elasticSearchClient;
-            return command.execute();
+            return instance.doExecute();
         }
 
     }
-
-
-
 
 }

@@ -3,8 +3,7 @@ package no.difi.statistics.query.elasticsearch.config;
 import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.query.QueryService;
 import no.difi.statistics.query.config.BackendConfig;
-import no.difi.statistics.query.elasticsearch.ElasticsearchQueryService;
-import no.difi.statistics.query.elasticsearch.ListAvailableTimeSeries;
+import no.difi.statistics.query.elasticsearch.*;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -12,6 +11,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Scope;
 import org.springframework.core.env.Environment;
 
 @Configuration
@@ -29,13 +29,37 @@ public class ElasticsearchConfig implements BackendConfig {
     public QueryService queryService() {
         return new ElasticsearchQueryService(
                 elasticsearchClient(),
-                listAvailableTimeSeriesCommand()
+                commandFactory()
         );
     }
 
     @Bean
-    public ListAvailableTimeSeries.Command listAvailableTimeSeriesCommand() {
-        return ListAvailableTimeSeries.builder().elasticsearchClient(elasticsearchLowLevelClient().build());
+    public CommandFactory commandFactory() {
+        return new CommandFactory();
+    }
+
+    @Bean
+    @Scope("prototype")
+    public GetAvailableTimeSeries.Builder listAvailableTimeSeriesCommandBuilder() {
+        return GetAvailableTimeSeries.builder().elasticsearchClient(elasticsearchLowLevelClient().build());
+    }
+
+    @Bean
+    @Scope("prototype")
+    public GetLastHistogram.Builder lastHistogramCommandBuilder() {
+        return GetLastHistogram.builder().elasticsearchClient(elasticsearchHighLevelClient());
+    }
+
+    @Bean
+    @Scope("prototype")
+    public GetSumHistogram.Builder sumHistogramCommandBuilder() {
+        return GetSumHistogram.builder().elasticsearchClient(elasticsearchHighLevelClient());
+    }
+
+    @Bean
+    @Scope("prototype")
+    public GetMeasurementIdentifiers.Builder measurementIdentifiersCommandBuilder() {
+        return GetMeasurementIdentifiers.builder().elasticsearchClient(elasticsearchLowLevelClient().build());
     }
 
     @Bean

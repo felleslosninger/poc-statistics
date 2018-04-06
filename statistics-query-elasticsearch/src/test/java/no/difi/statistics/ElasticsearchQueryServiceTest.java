@@ -532,7 +532,7 @@ public class ElasticsearchQueryServiceTest {
     }
 
     @Test
-        public void givenSeriesWhenQueryingForSumPerMeasurementDistanceThenSumPointPerMeasurementDistanceIsReturned() {
+    public void givenSeriesWhenQueryingForSumPerMeasurementDistanceThenSumPointPerMeasurementDistanceIsReturned() {
         Verification.WhenStep givenSomeSeries = given(
                 aSeries(withAttributes().distance(minutes)).category("a", "b").category("c", "d").category("e", "f"),
                 aSeries(withAttributes().distance(hours)).category("a", "b").category("c", "d").category("e", "f"),
@@ -552,32 +552,6 @@ public class ElasticsearchQueryServiceTest {
                                 )
                 )
         );
-    }
-
-    @Test
-    public void givenMinuteSeriesOverMoreThanOneMonthWhenQueryingForMonthSnapshotsThenLastPointInEveryMonthAreReturned() {
-        List<TimeSeriesPoint> points = createRandomTimeSeries(now.truncatedTo(DAYS), minutes, 100, "measurementA", "measurementB");
-        helper.indexPoints(minutes, points);
-        List<TimeSeriesPoint> pointsMonth2 = createRandomTimeSeries(now.truncatedTo(DAYS).plusMonths(1), minutes, 100, "measurementA", "measurementB");
-        helper.indexPoints(minutes, pointsMonth2);
-
-        List<TimeSeriesPoint> resultingPoints =
-                requestingLastHistogram().per(months)
-                        .name(series)
-                        .distance(minutes)
-                        .from(now.truncatedTo(DAYS))
-                        .to(now.truncatedTo(DAYS).plusMonths(1).plusMinutes(100))
-                        .execute();
-
-        assertEquals(2, size(resultingPoints));
-
-        assertEquals(value(99, "measurementA", points), value(0, "measurementA", resultingPoints));
-        assertEquals(value(99, "measurementB", points), value(0, "measurementB", resultingPoints));
-        assertEquals(value(99, "measurementA", pointsMonth2), value(1, "measurementA", resultingPoints));
-        assertEquals(value(99, "measurementB", pointsMonth2), value(1, "measurementB", resultingPoints));
-
-        assertEquals(truncatedTimestamp(now, MONTHS).toInstant(), timestamp(0, resultingPoints).toInstant());
-        assertEquals(truncatedTimestamp(now.plusMonths(1), MONTHS).toInstant(), timestamp(1, resultingPoints).toInstant());
     }
 
     @Test
