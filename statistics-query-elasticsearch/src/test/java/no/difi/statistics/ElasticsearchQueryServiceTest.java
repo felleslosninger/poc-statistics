@@ -472,14 +472,14 @@ public class ElasticsearchQueryServiceTest {
                 aSeries(withAttributes().distance(years)).category("a", "b").category("a", "c").category("d", "e")
         );
         forEachMeasurementDistance(distance ->
-                forEachMeasurementDistance(distance::lessThanOrEqualTo, targetDistance ->
+                forEachMeasurementDistance(distance::lessThan, targetDistance ->
                         given.when(requestingLastHistogram().per(targetDistance).distance(distance))
                                 .thenThatSeriesIsReturned()));
         forEachMeasurementDistance(distance ->
-                forEachMeasurementDistance(distance::greaterThan, targetDistance ->
+                forEachMeasurementDistance(distance::greaterThanOrEqualTo, targetDistance ->
                         given.when(requestingLastHistogram().per(targetDistance).distance(distance))
                                 .thenFailsWithMessage(
-                                        format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                                        format("500/Distance %s is greater than or equal to target distance %s", distance, targetDistance)
                                 )
                 )
         );
@@ -495,14 +495,14 @@ public class ElasticsearchQueryServiceTest {
                 aSeries(withAttributes().distance(years)).category("a", "b").category("a", "c").category("d", "e")
         );
         forEachMeasurementDistance(distance ->
-                forEachMeasurementDistance(distance::lessThanOrEqualTo, targetDistance ->
+                forEachMeasurementDistance(distance::lessThan, targetDistance ->
                         given.when(requestingLastHistogram().per(targetDistance).distance(distance).category("a","c"))
                                 .thenThatSeriesIsReturned()));
         forEachMeasurementDistance(distance ->
-                forEachMeasurementDistance(distance::greaterThan, targetDistance ->
+                forEachMeasurementDistance(distance::greaterThanOrEqualTo, targetDistance ->
                         given.when(requestingLastHistogram().per(targetDistance).distance(distance).category("a", "c"))
                                 .thenFailsWithMessage(
-                                        format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                                        format("500/Distance %s is greater than or equal to target distance %s", distance, targetDistance)
                                 )
                 )
         );
@@ -518,14 +518,14 @@ public class ElasticsearchQueryServiceTest {
                 aSeries(withAttributes().distance(years))
         );
         forEachMeasurementDistance(distance ->
-                forEachMeasurementDistance(distance::lessThanOrEqualTo, targetDistance ->
+                forEachMeasurementDistance(distance::lessThan, targetDistance ->
                         given.when(requestingLastHistogram().per(targetDistance).distance(distance))
                                 .thenThatSeriesIsReturned()));
         forEachMeasurementDistance(distance ->
-                forEachMeasurementDistance(distance::greaterThan, targetDistance ->
+                forEachMeasurementDistance(distance::greaterThanOrEqualTo, targetDistance ->
                         given.when(requestingLastHistogram().per(targetDistance).distance(distance))
                                 .thenFailsWithMessage(
-                                        format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                                        format("500/Distance %s is greater than or equal to target distance %s", distance, targetDistance)
                                 )
                 )
         );
@@ -541,14 +541,14 @@ public class ElasticsearchQueryServiceTest {
                 aSeries(withAttributes().distance(years)).category("a", "b").category("c", "d").category("e", "f")
         );
         forEachMeasurementDistance(distance ->
-                forEachMeasurementDistance(distance::lessThanOrEqualTo, targetDistance ->
+                forEachMeasurementDistance(distance::lessThan, targetDistance ->
                         givenSomeSeries.when(requestingSumHistogram().per(targetDistance).category("a", "b").distance(distance))
                                 .thenThatSeriesIsReturned()));
         forEachMeasurementDistance(distance ->
-                forEachMeasurementDistance(distance::greaterThan, targetDistance ->
+                forEachMeasurementDistance(distance::greaterThanOrEqualTo, targetDistance ->
                         givenSomeSeries.when(requestingSumHistogram().per(targetDistance).distance(distance))
                                 .thenFailsWithMessage(
-                                        format("500/Distance %s is greater than target distance %s", distance, targetDistance)
+                                        format("500/Distance %s is greater than or equal to target distance %s", distance, targetDistance)
                                 )
                 )
         );

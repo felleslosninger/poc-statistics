@@ -97,8 +97,7 @@ public class QueryRestController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
             @RequestParam(required = false) String categories
     ) {
-        if (distance.ordinal() > targetDistance.ordinal())
-            throw new IllegalArgumentException(format("Distance %s is greater than target distance %s", distance, targetDistance));
+        validateMeasurementDistance(distance, targetDistance);
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
         return service.lastPerDistance(seriesDefinition, targetDistance, queryFilter().from(from).to(to).categories(categories).build());
     }
@@ -126,10 +125,14 @@ public class QueryRestController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
             @RequestParam(required = false) String categories
     ) {
-        if (distance.ordinal() > targetDistance.ordinal())
-            throw new IllegalArgumentException(format("Distance %s is greater than target distance %s", distance, targetDistance));
+        validateMeasurementDistance(distance, targetDistance);
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
         return service.sumPerDistance(seriesDefinition, targetDistance, queryFilter().from(from).to(to).categories(categories).build());
+    }
+
+    private void validateMeasurementDistance(MeasurementDistance distance, MeasurementDistance targetDistance) {
+        if (distance.ordinal() >= targetDistance.ordinal())
+            throw new IllegalArgumentException(format("Distance %s is greater than or equal to target distance %s", distance, targetDistance));
     }
 
 }

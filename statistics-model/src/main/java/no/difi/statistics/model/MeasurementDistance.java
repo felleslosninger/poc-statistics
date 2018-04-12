@@ -7,12 +7,12 @@ public enum MeasurementDistance {
     months,
     years;
 
-    public boolean lessThanOrEqualTo(MeasurementDistance targetDistance) {
-        return this.ordinal() <= targetDistance.ordinal();
+    public boolean lessThan(MeasurementDistance targetDistance) {
+        return this.ordinal() < targetDistance.ordinal();
     }
 
-    public boolean greaterThan(MeasurementDistance targetDistance) {
-        return this.ordinal() > targetDistance.ordinal();
+    public boolean greaterThanOrEqualTo(MeasurementDistance targetDistance) {
+        return this.ordinal() >= targetDistance.ordinal();
     }
 
 }
