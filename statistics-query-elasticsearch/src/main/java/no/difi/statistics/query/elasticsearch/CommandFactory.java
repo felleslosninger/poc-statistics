@@ -1,5 +1,6 @@
 package no.difi.statistics.query.elasticsearch;
 
+import no.difi.statistics.query.elasticsearch.commands.*;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -13,20 +14,36 @@ public class CommandFactory implements ApplicationContextAware {
         this.applicationContext = applicationContext;
     }
 
-    public GetLastHistogram.Builder lastHistogram() {
-        return applicationContext.getBean(GetLastHistogram.Builder.class);
+    public TimeSeriesQuery.Builder query() {
+        return applicationContext.getBean(TimeSeriesQuery.Builder.class);
     }
 
-    public GetSumHistogram.Builder sumHistogram() {
-        return applicationContext.getBean(GetSumHistogram.Builder.class);
+    public LastHistogramQuery.Builder lastHistogram() {
+        return applicationContext.getBean(LastHistogramQuery.Builder.class);
+    }
+
+    public LastQuery.Builder last() {
+        return applicationContext.getBean(LastQuery.Builder.class);
+    }
+
+    public SumHistogramQuery.Builder sumHistogram() {
+        return applicationContext.getBean(SumHistogramQuery.Builder.class);
+    }
+
+    public SumQuery.Builder sum() {
+        return applicationContext.getBean(SumQuery.Builder.class);
+    }
+
+    public PercentileQuery.Builder percentile() {
+        return applicationContext.getBean(PercentileQuery.Builder.class);
     }
 
     public GetMeasurementIdentifiers.Builder measurementIdentifiers() {
         return applicationContext.getBean(GetMeasurementIdentifiers.Builder.class);
     }
 
-    public GetAvailableTimeSeries.Builder availableTimeSeries() {
-        return applicationContext.getBean(GetAvailableTimeSeries.Builder.class);
+    public AvailableSeriesQuery.Builder availableTimeSeries() {
+        return applicationContext.getBean(AvailableSeriesQuery.Builder.class);
     }
 
 }

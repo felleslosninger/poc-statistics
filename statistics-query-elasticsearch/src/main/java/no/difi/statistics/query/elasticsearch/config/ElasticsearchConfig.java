@@ -4,6 +4,7 @@ import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.query.QueryService;
 import no.difi.statistics.query.config.BackendConfig;
 import no.difi.statistics.query.elasticsearch.*;
+import no.difi.statistics.query.elasticsearch.commands.*;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -27,10 +28,7 @@ public class ElasticsearchConfig implements BackendConfig {
     @Override
     @Bean
     public QueryService queryService() {
-        return new ElasticsearchQueryService(
-                elasticsearchClient(),
-                commandFactory()
-        );
+        return new ElasticsearchQueryService(commandFactory());
     }
 
     @Bean
@@ -40,20 +38,44 @@ public class ElasticsearchConfig implements BackendConfig {
 
     @Bean
     @Scope("prototype")
-    public GetAvailableTimeSeries.Builder listAvailableTimeSeriesCommandBuilder() {
-        return GetAvailableTimeSeries.builder().elasticsearchClient(elasticsearchLowLevelClient().build());
+    public TimeSeriesQuery.Builder queryCommandBuilder() {
+        return TimeSeriesQuery.builder().elasticsearchClient(elasticsearchHighLevelClient()).sumHistogramCommand(sumHistogramCommandBuilder());
     }
 
     @Bean
     @Scope("prototype")
-    public GetLastHistogram.Builder lastHistogramCommandBuilder() {
-        return GetLastHistogram.builder().elasticsearchClient(elasticsearchHighLevelClient());
+    public AvailableSeriesQuery.Builder listAvailableTimeSeriesCommandBuilder() {
+        return AvailableSeriesQuery.builder().elasticsearchClient(elasticsearchLowLevelClient().build());
     }
 
     @Bean
     @Scope("prototype")
-    public GetSumHistogram.Builder sumHistogramCommandBuilder() {
-        return GetSumHistogram.builder().elasticsearchClient(elasticsearchHighLevelClient());
+    public LastHistogramQuery.Builder lastHistogramCommandBuilder() {
+        return LastHistogramQuery.builder().elasticsearchClient(elasticsearchHighLevelClient());
+    }
+
+    @Bean
+    @Scope("prototype")
+    public LastQuery.Builder lastCommandBuilder() {
+        return LastQuery.builder().elasticsearchClient(elasticsearchHighLevelClient());
+    }
+
+    @Bean
+    @Scope("prototype")
+    public SumHistogramQuery.Builder sumHistogramCommandBuilder() {
+        return SumHistogramQuery.builder().elasticsearchClient(elasticsearchHighLevelClient());
+    }
+
+    @Bean
+    @Scope("prototype")
+    public SumQuery.Builder sumCommandBuilder() {
+        return SumQuery.builder().elasticsearchClient(elasticsearchHighLevelClient());
+    }
+
+    @Bean
+    @Scope("prototype")
+    public PercentileQuery.Builder percentileCommandBuilder() {
+        return PercentileQuery.builder().elasticsearchClient(elasticsearchHighLevelClient());
     }
 
     @Bean

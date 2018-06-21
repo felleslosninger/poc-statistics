@@ -3,6 +3,7 @@ package no.difi.statistics.elasticsearch;
 import no.difi.statistics.model.MeasurementDistance;
 
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 import static java.time.ZoneOffset.UTC;
@@ -13,6 +14,16 @@ import static java.time.temporal.ChronoUnit.MONTHS;
 import static java.time.temporal.ChronoUnit.YEARS;
 
 public class Timestamp {
+
+    private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
+    public static String format(ZonedDateTime timestamp) {
+        return dateTimeFormatter.format(timestamp);
+    }
+
+    public static ZonedDateTime parse(String value) {
+        return ZonedDateTime.parse(value, dateTimeFormatter);
+    }
 
     public static ZonedDateTime truncatedTimestamp(ZonedDateTime timestamp, ChronoUnit toUnit) {
         switch (toUnit) {

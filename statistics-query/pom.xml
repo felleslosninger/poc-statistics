@@ -14,7 +14,7 @@
     <dependencies>
         <dependency>
             <groupId>no.difi.statistics</groupId>
-            <artifactId>statistics-query-model</artifactId>
+            <artifactId>statistics-model</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

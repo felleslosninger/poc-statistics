@@ -1,6 +1,7 @@
 package no.difi.statistics.elasticsearch;
 
 import no.difi.statistics.model.MeasurementDistance;
+import no.difi.statistics.model.TimeRange;
 import no.difi.statistics.model.TimeSeriesDefinition;
 
 import java.time.ZoneId;
@@ -23,8 +24,7 @@ public class IndexNameResolver {
     private static Pattern pattern = Pattern.compile("(.+)@(.+)@(minute|hour|day|month|year).*");
     private TimeSeriesDefinition seriesDefinition;
     private ChronoUnit baseTimeUnit;
-    private ZonedDateTime from;
-    private ZonedDateTime to;
+    private TimeRange timeRange;
     private ZonedDateTime at;
 
     public static Pattern pattern() {
@@ -39,15 +39,11 @@ public class IndexNameResolver {
         return new Fluent();
     }
 
-    public interface FromEntry {
-        ToEntry from(ZonedDateTime from);
+    public interface TimeRangeEntry {
+        ResolveList range(TimeRange range);
     }
 
-    public interface ToEntry {
-        ResolveList to(ZonedDateTime to);
-    }
-
-    public interface FromOrAtOrResolveList extends FromEntry, AtEntry, ResolveList {
+    public interface TimeRangeOrAtOrResolveList extends TimeRangeEntry, AtEntry, ResolveList {
     }
 
     public interface AtEntry {
@@ -63,13 +59,12 @@ public class IndexNameResolver {
     }
 
     public interface SeriesDefinitionEntry {
-        FromOrAtOrResolveList seriesDefinition(TimeSeriesDefinition seriesDefinition);
+        TimeRangeOrAtOrResolveList seriesDefinition(TimeSeriesDefinition seriesDefinition);
     }
 
     private static class Fluent implements
-            FromEntry,
-            ToEntry,
-            FromOrAtOrResolveList,
+            TimeRangeEntry,
+            TimeRangeOrAtOrResolveList,
             AtEntry,
             ResolveList,
             ResolveSingle,
@@ -78,14 +73,8 @@ public class IndexNameResolver {
         private IndexNameResolver instance = new IndexNameResolver();
 
         @Override
-        public ToEntry from(ZonedDateTime from) {
-            instance.from = from;
-            return this;
-        }
-
-        @Override
-        public ResolveList to(ZonedDateTime to) {
-            instance.to = to;
+        public ResolveList range(TimeRange range) {
+            instance.timeRange = range;
             return this;
         }
 
@@ -96,7 +85,7 @@ public class IndexNameResolver {
         }
 
         @Override
-        public FromOrAtOrResolveList seriesDefinition(TimeSeriesDefinition seriesDefinition) {
+        public TimeRangeOrAtOrResolveList seriesDefinition(TimeSeriesDefinition seriesDefinition) {
             instance.seriesDefinition = seriesDefinition;
             switch (seriesDefinition.getDistance()) {
                 case minutes:
@@ -116,16 +105,20 @@ public class IndexNameResolver {
         @Override
         public List<String> list() {
             if (instance.baseTimeUnit == FOREVER)
-                return singletonList(formatName(instance.from));
+                return singletonList(formatName(instance.timeRange != null ? instance.timeRange.from() : null));
             List<String> indices = new ArrayList<>();
-            if (instance.from == null && instance.to == null) {
+            if (instance.timeRange == null) {
                 indices.add(formatName(null));
             } else {
-                if (instance.from == null) instance.from = ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
-                if (instance.to == null) instance.to = ZonedDateTime.of(2050, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
-                instance.from = truncatedTimestamp(instance.from, instance.baseTimeUnit);
-                instance.to = truncatedTimestamp(instance.to, instance.baseTimeUnit);
-                for (ZonedDateTime timestamp = instance.from; timestamp.isBefore(instance.to) || timestamp.isEqual(instance.to); timestamp = timestamp.plus(1, instance.baseTimeUnit)) {
+                ZonedDateTime from = instance.timeRange.from();
+                ZonedDateTime to = instance.timeRange.to();
+                if (from == null)
+                    from = ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
+                if (to == null)
+                    to = ZonedDateTime.of(2050, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
+                from = truncatedTimestamp(from, instance.baseTimeUnit);
+                to = truncatedTimestamp(to, instance.baseTimeUnit);
+                for (ZonedDateTime timestamp = from; timestamp.isBefore(to) || timestamp.isEqual(to); timestamp = timestamp.plus(1, instance.baseTimeUnit)) {
                     if (indices.size() >= 10) {
                         // Use wildcard instead if number of indices exceeds 10
                         indices.clear();

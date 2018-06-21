@@ -1,5 +1,6 @@
 package no.difi.statistics.ingest.elasticsearch;
 
+import no.difi.statistics.elasticsearch.Timestamp;
 import no.difi.statistics.ingest.IngestService;
 import no.difi.statistics.ingest.api.IngestResponse;
 import no.difi.statistics.model.MeasurementDistance;
@@ -14,22 +15,21 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.List;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static no.difi.statistics.elasticsearch.IdResolver.id;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
-import static no.difi.statistics.elasticsearch.QueryBuilders.lastAggregation;
-import static no.difi.statistics.elasticsearch.ResultParser.pointFromLastAggregation;
 import static no.difi.statistics.elasticsearch.Timestamp.normalize;
 import static org.elasticsearch.common.bytes.BytesReference.toBytes;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.common.xcontent.XContentType.JSON;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.terms;
+import static org.elasticsearch.search.aggregations.BucketOrder.key;
 import static org.elasticsearch.search.builder.SearchSourceBuilder.searchSource;
 
 public class ElasticsearchIngestService implements IngestService {
@@ -71,12 +71,12 @@ public class ElasticsearchIngestService implements IngestService {
     @Override
     public TimeSeriesPoint last(TimeSeriesDefinition seriesDefinition) {
         List<String> indexNames = resolveIndexName().seriesDefinition(seriesDefinition).list();
-        SearchRequest request = new SearchRequest(indexNames.toArray(new String[indexNames.size()]))
+        SearchRequest request = new SearchRequest(indexNames.toArray(new String[0]))
                 .types(indexType)
                 .indicesOptions(IndicesOptions.fromOptions(true, true, true, false))
                 .source(searchSource()
                         .sort(timeFieldName, SortOrder.ASC)
-                        .aggregation(lastAggregation(emptyList()))
+                        .aggregation(terms("last").field("timestamp").size(10_000).order(key(false)).size(1))
                         .size(0) // We are after aggregation and not the search hits
                 );
         SearchResponse response;
@@ -85,7 +85,23 @@ public class ElasticsearchIngestService implements IngestService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to search", e);
         }
-        return pointFromLastAggregation(response, emptyMap());
+        return pointFromLastAggregation(response);
+    }
+
+    private static TimeSeriesPoint pointFromLastAggregation(SearchResponse response) {
+        if (response.getAggregations() == null)
+            return null;
+        if (response.getAggregations().get("last") == null)
+            throw new RuntimeException("No last aggregation in result");
+        if (response.getAggregations().<Terms>get("last").getBuckets().size() == 0)
+            return null;
+        if (response.getAggregations().<Terms>get("last").getBuckets().size() > 1)
+            throw new RuntimeException("Too many buckets in last aggregation: "
+                    + response.getAggregations().<Terms>get("last").getBuckets().size());
+        Terms.Bucket bucket = response.getAggregations().<Terms>get("last").getBuckets().get(0);
+        return TimeSeriesPoint.builder()
+                .timestamp(Timestamp.parse(bucket.getKeyAsString()))
+                .build();
     }
 
     private IngestResponse response(BulkResponse response) {

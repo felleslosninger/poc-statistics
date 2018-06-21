@@ -1,22 +1,17 @@
-package no.difi.statistics.query.elasticsearch;
+package no.difi.statistics.query.elasticsearch.commands;
 
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.query.QueryFilter;
-import org.elasticsearch.action.search.SearchRequest;
+import no.difi.statistics.query.model.QueryFilter;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.metrics.sum.Sum;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -25,65 +20,40 @@ import java.util.Map;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
-import static no.difi.statistics.elasticsearch.QueryBuilders.*;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.dateHistogram;
+import static no.difi.statistics.elasticsearch.QueryBuilders.sumPerTimestampAggregation;
 import static org.elasticsearch.search.aggregations.BucketOrder.key;
-import static org.elasticsearch.search.sort.SortOrder.ASC;
 
-public class GetLastHistogram {
+public class LastHistogramQuery extends HistogramQuery {
 
-    private static final String timeFieldName = "timestamp";
-    private static final String indexType = "default";
-    private RestHighLevelClient elasticsearchClient;
     private TimeSeriesDefinition seriesDefinition;
     private QueryFilter queryFilter;
     private MeasurementDistance targetDistance;
     private GetMeasurementIdentifiers.Builder getMeasurementIdentifiersCommand;
 
-    private List<TimeSeriesPoint> doExecute() {
+    public List<TimeSeriesPoint> execute() {
         return lastPerDistance(
-                resolveIndexName().seriesDefinition(seriesDefinition).from(queryFilter.from()).to(queryFilter.to()).list(),
+                resolveIndexName().seriesDefinition(seriesDefinition).range(queryFilter.timeRange()).list(),
                 targetDistance,
                 queryFilter
         );
     }
 
     private List<TimeSeriesPoint> lastPerDistance(List<String> indexNames, MeasurementDistance targetDistance, QueryFilter queryFilter) {
-        SearchResponse response = search(indexNames, searchSource(queryFilter)
-                .aggregation(lastPerDistanceAggregation(targetDistance, getMeasurementIdentifiersCommand.indexNames(indexNames).execute()))
-                .size(0) // We are after aggregation and not the search hits
-        );
+        SearchResponse response = search(searchRequest(
+                indexNames,
+                queryFilter,
+                null,
+                0,
+                lastPerDistanceAggregation(targetDistance, getMeasurementIdentifiersCommand.indexNames(indexNames).execute())
+        ));
         if (response.getAggregations() != null)
             return points(response.getAggregations().get(targetDistance.name()), queryFilter.categories());
         else
             return emptyList();
     }
 
-    private SearchResponse search(List<String> indexNames, SearchSourceBuilder searchSource) {
-        try {
-            return elasticsearchClient.search(searchRequest(indexNames).source(searchSource.sort(timeFieldName, ASC)));
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to search", e);
-        }
-    }
-
-    private SearchRequest searchRequest(List<String> indexNames) {
-        return new SearchRequest(indexNames.toArray(new String[indexNames.size()]))
-                .indicesOptions(IndicesOptions.fromOptions(true, true, true, false))
-                .types(indexType);
-    }
-
-    private SearchSourceBuilder searchSource(QueryFilter queryFilter) {
-        BoolQueryBuilder boolQuery = boolQuery();
-        boolQuery.filter(timeRangeQuery(queryFilter.from(), queryFilter.to()));
-        queryFilter.categories().forEach((k, v) -> boolQuery.filter(categoryQuery(k, v)));
-        return SearchSourceBuilder.searchSource().query(boolQuery);
-    }
-
     private DateHistogramAggregationBuilder lastPerDistanceAggregation(MeasurementDistance targetDistance, List<String> measurementIds) {
-        DateHistogramAggregationBuilder dateHistogramAggregation = dateHistogram(targetDistance.name()).field(timeFieldName).dateHistogramInterval(dateHistogramInterval(targetDistance));
-        return dateHistogramAggregation.subAggregation(
+        return dateHistogram(targetDistance).subAggregation(
                 sumPerTimestampAggregation("sumPerTimestamp", measurementIds).order(key(false)).size(1)
         );
     }
@@ -121,7 +91,7 @@ public class GetLastHistogram {
 
     public static class Builder {
 
-        private GetLastHistogram instance = new GetLastHistogram();
+        private LastHistogramQuery instance = new LastHistogramQuery();
 
         public Builder elasticsearchClient(RestHighLevelClient client) {
             instance.elasticsearchClient = client;
@@ -148,11 +118,10 @@ public class GetLastHistogram {
             return this;
         }
 
-        public List<TimeSeriesPoint> execute() {
-            return instance.doExecute();
+        public LastHistogramQuery build() {
+            return instance;
         }
 
     }
-
 
 }

@@ -3,8 +3,8 @@ package no.difi.statistics.query.api;
 import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.query.PercentileFilter;
-import no.difi.statistics.model.query.QueryFilter;
+import no.difi.statistics.model.PercentileFilter;
+import no.difi.statistics.query.model.QueryFilter;
 import no.difi.statistics.query.config.AppConfig;
 import no.difi.statistics.query.config.BackendConfig;
 import org.junit.Test;
@@ -22,7 +22,7 @@ import java.time.format.DateTimeFormatter;
 
 import static java.util.Collections.singletonList;
 import static no.difi.statistics.model.MeasurementDistance.minutes;
-import static no.difi.statistics.model.query.QueryFilter.queryFilter;
+import static no.difi.statistics.query.model.QueryFilter.queryFilter;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,7 +59,7 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).last(
                 TimeSeriesDefinition.builder().name(timeSeries).distance(minutes).owner(anOwner()),
-                queryFilter().from(parseTimestamp(from)).to(parseTimestamp(to)).build()
+                queryFilter().range(parseTimestamp(from), parseTimestamp(to)).build()
         );
     }
 
@@ -85,7 +85,7 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).query(
                 TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(anOwner()),
-                queryFilter().from(parseTimestamp(from)).to(parseTimestamp(to)).build(),
+                queryFilter().range(parseTimestamp(from), parseTimestamp(to)).build(),
                 filter
         );
     }
@@ -109,7 +109,7 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).query(
                 TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(anOwner()),
-                queryFilter().to(parseTimestamp(endTime)).build()
+                queryFilter().range(null, parseTimestamp(endTime)).build()
         );
     }
 
@@ -121,7 +121,7 @@ public class QueryRestControllerTest {
         assertNormalResponse(result);
         verify(backendConfig.queryService()).query(
                 TimeSeriesDefinition.builder().name(timeSeries).minutes().owner(anOwner()),
-                queryFilter().from(parseTimestamp(startTime)).build()
+                queryFilter().range(parseTimestamp(startTime), null).build()
         );
     }
 

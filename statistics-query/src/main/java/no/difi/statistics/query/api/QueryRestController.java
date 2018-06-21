@@ -5,18 +5,17 @@ import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.RelationalOperator;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
-import no.difi.statistics.model.query.PercentileFilter;
+import no.difi.statistics.model.PercentileFilter;
 import no.difi.statistics.query.QueryService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
-import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.List;
 
 import static java.lang.String.format;
-import static no.difi.statistics.model.query.QueryFilter.queryFilter;
+import static no.difi.statistics.query.model.QueryFilter.queryFilter;
 
 @RestController
 public class QueryRestController {
@@ -54,7 +53,7 @@ public class QueryRestController {
     )
     {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.last(seriesDefinition, queryFilter().from(from).to(to).categories(categories).build());
+        return service.last(seriesDefinition, queryFilter().range(from, to).categories(categories).build());
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}")
@@ -67,7 +66,7 @@ public class QueryRestController {
             @RequestParam(required = false) String categories
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.query(seriesDefinition, queryFilter().from(from).to(to).categories(categories).build());
+        return service.query(seriesDefinition, queryFilter().range(from, to).categories(categories).build());
     }
 
     @GetMapping(path = "{owner}/{seriesName}/{distance}/percentile", params = {"percentile", "measurementId", "operator"})
@@ -84,7 +83,7 @@ public class QueryRestController {
             @RequestParam RelationalOperator operator
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.query(seriesDefinition, queryFilter().from(from).to(to).build(), new PercentileFilter(percentile, measurementId, operator));
+        return service.query(seriesDefinition, queryFilter().range(from, to).build(), new PercentileFilter(percentile, measurementId, operator));
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/last/{targetDistance}")
@@ -99,7 +98,7 @@ public class QueryRestController {
     ) {
         validateMeasurementDistance(distance, targetDistance);
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.lastPerDistance(seriesDefinition, targetDistance, queryFilter().from(from).to(to).categories(categories).build());
+        return service.lastHistogram(seriesDefinition, targetDistance, queryFilter().range(from, to).categories(categories).build());
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/sum")
@@ -112,7 +111,7 @@ public class QueryRestController {
             @RequestParam(required = false) String categories
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.sum(seriesDefinition, queryFilter().from(from).to(to).categories(categories).build());
+        return service.sum(seriesDefinition, queryFilter().range(from, to).categories(categories).build());
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/sum/{targetDistance}")
@@ -127,7 +126,7 @@ public class QueryRestController {
     ) {
         validateMeasurementDistance(distance, targetDistance);
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.sumPerDistance(seriesDefinition, targetDistance, queryFilter().from(from).to(to).categories(categories).build());
+        return service.sumHistogram(seriesDefinition, targetDistance, queryFilter().range(from, to).categories(categories).build());
     }
 
     private void validateMeasurementDistance(MeasurementDistance distance, MeasurementDistance targetDistance) {

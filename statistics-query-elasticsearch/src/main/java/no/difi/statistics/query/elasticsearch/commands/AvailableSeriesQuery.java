@@ -1,4 +1,4 @@
-package no.difi.statistics.query.elasticsearch;
+package no.difi.statistics.query.elasticsearch.commands;
 
 import no.difi.statistics.elasticsearch.IndexNameResolver;
 import no.difi.statistics.model.MeasurementDistance;
@@ -15,15 +15,15 @@ import java.util.regex.Matcher;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.model.MeasurementDistance.*;
 
-public class GetAvailableTimeSeries {
+public class AvailableSeriesQuery {
 
     private RestClient elasticSearchClient;
 
-    private GetAvailableTimeSeries() {
+    private AvailableSeriesQuery() {
         // Use builder
     }
 
-    private List<TimeSeriesDefinition> doExecute() {
+    public List<TimeSeriesDefinition> execute() {
         List<String> indices = new ArrayList<>();
         try (InputStream response = elasticSearchClient.performRequest("GET", "/_cat/indices?h=index").getEntity().getContent();
              Scanner scanner = new Scanner(response)) {
@@ -61,15 +61,15 @@ public class GetAvailableTimeSeries {
 
     public static class Builder {
 
-        private GetAvailableTimeSeries instance = new GetAvailableTimeSeries();
+        private AvailableSeriesQuery instance = new AvailableSeriesQuery();
 
         public Builder elasticsearchClient(RestClient client) {
             instance.elasticSearchClient = client;
             return this;
         }
 
-        List<TimeSeriesDefinition> execute() {
-            return instance.doExecute();
+        public AvailableSeriesQuery build() {
+            return instance;
         }
 
     }

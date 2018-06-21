@@ -1,8 +1,11 @@
-package no.difi.statistics.model.query;
+package no.difi.statistics.query.model;
+
+import no.difi.statistics.model.TimeRange;
 
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.Arrays.stream;
 import static java.util.Collections.emptyMap;
@@ -11,19 +14,14 @@ import static java.util.Collections.unmodifiableMap;
 public class QueryFilter {
 
     private Map<String, String> categories;
-    private ZonedDateTime from;
-    private ZonedDateTime to;
+    private TimeRange timeRange;
 
     private QueryFilter() {
         // Use builder
     }
 
-    public ZonedDateTime from() {
-        return from;
-    }
-
-    public ZonedDateTime to() {
-        return to;
+    public TimeRange timeRange() {
+        return timeRange;
     }
 
     public Map<String, String> categories() {
@@ -58,13 +56,9 @@ public class QueryFilter {
             return this;
         }
 
-        public Builder from(ZonedDateTime from) {
-            instance.from = from;
-            return this;
-        }
-
-        public Builder to(ZonedDateTime to) {
-            instance.to = to;
+        public Builder range(ZonedDateTime from, ZonedDateTime to) {
+            if (from != null || to != null)
+                instance.timeRange = new TimeRange(from, to);
             return this;
         }
 
@@ -78,19 +72,22 @@ public class QueryFilter {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         QueryFilter that = (QueryFilter) o;
-
-        if (categories != null ? !categories.equals(that.categories) : that.categories != null) return false;
-        if (from != null ? !from.equals(that.from) : that.from != null) return false;
-        return to != null ? to.equals(that.to) : that.to == null;
+        return Objects.equals(categories, that.categories) &&
+                Objects.equals(timeRange, that.timeRange);
     }
 
     @Override
     public int hashCode() {
-        int result = categories != null ? categories.hashCode() : 0;
-        result = 31 * result + (from != null ? from.hashCode() : 0);
-        result = 31 * result + (to != null ? to.hashCode() : 0);
-        return result;
+        return Objects.hash(categories, timeRange);
     }
+
+    @Override
+    public String toString() {
+        return "QueryFilter{" +
+                "categories=" + categories +
+                ", timeRange=" + timeRange +
+                '}';
+    }
+
 }

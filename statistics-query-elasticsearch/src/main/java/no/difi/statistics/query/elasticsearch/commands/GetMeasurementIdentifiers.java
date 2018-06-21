@@ -1,4 +1,4 @@
-package no.difi.statistics.query.elasticsearch;
+package no.difi.statistics.query.elasticsearch.commands;
 
 import no.difi.statistics.elasticsearch.IndexNameResolver;
 import org.elasticsearch.client.RestClient;
@@ -56,7 +56,7 @@ public class GetMeasurementIdentifiers {
             return this;
         }
 
-        public Builder indexNames(List<String> indexNames) {
+        Builder indexNames(List<String> indexNames) {
             instance.indexNames = indexNames;
             return this;
         }

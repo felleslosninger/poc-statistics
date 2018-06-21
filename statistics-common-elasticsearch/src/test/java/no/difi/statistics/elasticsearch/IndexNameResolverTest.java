@@ -1,5 +1,6 @@
 package no.difi.statistics.elasticsearch;
 
+import no.difi.statistics.model.TimeRange;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -22,28 +23,28 @@ public class IndexNameResolverTest {
     @Test
     public void givenYearSeriesWhenResolvingThenResultIsOneNameWithoutDate() {
         List<String> indexNames = resolveIndexName().seriesDefinition(builder().name("test").years().owner("owner"))
-                .from(now()).to(now()).list();
+                .range(new TimeRange(now(), now())).list();
         assertThat(indexNames, contains("owner@test@year"));
     }
 
     @Test
     public void givenMinuteSeriesWithinDayWhenResolvingThenResultIsOneNameWithYear() {
         List<String> indexNames = resolveIndexName().seriesDefinition(builder().name("test").minutes().owner("owner"))
-                .from(timestamp(2016, 3, 22, 1, 23)).to(timestamp(2016, 3, 22, 17, 18)).list();
+                .range(new TimeRange(timestamp(2016, 3, 22, 1, 23), timestamp(2016, 3, 22, 17, 18))).list();
         assertThat(indexNames, contains("owner@test@minute2016"));
     }
 
     @Test
     public void givenMonthSeriesWithinYearWhenResolvingThenResultIsOneNameWithYear() {
         List<String> indexNames = resolveIndexName().seriesDefinition(builder().name("test").months().owner("owner"))
-                .from(timestamp(2016, 1, 22)).to(timestamp(2016, 6, 30)).list();
+                .range(new TimeRange(timestamp(2016, 1, 22), timestamp(2016, 6, 30))).list();
         assertThat(indexNames, contains("owner@test@month2016"));
     }
 
     @Test
     public void givenMonthSeriesCrossingYearsWhenResolvingThenResultIsOneNamePerYear() {
         List<String> indexNames = resolveIndexName().seriesDefinition(builder().name("test").months().owner("owner"))
-                .from(timestamp(2014, 1, 22)).to(timestamp(2016, 6, 30)).list();
+                .range(new TimeRange(timestamp(2014, 1, 22), timestamp(2016, 6, 30))).list();
         assertThat(indexNames, contains("owner@test@month2014", "owner@test@month2015", "owner@test@month2016"));
     }
 
