@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -38,6 +39,7 @@ import static springfox.documentation.builders.RequestHandlerSelectors.basePacka
 @EnableAutoConfiguration
 @EnableWebSecurity
 @EnableSwagger2
+@PropertySource("classpath:application.properties")
 public class AppConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired

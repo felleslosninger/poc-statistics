@@ -7,10 +7,7 @@ import org.springframework.boot.SpringApplication;
 public class Start {
 
     public static void main(String...args) {
-        SpringApplication.run(new Object[]{
-                AppConfig.class,
-                ElasticsearchConfig.class
-        }, args);
+        SpringApplication.run(new Class[]{AppConfig.class, ElasticsearchConfig.class}, args);
     }
 
 }

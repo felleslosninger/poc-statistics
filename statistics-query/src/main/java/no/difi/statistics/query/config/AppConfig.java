@@ -4,6 +4,7 @@ import no.difi.statistics.query.api.QueryRestController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.web.servlet.HandlerMapping;
@@ -24,6 +25,7 @@ import static springfox.documentation.builders.RequestHandlerSelectors.basePacka
 
 @SpringBootApplication
 @EnableSwagger2
+@PropertySource("classpath:application.properties")
 public class AppConfig {
 
     private final BackendConfig backendConfig;

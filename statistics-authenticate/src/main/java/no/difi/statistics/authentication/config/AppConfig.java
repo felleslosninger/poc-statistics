@@ -9,9 +9,8 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.actuate.autoconfigure.ManagementWebSecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.security.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -31,7 +30,7 @@ import static springfox.documentation.builders.RequestHandlerSelectors.basePacka
 @Configuration
 // Exclude security auto configuration, as Spring Boot otherwise sets up a default authentication configuration when
 // spring-security is on classpath
-@EnableAutoConfiguration(exclude = {SecurityAutoConfiguration.class, ManagementWebSecurityAutoConfiguration.class})
+@EnableAutoConfiguration(exclude = {SecurityAutoConfiguration.class})
 @EnableSwagger2
 public class AppConfig {
 
