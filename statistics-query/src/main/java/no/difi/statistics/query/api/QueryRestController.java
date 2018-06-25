@@ -42,20 +42,6 @@ public class QueryRestController {
         return service.availableTimeSeries();
     }
 
-    @GetMapping("{owner}/{seriesName}/{distance}/last")
-    public TimeSeriesPoint last(
-            @PathVariable String owner,
-            @PathVariable String seriesName,
-            @PathVariable MeasurementDistance distance,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
-            @RequestParam(required = false) String categories
-    )
-    {
-        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.last(seriesDefinition, queryFilter().range(from, to).categories(categories).build());
-    }
-
     @GetMapping("{owner}/{seriesName}/{distance}")
     public List<TimeSeriesPoint> query(
             @PathVariable String owner,
@@ -69,25 +55,21 @@ public class QueryRestController {
         return service.query(seriesDefinition, queryFilter().range(from, to).categories(categories).build());
     }
 
-    @GetMapping(path = "{owner}/{seriesName}/{distance}/percentile", params = {"percentile", "measurementId", "operator"})
-    @ApiOperation(value = "", notes = "<b>Experimental feature -- use at your own risk. Categorized series are not supported.</b>")
-    public List<TimeSeriesPoint> relationalToPercentile(
+    @GetMapping("{owner}/{seriesName}/{distance}/last")
+    public TimeSeriesPoint last(
             @PathVariable String owner,
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
-            @RequestParam(required = false) String categories,
-            @RequestParam int percentile,
-            @RequestParam String measurementId,
-            @RequestParam RelationalOperator operator
+            @RequestParam(required = false) String categories
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.query(seriesDefinition, queryFilter().range(from, to).build(), new PercentileFilter(percentile, measurementId, operator));
+        return service.last(seriesDefinition, queryFilter().range(from, to).categories(categories).build());
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/last/{targetDistance}")
-    public List<TimeSeriesPoint> lastPerDistance(
+    public List<TimeSeriesPoint> lastHistogram(
             @PathVariable String owner,
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
@@ -115,7 +97,7 @@ public class QueryRestController {
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/sum/{targetDistance}")
-    public List<TimeSeriesPoint> sumPerDistance(
+    public List<TimeSeriesPoint> sumHistogram(
             @PathVariable String owner,
             @PathVariable String seriesName,
             @PathVariable MeasurementDistance distance,
@@ -127,6 +109,23 @@ public class QueryRestController {
         validateMeasurementDistance(distance, targetDistance);
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
         return service.sumHistogram(seriesDefinition, targetDistance, queryFilter().range(from, to).categories(categories).build());
+    }
+
+    @GetMapping(path = "{owner}/{seriesName}/{distance}/percentile", params = {"percentile", "measurementId", "operator"})
+    @ApiOperation(value = "", notes = "<b>Experimental feature -- use at your own risk. Categorized series are not supported.</b>")
+    public List<TimeSeriesPoint> relationalToPercentile(
+            @PathVariable String owner,
+            @PathVariable String seriesName,
+            @PathVariable MeasurementDistance distance,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
+            @RequestParam(required = false) String categories,
+            @RequestParam int percentile,
+            @RequestParam String measurementId,
+            @RequestParam RelationalOperator operator
+    ) {
+        TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
+        return service.query(seriesDefinition, queryFilter().range(from, to).build(), new PercentileFilter(percentile, measurementId, operator));
     }
 
     private void validateMeasurementDistance(MeasurementDistance distance, MeasurementDistance targetDistance) {
