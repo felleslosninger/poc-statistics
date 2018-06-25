@@ -53,7 +53,7 @@ public class TimeSeriesQuery extends Query {
                 indexNames,
                 queryFilter,
                 null,
-                10_000,
+                0,
                 sumPerTimestampAggregation("categoryAggregation", getMeasurementIdentifiersCommand.indexNames(indexNames).execute())
         ));
         if (response.getAggregations() != null)
