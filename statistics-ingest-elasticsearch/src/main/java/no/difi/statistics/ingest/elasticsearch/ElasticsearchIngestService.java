@@ -25,9 +25,7 @@ import java.util.List;
 import static no.difi.statistics.elasticsearch.IdResolver.id;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
 import static no.difi.statistics.elasticsearch.Timestamp.normalize;
-import static org.elasticsearch.common.bytes.BytesReference.toBytes;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.common.xcontent.XContentType.JSON;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.terms;
 import static org.elasticsearch.search.aggregations.BucketOrder.key;
 import static org.elasticsearch.search.builder.SearchSourceBuilder.searchSource;
@@ -55,7 +53,7 @@ public class ElasticsearchIngestService implements IngestService {
                             indexType,
                             id(point, seriesDefinition)
                     )
-                            .source(documentBytes(point, seriesDefinition), JSON)
+                            .source(document(point, seriesDefinition))
                             .create(true)
             );
         }
@@ -118,10 +116,6 @@ public class ElasticsearchIngestService implements IngestService {
             case CONFLICT: return IngestResponse.Status.Conflict;
             default: return IngestResponse.Status.Failed;
         }
-    }
-
-    private static byte[] documentBytes(TimeSeriesPoint dataPoint, TimeSeriesDefinition seriesDefinition) {
-        return toBytes(document(dataPoint, seriesDefinition).bytes());
     }
 
     private static XContentBuilder document(TimeSeriesPoint dataPoint, TimeSeriesDefinition seriesDefinition) {

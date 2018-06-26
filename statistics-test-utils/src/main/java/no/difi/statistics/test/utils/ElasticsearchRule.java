@@ -13,7 +13,7 @@ public class ElasticsearchRule extends DockerRule {
     public ElasticsearchRule() {
         super(ImmutableDockerConfig.builder()
                 .name(UUID.randomUUID().toString())
-                .image("docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.2")
+                .image("docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.0")
                 .ports("9200/tcp")
                 .alwaysRemoveContainer(true)
                 .allowRunningBetweenUnitTests(true)

@@ -14,7 +14,7 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.common.bytes.BytesReference;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -148,7 +148,7 @@ public class ElasticsearchHelper {
         index(
                 indexNameForSeries(seriesDefinition, point.getTimestamp()),
                 "default",
-                IdResolver.id(point, seriesDefinition), document.string()
+                IdResolver.id(point, seriesDefinition), Strings.toString(document)
         );
         return point;
     }
@@ -162,7 +162,7 @@ public class ElasticsearchHelper {
                 "default",
                 id(point, seriesDefinition)
         )
-                .source(BytesReference.toBytes(document(point).bytes()), JSON)
+                .source(Strings.toString(document(point)), JSON)
                 .create(true);
     }
 
