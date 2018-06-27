@@ -18,14 +18,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.util.EnvironmentTestUtils;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.boot.test.web.client.LocalHostUriTemplateHandler;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.web.util.DefaultUriBuilderFactory;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -39,7 +42,6 @@ import java.util.function.Predicate;
 
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
-import static java.time.temporal.ChronoUnit.MONTHS;
 import static no.difi.statistics.elasticsearch.Timestamp.truncatedTimestamp;
 import static no.difi.statistics.model.MeasurementDistance.*;
 import static no.difi.statistics.query.elasticsearch.helpers.AvailableSeriesQuery.calculatedAvailableSeries;
@@ -70,11 +72,10 @@ public class ElasticsearchQueryServiceTest {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            EnvironmentTestUtils.addEnvironment(
-                    applicationContext.getEnvironment(),
+            TestPropertyValues.of(
                     "no.difi.statistics.elasticsearch.host=" + elasticsearchRule.getHost(),
                     "no.difi.statistics.elasticsearch.port=" + elasticsearchRule.getPort()
-            );
+            ).applyTo(applicationContext);
         }
 
     }
@@ -96,11 +97,20 @@ public class ElasticsearchQueryServiceTest {
     private ElasticsearchHelper helper;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private Environment environment;
 
     @Before
     public void prepare() {
         helper = new ElasticsearchHelper(client);
         helper.waitForGreenStatus();
+        // Need to change encoding mode on the client, as it does not encode '+' per default (since Spring Framework 5.0/Spring Boot 2.0).
+        // We need this for 'from' and 'to' query parameters. Unfortunately there doesn't seem to be a clean way of
+        // specifying encoding mode on the TestRestTemplate.
+        DefaultUriBuilderFactory f = new DefaultUriBuilderFactory();
+        f.setEncodingMode(DefaultUriBuilderFactory.EncodingMode.VALUES_ONLY);
+        LocalHostUriTemplateHandler uth = new LocalHostUriTemplateHandler(environment, "http", f);
+        restTemplate.getRestTemplate().setUriTemplateHandler(uth);
         // Quick'n'dirty, could be improved
         ExecutedTimeSeriesQuery.restTemplate = restTemplate;
         ExecutedTimeSeriesQuery.objectMapper = objectMapper;
