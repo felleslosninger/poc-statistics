@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
-export VERSION=DEV-SNAPSHOT
-export REGISTRY=local
+export DOCKER_REGISTRY=local
+export DOCKER_IMAGE_VERSION=local-${RANDOM}
 
-mvn package -Dno.difi.jenkins-pipeline.docker-registry=$REGISTRY -DskipTests || exit 1
-docker stack deploy -c docker/stack.yml --resolve-image=never statistics
+mvn package \
+    -Dno.difi.jenkins-pipeline.docker-registry=${DOCKER_REGISTRY} \
+    -Dno.difi.jenkins-pipeline.docker-image-version=${DOCKER_IMAGE_VERSION} \
+    -DskipTests || exit 1
+
+VERSION=${DOCKER_IMAGE_VERSION} REGISTRY=${DOCKER_REGISTRY} \
+    docker stack deploy -c docker/stack.yml --prune --resolve-image=never statistics || exit 1
+
+echo "Deployed services using locally built image(s) with tag ${DOCKER_IMAGE_VERSION}"

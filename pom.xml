@@ -31,13 +31,11 @@
     </modules>
 
     <properties>
-        <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
-        <spring-boot.version>${project.parent.version}</spring-boot.version>
         <elasticsearch.version>6.3.0</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <no.difi.jenkins-pipeline.docker-registry>local</no.difi.jenkins-pipeline.docker-registry>
-        <artifactory.url>http://eid-artifactory.dmz.local:8080/artifactory</artifactory.url>
+        <no.difi.jenkins-pipeline.docker-image-version>${project.version}</no.difi.jenkins-pipeline.docker-image-version>
     </properties>
 
     <scm>
@@ -208,7 +206,7 @@
                 <plugin>
                     <groupId>io.fabric8</groupId>
                     <artifactId>docker-maven-plugin</artifactId>
-                    <version>0.23.0</version>
+                    <version>0.26.0</version>
                     <configuration>
                         <images>
                             <image>
@@ -221,7 +219,7 @@
                                         <runCmd>apt update &amp;&amp; apt install -y curl</runCmd> <!-- Used for health checks -->
                                     </runCmds>
                                 </build>
-                                <name>${no.difi.jenkins-pipeline.docker-registry}/${project.artifactId}:${project.version}</name>
+                                <name>${no.difi.jenkins-pipeline.docker-registry}/${project.artifactId}:${no.difi.jenkins-pipeline.docker-image-version}</name>
                             </image>
                         </images>
                     </configuration>
@@ -287,6 +285,18 @@
                 </configuration>
             </plugin>
         </plugins>
+        <resources>
+            <resource>
+                <!-- Parent POM from Spring Boot turns on filtering by default. This triggers
+                     rebuilding of artifacts whenever the package goal is called, even when the workspace is unmodified.
+                     It also breaks the caching mechanism of Docker, so new images are also always built. For the deploy
+                     pipeline we really want to use cached artifacts for the different stages, in order to deliver and
+                     deploy the exact same artifacts to the different stages' environments. -->
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
     </build>
+
 
 </project>
