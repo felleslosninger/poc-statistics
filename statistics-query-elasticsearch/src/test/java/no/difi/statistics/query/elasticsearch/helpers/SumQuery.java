@@ -6,40 +6,43 @@ import static no.difi.statistics.test.utils.TimeSeriesSumCollector.summarize;
 public class SumQuery extends TimeSeriesQuery {
 
     public static SumQuery requestingSum() {
-        SumQuery query = new SumQuery();
-        query.function(executor(query));
-        return query;
+        return new SumQuery(false);
     }
 
     public static SumQuery calculatedSum() {
-        SumQuery query = new SumQuery();
-        query.function(verifier(query));
-        return query;
+        return new SumQuery(true);
+    }
+
+    private SumQuery(boolean calculated) {
+        super();
+        if (calculated)
+            function(verifier());
+        else
+            function(executor());
     }
 
     @Override
     public SumQuery toCalculated() {
-        SumQuery query = new SumQuery();
+        SumQuery query = new SumQuery(true);
         query
                 .owner(owner())
                 .name(name())
                 .from(from())
                 .to(to())
                 .distance(distance())
-                .categories(categories())
-                .function(verifier(query));
+                .categories(categories());
         return query;
     }
 
-    private static TimeSeriesFunction executor(TimeSeriesQuery query) {
-        return givenSeries -> new ExecutedSumQuery(query).execute();
+    private TimeSeriesFunction executor() {
+        return givenSeries -> QueryClient.execute("/{owner}/{series}/{distance}/sum" + queryUrl(), parameters(), true);
     }
 
-    private static TimeSeriesFunction verifier(TimeSeriesQuery query) {
-        return givenSeries -> singletonList(query.selectFrom(givenSeries).getPoints().stream()
-                .filter(query::withinRange)
-                .filter(point -> point.hasCategories(query.categories()))
-                .collect(summarize(query.categories())));
+    private TimeSeriesFunction verifier() {
+        return givenSeries -> singletonList(selectFrom(givenSeries).getPoints().stream()
+                .filter(this::withinRange)
+                .filter(point -> point.hasCategories(categories()))
+                .collect(summarize(categories())));
     }
 
 }

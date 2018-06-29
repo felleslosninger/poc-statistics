@@ -5,20 +5,23 @@ import static no.difi.statistics.test.utils.DataOperations.lastPer;
 public class LastHistogramQuery extends TimeSeriesHistogramQuery {
 
     public static LastHistogramQuery calculatedLastHistogram() {
-        LastHistogramQuery query = new LastHistogramQuery();
-        query.function(verifier(query));
-        return query;
+        return new LastHistogramQuery(true);
     }
 
     public static LastHistogramQuery requestingLastHistogram() {
-        LastHistogramQuery query = new LastHistogramQuery();
-        query.function(executor(query));
-        return query;
+        return new LastHistogramQuery(false);
+    }
+
+    private LastHistogramQuery(boolean calculated) {
+        if (calculated)
+            function(verifier());
+        else
+            function(executor());
     }
 
     @Override
     public LastHistogramQuery toCalculated() {
-        LastHistogramQuery query = new LastHistogramQuery();
+        LastHistogramQuery query = new LastHistogramQuery(true);
         query
                 .per(targetDistance())
                 .owner(owner())
@@ -26,17 +29,16 @@ public class LastHistogramQuery extends TimeSeriesHistogramQuery {
                 .from(from())
                 .to(to())
                 .distance(distance())
-                .categories(categories())
-                .function(verifier(query));
+                .categories(categories());
         return query;
     }
 
-    private static TimeSeriesFunction executor(TimeSeriesHistogramQuery query) {
-        return givenSeries -> new ExecutedLastHistogramQuery(query).per(query.targetDistance()).execute();
+    private TimeSeriesFunction executor() {
+        return givenSeries -> QueryClient.execute("/{owner}/{series}/{distance}/last/" + targetDistance() + queryUrl(), parameters(), false);
     }
 
-    private static TimeSeriesFunction verifier(TimeSeriesHistogramQuery query) {
-        return givenSeries -> lastPer(query.selectFrom(givenSeries), query.categories(), query.targetDistance());
+    private TimeSeriesFunction verifier() {
+        return givenSeries -> lastPer(selectFrom(givenSeries), categories(), targetDistance());
     }
 
 }

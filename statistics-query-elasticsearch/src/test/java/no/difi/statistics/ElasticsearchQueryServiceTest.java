@@ -112,10 +112,8 @@ public class ElasticsearchQueryServiceTest {
         LocalHostUriTemplateHandler uth = new LocalHostUriTemplateHandler(environment, "http", f);
         restTemplate.getRestTemplate().setUriTemplateHandler(uth);
         // Quick'n'dirty, could be improved
-        ExecutedTimeSeriesQuery.restTemplate = restTemplate;
-        ExecutedTimeSeriesQuery.objectMapper = objectMapper;
-        ExecutedAvailableSeriesQuery.restTemplate = restTemplate;
-        ExecutedAvailableSeriesQuery.objectMapper = objectMapper;
+        QueryClient.restTemplate = restTemplate;
+        QueryClient.objectMapper = objectMapper;
     }
 
     @After

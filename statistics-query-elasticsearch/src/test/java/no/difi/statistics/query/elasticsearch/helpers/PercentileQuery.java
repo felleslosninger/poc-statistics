@@ -2,30 +2,35 @@ package no.difi.statistics.query.elasticsearch.helpers;
 
 import no.difi.statistics.model.RelationalOperator;
 
+import java.util.Map;
+
 import static no.difi.statistics.model.RelationalOperator.*;
 import static no.difi.statistics.test.utils.DataOperations.relativeToPercentile;
 
 public class PercentileQuery extends TimeSeriesQuery {
 
     private RelationalOperator operator;
-    private int percentile;
+    private Integer percentile;
     private String measurementId;
 
     public static PercentileQuery calculatedPercentile() {
-        PercentileQuery query = new PercentileQuery();
-        query.function(verifier(query));
-        return query;
+        return new PercentileQuery(true);
     }
 
     public static PercentileQuery requestingPercentile() {
-        PercentileQuery query = new PercentileQuery();
-        query.function(executor(query));
-        return query;
+        return new PercentileQuery(false);
+    }
+
+    private PercentileQuery(boolean calculated) {
+        if (calculated)
+            function(verifier());
+        else
+            function(executor());
     }
 
     @Override
     public PercentileQuery toCalculated() {
-        PercentileQuery query = new PercentileQuery();
+        PercentileQuery query = new PercentileQuery(true);
         query
                 .operator(operator)
                 .percentile(percentile)
@@ -35,18 +40,26 @@ public class PercentileQuery extends TimeSeriesQuery {
                 .from(from())
                 .to(to())
                 .distance(distance())
-                .categories(categories())
-                .function(verifier(query));
+                .categories(categories());
         return query;
     }
 
-    public static TimeSeriesFunction executor(PercentileQuery query) {
-        return givenSeries -> new ExecutedPercentileQuery(query).execute();
+    private TimeSeriesFunction executor() {
+        return givenSeries -> QueryClient.execute("/{owner}/{series}/{distance}/percentile/" + queryUrl(), parameters(), false);
     }
 
-    private static TimeSeriesFunction verifier(PercentileQuery query) {
-        return givenSeries -> relativeToPercentile(query.operator(), query.measurementId(), query.percentile())
-                .apply(query.selectFrom(givenSeries));
+    @Override
+    protected Map<String, Object> queryParameters() {
+        Map<String, Object> parameters = super.queryParameters();
+        if (measurementId != null) parameters.put("measurementId", measurementId);
+        if (percentile != null) parameters.put("percentile", percentile);
+        if (operator != null) parameters.put("operator", operator);
+        return parameters;
+    }
+
+    private TimeSeriesFunction verifier() {
+        return givenSeries -> relativeToPercentile(operator(), measurementId(), percentile())
+                .apply(selectFrom(givenSeries));
     }
 
     public PercentileQuery withMeasurement(String measurementId) {

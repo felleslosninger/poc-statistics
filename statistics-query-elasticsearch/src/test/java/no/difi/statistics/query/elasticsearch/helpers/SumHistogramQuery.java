@@ -5,20 +5,23 @@ import static no.difi.statistics.test.utils.DataOperations.sumPer;
 public class SumHistogramQuery extends TimeSeriesHistogramQuery {
 
     public static SumHistogramQuery calculatedSumHistogram() {
-        SumHistogramQuery query = new SumHistogramQuery();
-        query.function(verifier(query));
-        return query;
+        return new SumHistogramQuery(true);
     }
 
     public static SumHistogramQuery requestingSumHistogram() {
-        SumHistogramQuery query = new SumHistogramQuery();
-        query.function(executor(query));
-        return query;
+        return new SumHistogramQuery(false);
+    }
+
+    private SumHistogramQuery(boolean calculated) {
+        if (calculated)
+            function(verifier());
+        else
+            function(executor());
     }
 
     @Override
     public SumHistogramQuery toCalculated() {
-        SumHistogramQuery query = new SumHistogramQuery();
+        SumHistogramQuery query = new SumHistogramQuery(true);
         query
                 .per(targetDistance())
                 .owner(owner())
@@ -26,18 +29,16 @@ public class SumHistogramQuery extends TimeSeriesHistogramQuery {
                 .from(from())
                 .to(to())
                 .distance(distance())
-                .categories(categories())
-                .function(verifier(query));
+                .categories(categories());
         return query;
     }
 
-    private static TimeSeriesFunction executor(TimeSeriesHistogramQuery query) {
-        return givenSeries -> new ExecutedSumHistogramQuery(query)
-                .per(query.targetDistance()).execute();
+    private TimeSeriesFunction executor() {
+        return givenSeries -> QueryClient.execute("/{owner}/{series}/{distance}/sum/" + targetDistance() + queryUrl(), parameters(), false);
     }
 
-    private static TimeSeriesFunction verifier(TimeSeriesHistogramQuery query) {
-        return givenSeries -> sumPer(query.selectFrom(givenSeries), query.categories(), query.targetDistance());
+    private TimeSeriesFunction verifier() {
+        return givenSeries -> sumPer(selectFrom(givenSeries), categories(), targetDistance());
     }
 
 }

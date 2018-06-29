@@ -2,8 +2,6 @@ package no.difi.statistics.query.elasticsearch.helpers;
 
 import no.difi.statistics.model.TimeSeriesPoint;
 
-import java.util.Comparator;
-
 import static java.util.Collections.singletonList;
 import static java.util.Comparator.reverseOrder;
 import static java.util.stream.Collectors.groupingBy;
@@ -12,40 +10,42 @@ import static no.difi.statistics.test.utils.TimeSeriesSumCollector.summarize;
 public class LastQuery extends TimeSeriesQuery {
 
     public static LastQuery requestingLast() {
-        LastQuery query = new LastQuery();
-        query.function(executor(query));
-        return query;
+        return new LastQuery(false);
     }
 
     public static LastQuery calculatedLast() {
-        LastQuery query = new LastQuery();
-        query.function(verifier(query));
-        return query;
+        return new LastQuery(true);
+    }
+
+    private LastQuery(boolean calculated) {
+        if (calculated)
+            function(verifier());
+        else
+            function(executor());
     }
 
     @Override
     public LastQuery toCalculated() {
-        LastQuery query = new LastQuery();
+        LastQuery query = new LastQuery(true);
         query
                 .owner(owner())
                 .name(name())
                 .from(from())
                 .to(to())
                 .distance(distance())
-                .categories(categories())
-                .function(verifier(query));
+                .categories(categories());
         return query;
     }
 
-    private static TimeSeriesFunction executor(TimeSeriesQuery query) {
-        return givenSeries -> new ExecutedLastQuery(query).execute();
+    private TimeSeriesFunction executor() {
+        return givenSeries -> QueryClient.execute("/{owner}/{series}/{distance}/last" + queryUrl(), parameters(), true);
     }
 
-    private static TimeSeriesFunction verifier(TimeSeriesQuery query) {
-        return givenSeries -> singletonList(query.selectFrom(givenSeries).getPoints().stream()
-                .filter(query::withinRange)
-                .filter(point -> point.hasCategories(query.categories()))
-                .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize(query.categories())))
+    private TimeSeriesFunction verifier() {
+        return givenSeries -> singletonList(selectFrom(givenSeries).getPoints().stream()
+                .filter(this::withinRange)
+                .filter(point -> point.hasCategories(categories()))
+                .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize(categories())))
                 .values().stream().sorted(reverseOrder()).findFirst().orElse(null));
     }
 

@@ -1,12 +1,11 @@
 package no.difi.statistics.query.elasticsearch.helpers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeries;
 import no.difi.statistics.model.TimeSeriesPoint;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,6 +13,7 @@ import java.util.Map;
 
 import static java.util.Collections.sort;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.joining;
 import static no.difi.statistics.test.utils.TimeSeriesSumCollector.summarize;
 
 public class TimeSeriesQuery extends Query<List<TimeSeriesPoint>> {
@@ -26,44 +26,81 @@ public class TimeSeriesQuery extends Query<List<TimeSeriesPoint>> {
     private Map<String, String> categories = new HashMap<>();
 
     public static TimeSeriesQuery requestingSeries() {
-        TimeSeriesQuery query = new TimeSeriesQuery();
-        query.function(executor(query));
-        return query;
+        return new TimeSeriesQuery(false);
     }
 
+    // Used for generating (given)
     public static TimeSeriesQuery withAttributes() {
         return new TimeSeriesQuery();
     }
 
-    private static TimeSeriesFunction verifier(TimeSeriesQuery query) {
+    private TimeSeriesQuery(boolean calculated) {
+        if (calculated)
+            function(verifier());
+        else
+            function(executor());
+    }
+
+    TimeSeriesQuery() {
+    }
+
+    private TimeSeriesFunction verifier() {
         return givenSeries -> {
             List<TimeSeriesPoint> result = new ArrayList<>(
-                    query.selectFrom(givenSeries).getPoints().stream()
-                            .filter(query::withinRange)
-                            .filter(point -> point.hasCategories(query.categories()))
-                            .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize(query.categories()))).values()
+                    selectFrom(givenSeries).getPoints().stream()
+                            .filter(this::withinRange)
+                            .filter(point -> point.hasCategories(categories()))
+                            .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize(categories()))).values()
             );
             sort(result);
             return result;
         };
     }
 
-    private static TimeSeriesFunction executor(TimeSeriesQuery query) {
-        return givenSeries -> new ExecutedTimeSeriesQuery(query).execute();
+    private TimeSeriesFunction executor() {
+        return givenSeries -> QueryClient.execute("/{owner}/{series}/{distance}" + queryUrl(), parameters(), false);
     }
 
     @Override
     public TimeSeriesQuery toCalculated() {
-        TimeSeriesQuery query = new TimeSeriesQuery();
+        TimeSeriesQuery query = new TimeSeriesQuery(true);
         query
                 .owner(owner())
                 .name(name())
                 .from(from())
                 .to(to())
                 .distance(distance())
-                .categories(categories())
-                .function(verifier(query));
+                .categories(categories());
         return query;
+    }
+
+    protected Map<String, Object> parameters() {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("owner", owner());
+        parameters.put("series", name());
+        parameters.put("distance", distance());
+        parameters.putAll(queryParameters());
+        return parameters;
+    }
+
+    protected Map<String, Object> queryParameters() {
+        Map<String, Object> parameters = new HashMap<>();
+        if (from() != null) parameters.put("from", formatTimestamp(from()));
+        if (to() != null) parameters.put("to", formatTimestamp(to()));
+        if (categories() != null && !categories().isEmpty())
+            parameters.put("categories", categories().entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(joining(",")));
+        return parameters;
+    }
+
+    private String formatTimestamp(ZonedDateTime timestamp) {
+        return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(timestamp);
+    }
+
+    protected String queryUrl() {
+        String s = queryParameters().keySet().stream()
+                .map(p -> p + "=" + "{" + p + "}")
+                .collect(joining("&"));
+        return s.isEmpty() ? s : "?" + s;
     }
 
     public TimeSeriesQuery owner(String owner) {
