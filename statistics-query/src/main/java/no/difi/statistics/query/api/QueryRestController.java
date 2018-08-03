@@ -49,10 +49,11 @@ public class QueryRestController {
             @PathVariable MeasurementDistance distance,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to,
-            @RequestParam(required = false) String categories
+            @RequestParam(required = false) String categories,
+            @RequestParam(required = false) String perCategory
     ) {
         TimeSeriesDefinition seriesDefinition = TimeSeriesDefinition.builder().name(seriesName).distance(distance).owner(owner);
-        return service.query(seriesDefinition, queryFilter().range(from, to).categories(categories).build());
+        return service.query(seriesDefinition, queryFilter().range(from, to).categories(categories).perCategory(perCategory).build());
     }
 
     @GetMapping("{owner}/{seriesName}/{distance}/last")

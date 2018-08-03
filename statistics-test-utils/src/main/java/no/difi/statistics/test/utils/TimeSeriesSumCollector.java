@@ -16,6 +16,7 @@ public class TimeSeriesSumCollector implements Collector<TimeSeriesPoint, TimeSe
 
     private Function<ZonedDateTime, ZonedDateTime> timestampModifier;
     private Map<String, String> targetCategories;
+    private String categoryKey;
 
     public static TimeSeriesSumCollector summarize(
             Function<ZonedDateTime, ZonedDateTime> timestampModifier,
@@ -28,23 +29,43 @@ public class TimeSeriesSumCollector implements Collector<TimeSeriesPoint, TimeSe
         return new TimeSeriesSumCollector(null, targetCategories);
     }
 
+    public static TimeSeriesSumCollector summarize(Map<String, String> targetCategories, String categoryKey) {
+        return new TimeSeriesSumCollector(null, targetCategories, categoryKey);
+    }
+
     public static TimeSeriesSumCollector summarize() {
         return new TimeSeriesSumCollector(null, null);
     }
 
     private TimeSeriesSumCollector(Function<ZonedDateTime, ZonedDateTime> timestampModifier, Map<String, String> targetCategories) {
+        this(timestampModifier, targetCategories, null);
+    }
+
+    private TimeSeriesSumCollector(Function<ZonedDateTime, ZonedDateTime> timestampModifier, Map<String, String> targetCategories, String categoryKey) {
         this.timestampModifier = timestampModifier;
         this.targetCategories = targetCategories;
+        this.categoryKey = categoryKey;
     }
 
     @Override
     public Supplier<TimeSeriesPoint.Builder> supplier() {
-        return TimeSeriesPoint::builder;
+        return () -> {
+            TimeSeriesPoint.Builder builder = TimeSeriesPoint.builder();
+            if (timestampModifier != null)
+                builder.timestampModifier(timestampModifier);
+            if (targetCategories != null)
+                builder.categories(targetCategories);
+            return builder;
+        };
     }
 
     @Override
     public BiConsumer<TimeSeriesPoint.Builder, TimeSeriesPoint> accumulator() {
-        return TimeSeriesPoint.Builder::add;
+        return (builder, point) -> {
+            builder.add(point);
+            if (categoryKey != null && point.hasCategory(categoryKey))
+                builder.category(categoryKey, point.getCategoryValue(categoryKey));
+        };
     }
 
     @Override
@@ -54,13 +75,7 @@ public class TimeSeriesSumCollector implements Collector<TimeSeriesPoint, TimeSe
 
     @Override
     public Function<TimeSeriesPoint.Builder, TimeSeriesPoint> finisher() {
-        return b -> {
-            if (timestampModifier != null)
-                b.timestampModifier(timestampModifier);
-            if (targetCategories != null)
-                b.categories(targetCategories);
-            return b.build();
-        };
+        return TimeSeriesPoint.Builder::build;
     }
 
     @Override

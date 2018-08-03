@@ -10,13 +10,15 @@ import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexName;
-import static no.difi.statistics.elasticsearch.QueryBuilders.sumPerTimestampAggregation;
+import static no.difi.statistics.elasticsearch.QueryBuilders.summarizeMeasurements;
 import static no.difi.statistics.model.MeasurementDistance.*;
 
 public class TimeSeriesQuery extends Query {
@@ -54,23 +56,46 @@ public class TimeSeriesQuery extends Query {
                 queryFilter,
                 null,
                 0,
-                sumPerTimestampAggregation("categoryAggregation", getMeasurementIdentifiersCommand.indexNames(indexNames).execute())
+                summarizeMeasurements("categoryAggregation", getMeasurementIdentifiersCommand.indexNames(indexNames).execute(), queryFilter.perCategory())
         ));
         if (response.getAggregations() != null)
-            return points(response.getAggregations().get("categoryAggregation"), queryFilter.categories());
+            return points(response.getAggregations().get("categoryAggregation"), queryFilter);
         else
             return emptyList();
     }
 
-    private List<TimeSeriesPoint> points(MultiBucketsAggregation aggregation, Map<String, String> categories) {
-        return aggregation.getBuckets().stream()
-                .map(this::point)
-                .map(p -> p.categories(categories).build())
+    private List<TimeSeriesPoint> points(MultiBucketsAggregation aggregation, QueryFilter queryFilter) {
+        return points(aggregation.getBuckets().stream(), queryFilter.perCategory())
+                .map(p -> p.categories(queryFilter.categories()).build())
                 .collect(toList());
     }
 
-    private TimeSeriesPoint.Builder point(MultiBucketsAggregation.Bucket bucket) {
-        return TimeSeriesPoint.builder().timestamp(Timestamp.parse(bucket.getKeyAsString())).measurements(measurementsFromSumAggregations(bucket.getAggregations()));
+    private Stream<TimeSeriesPoint.Builder> points(Stream<? extends MultiBucketsAggregation.Bucket> bucketStream, String categoryKey) {
+        if (categoryKey != null)
+            return bucketStream
+                    .map(bucket -> pointPerCategoryValue(categoryAggregation(bucket), Timestamp.parse(bucket.getKeyAsString()), categoryKey))
+                    .flatMap(Collection::stream);
+        else
+            return bucketStream
+                    .map(bucket -> point(bucket, Timestamp.parse(bucket.getKeyAsString())));
+    }
+
+    private List<TimeSeriesPoint.Builder> pointPerCategoryValue(
+            MultiBucketsAggregation aggregation,
+            ZonedDateTime timestamp,
+            String categoryKey
+    ) {
+        return aggregation.getBuckets().stream()
+                .map(bucket -> point(bucket, timestamp).category(categoryKey, bucket.getKeyAsString()))
+                .collect(toList());
+    }
+
+    private TimeSeriesPoint.Builder point(MultiBucketsAggregation.Bucket bucket, ZonedDateTime timestamp) {
+        return TimeSeriesPoint.builder().timestamp(timestamp).measurements(measurementsFromSumAggregations(bucket.getAggregations()));
+    }
+
+    private MultiBucketsAggregation categoryAggregation(MultiBucketsAggregation.Bucket bucket) {
+        return (MultiBucketsAggregation)bucket.getAggregations().iterator().next();
     }
 
     public static Builder builder() {

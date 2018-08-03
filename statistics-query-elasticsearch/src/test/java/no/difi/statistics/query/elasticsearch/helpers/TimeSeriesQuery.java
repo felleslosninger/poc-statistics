@@ -6,10 +6,8 @@ import no.difi.statistics.model.TimeSeriesPoint;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Function;
 
 import static java.util.Collections.sort;
 import static java.util.stream.Collectors.groupingBy;
@@ -24,6 +22,7 @@ public class TimeSeriesQuery extends Query<List<TimeSeriesPoint>> {
     private ZonedDateTime to;
     private MeasurementDistance distance;
     private Map<String, String> categories = new HashMap<>();
+    private String perCategory;
 
     public static TimeSeriesQuery requestingSeries() {
         return new TimeSeriesQuery(false);
@@ -50,11 +49,16 @@ public class TimeSeriesQuery extends Query<List<TimeSeriesPoint>> {
                     selectFrom(givenSeries).getPoints().stream()
                             .filter(this::withinRange)
                             .filter(point -> point.hasCategories(categories()))
-                            .collect(groupingBy(TimeSeriesPoint::getTimestamp, summarize(categories()))).values()
+                            .filter(point -> perCategory() == null || point.hasCategory(perCategory()))
+                            .collect(groupingBy(groupingClassifier(), summarize(categories(), perCategory()))).values()
             );
             sort(result);
             return result;
         };
+    }
+
+    private Function<TimeSeriesPoint, String> groupingClassifier() {
+        return (point) -> point.getTimestamp() + "-" + point.getCategories().map(c -> c.get(perCategory())).orElse("");
     }
 
     private TimeSeriesFunction executor() {
@@ -70,7 +74,8 @@ public class TimeSeriesQuery extends Query<List<TimeSeriesPoint>> {
                 .from(from())
                 .to(to())
                 .distance(distance())
-                .categories(categories());
+                .categories(categories())
+                .perCategory(perCategory());
         return query;
     }
 
@@ -87,6 +92,7 @@ public class TimeSeriesQuery extends Query<List<TimeSeriesPoint>> {
         Map<String, Object> parameters = new HashMap<>();
         if (from() != null) parameters.put("from", formatTimestamp(from()));
         if (to() != null) parameters.put("to", formatTimestamp(to()));
+        if (perCategory() != null) parameters.put("perCategory", perCategory());
         if (categories() != null && !categories().isEmpty())
             parameters.put("categories", categories().entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(joining(",")));
         return parameters;
@@ -138,6 +144,11 @@ public class TimeSeriesQuery extends Query<List<TimeSeriesPoint>> {
         return this;
     }
 
+    public TimeSeriesQuery perCategory(String perCategory){
+        this.perCategory = perCategory;
+        return this;
+    }
+
     public String owner() {
         return owner;
     }
@@ -160,6 +171,10 @@ public class TimeSeriesQuery extends Query<List<TimeSeriesPoint>> {
 
     public Map<String, String> categories() {
         return categories;
+    }
+
+    public String perCategory() {
+        return perCategory;
     }
 
     public TimeSeries selectFrom(List<TimeSeries> givenSeries) {

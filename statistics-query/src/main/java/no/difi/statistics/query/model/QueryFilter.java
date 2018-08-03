@@ -15,6 +15,7 @@ public class QueryFilter {
 
     private Map<String, String> categories;
     private TimeRange timeRange;
+    private String perCategory;
 
     private QueryFilter() {
         // Use builder
@@ -28,6 +29,10 @@ public class QueryFilter {
         if (categories == null)
             return emptyMap();
         return unmodifiableMap(categories);
+    }
+
+    public String perCategory() {
+        return this.perCategory;
     }
 
     public static Builder queryFilter() {
@@ -53,6 +58,11 @@ public class QueryFilter {
             if (categories == null) return this;
             if (instance.categories == null) instance.categories = new HashMap<>();
             stream(categories.split(",")).map(kv -> kv.split("=")).forEach(kv -> instance.categories.put(kv[0], kv[1]));
+            return this;
+        }
+
+        public Builder perCategory(String perCategory) {
+            instance.perCategory = perCategory;
             return this;
         }
 

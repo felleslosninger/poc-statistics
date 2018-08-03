@@ -11,10 +11,7 @@ import no.difi.statistics.query.elasticsearch.helpers.*;
 import no.difi.statistics.test.utils.DataOperations;
 import no.difi.statistics.test.utils.ElasticsearchHelper;
 import no.difi.statistics.test.utils.ElasticsearchRule;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -668,6 +665,15 @@ public class ElasticsearchQueryServiceTest {
                 .when(requestingSum().distance(months).category("a", "b"))
                 .thenThatSeriesIsReturned()
                 .when(requestingSum().distance(years).category("a", "b"))
+                .thenThatSeriesIsReturned();
+    }
+
+    @Test
+    public void givenSeriesWhenRequestingPerCategoryThenCorrectSubsetIsReturned() {
+        given(
+                aSeries(withAttributes().distance(hours)).category("a", "b").category("a", "c").category("d", "e")
+        )
+                .when(requestingSeries().distance(hours).perCategory("a"))
                 .thenThatSeriesIsReturned();
     }
 

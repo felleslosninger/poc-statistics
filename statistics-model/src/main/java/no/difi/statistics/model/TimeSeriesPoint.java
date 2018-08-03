@@ -49,13 +49,21 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
         return categories == null ? Optional.empty() : Optional.of(unmodifiableMap(categories));
     }
 
+    public String getCategoryValue(String categoryKey) {
+        return categories == null ? null : categories.get(categoryKey);
+    }
+
     public static Builder builder() {
         return new Builder();
     }
 
     @Override
     public int compareTo(TimeSeriesPoint other) {
-        return timestamp.compareTo(other.timestamp);
+        int difference = timestamp.compareTo(other.timestamp);
+        if (difference == 0 && categories != null && other.categories != null)
+            return categoriesAsString().compareTo(other.categoriesAsString());
+        else
+            return difference;
     }
 
     public boolean hasCategories(Map<String, String> categories) {
@@ -67,6 +75,10 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
                         this.categories.getOrDefault(entry.getKey(), "")
                                 .equals(entry.getValue())
                 );
+    }
+
+    public boolean hasCategory(String categoryKey) {
+        return categories != null && categories.containsKey(categoryKey);
     }
 
     public static class Builder {
@@ -108,7 +120,6 @@ public class TimeSeriesPoint implements Comparable<TimeSeriesPoint> {
             categories.forEach(this::category);
             return this;
         }
-
 
         public Builder add(TimeSeriesPoint other) {
             measurements(other.measurements);
