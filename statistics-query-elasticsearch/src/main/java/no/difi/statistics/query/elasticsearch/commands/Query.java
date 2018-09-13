@@ -21,9 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static java.util.stream.Collectors.toMap;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
-import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 
 public abstract class Query {
@@ -36,7 +34,17 @@ public abstract class Query {
         try {
             return elasticsearchClient.search(request);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to search", e);
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e1) {
+                e1.printStackTrace();
+                throw new RuntimeException("Sleep interrupted", e1);
+            }
+            try {
+                return elasticsearchClient.search(request);
+            } catch (IOException ee) {
+                throw new RuntimeException("Failed to search", ee);
+            }
         }
     }
 
