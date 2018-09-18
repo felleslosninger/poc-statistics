@@ -3,6 +3,7 @@ package no.difi.statistics.query.elasticsearch.commands;
 import no.difi.statistics.elasticsearch.Timestamp;
 import no.difi.statistics.model.TimeRange;
 import no.difi.statistics.query.model.QueryFilter;
+import org.apache.http.ConnectionClosedException;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
@@ -33,18 +34,14 @@ public abstract class Query {
     SearchResponse search(SearchRequest request) {
         try {
             return elasticsearchClient.search(request);
-        } catch (IOException e) {
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e1) {
-                e1.printStackTrace();
-                throw new RuntimeException("Sleep interrupted", e1);
-            }
+        } catch (ConnectionClosedException e) {
             try {
                 return elasticsearchClient.search(request);
             } catch (IOException ee) {
-                throw new RuntimeException("Failed to search", ee);
+                throw new RuntimeException("Search failed (retry after closed connection)", ee);
             }
+        } catch (IOException e) {
+            throw new RuntimeException("Search failed", e);
         }
     }
 
