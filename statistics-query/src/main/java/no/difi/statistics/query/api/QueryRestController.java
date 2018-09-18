@@ -5,6 +5,8 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import no.difi.statistics.model.*;
 import no.difi.statistics.query.QueryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
@@ -26,9 +28,12 @@ public class QueryRestController {
         this.service = service;
     }
 
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
     @ExceptionHandler
     @ResponseStatus
     public String handle(Exception e) {
+        logger.error("Query failed.", e);
         return e.getMessage();
     }
 
