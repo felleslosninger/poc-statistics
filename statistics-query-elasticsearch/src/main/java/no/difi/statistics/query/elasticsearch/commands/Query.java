@@ -34,14 +34,12 @@ public abstract class Query {
     SearchResponse search(SearchRequest request) {
         try {
             return elasticsearchClient.search(request);
-        } catch (ConnectionClosedException e) {
+        } catch (IOException e) {
             try {
                 return elasticsearchClient.search(request);
             } catch (IOException ee) {
-                throw new RuntimeException("Search failed (retry after closed connection)", ee);
+                throw new RuntimeException("Search failed (performed a retry after IOException)", ee);
             }
-        } catch (IOException e) {
-            throw new RuntimeException("Search failed", e);
         }
     }
 
