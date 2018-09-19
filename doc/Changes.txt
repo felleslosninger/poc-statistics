@@ -1,3 +1,4 @@
+# This file is no longer updated, instead use normal git log.
 feature/PBLEID-13273: Typesjekket base-URL
 bugfix/PBLEID-13320: IngestClient støtter ikke siste punkt
 feature/PBLEID-12762: Tre master-noder
