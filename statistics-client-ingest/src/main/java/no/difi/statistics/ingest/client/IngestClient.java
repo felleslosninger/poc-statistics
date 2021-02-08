@@ -133,9 +133,10 @@ public class IngestClient implements IngestService {
                 return Optional.empty();
             if (connection.getResponseCode() != 200)
                 throw new Failed(String.format(
-                        "Failed to get response from ingest service [%d %s]",
+                        "Failed to get response from ingest service [%d %s] on URL: %s",
                         connection.getResponseCode(),
-                        connection.getResponseMessage()
+                        connection.getResponseMessage(),
+                        url
                 ));
             return Optional.of(lastResponseReader.readValue(connection.getInputStream()));
         } catch (IOException e) {

@@ -3,6 +3,7 @@ package no.difi.statistics.query.elasticsearch.commands;
 import no.difi.statistics.elasticsearch.IndexNameResolver;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 
 import java.io.IOException;
@@ -25,7 +26,8 @@ public class AvailableSeriesQuery {
 
     public List<TimeSeriesDefinition> execute() {
         List<String> indices = new ArrayList<>();
-        try (InputStream response = elasticSearchClient.performRequest("GET", "/_cat/indices?h=index").getEntity().getContent();
+        Request request = new Request("GET", "/_cat/indices?h=index");
+        try (InputStream response = elasticSearchClient.performRequest(request).getEntity().getContent();
              Scanner scanner = new Scanner(response)) {
             scanner.forEachRemaining(indices::add);
         } catch (IOException e) {

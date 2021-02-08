@@ -1,6 +1,7 @@
 package no.difi.statistics.authentication;
 
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -43,7 +44,7 @@ public class AuthenticationService {
                     )
             );
         try {
-            client.index(new IndexRequest("authentication", "authentication", username).source(document(username, password)));
+            client.index(new IndexRequest("authentication", "authentication", username).source(document(username, password)), RequestOptions.DEFAULT);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create credentials for username \"" + username + "\"", e);
         }

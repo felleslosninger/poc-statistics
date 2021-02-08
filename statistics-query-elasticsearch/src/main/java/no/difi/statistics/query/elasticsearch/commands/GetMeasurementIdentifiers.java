@@ -1,6 +1,7 @@
 package no.difi.statistics.query.elasticsearch.commands;
 
 import no.difi.statistics.elasticsearch.IndexNameResolver;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 
 import javax.json.Json;
@@ -23,13 +24,14 @@ public class GetMeasurementIdentifiers {
     private List<String> doExecute() {
         String genericIndexName = IndexNameResolver.generic(indexNames.get(0));
         Set<String> result = new HashSet<>();
+        Request request = new Request("GET", "/" + genericIndexName + "/_mappings?ignore_unavailable=true");
         try (InputStream response = elasticsearchClient
-                .performRequest("GET", "/" + genericIndexName + "/_mappings?ignore_unavailable=true")
+                .performRequest(request)
                 .getEntity().getContent()) {
             JsonReader reader = Json.createReader(response);
             reader.readObject().forEach(
                     (key, value) -> result.addAll(
-                            value.asJsonObject().getJsonObject("mappings").getJsonObject("default")
+                            value.asJsonObject().getJsonObject("mappings")
                                     .getJsonObject("properties").keySet().stream()
                                     .filter(p -> !p.startsWith("category."))
                                     .filter(p -> !p.equals("category"))
