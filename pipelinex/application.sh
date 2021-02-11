@@ -92,7 +92,7 @@ serviceArgs() {
     requireArgument 'service'
     case "${service}" in
         "elasticsearch")
-            echo -n "-Ediscovery.seed_hosts=elasticsearch_gossip:9301 -Enode.master=false"
+            echo -n "-Ediscovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Enode.master=false"
             ;;
         "elasticsearch_gossip")
             echo -n "-Etransport.tcp.port=9301 -Enode.data=false"

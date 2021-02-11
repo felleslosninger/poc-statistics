@@ -13,7 +13,6 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
@@ -60,7 +59,7 @@ public class ElasticsearchIngestService implements IngestService {
         }
         BulkResponse response;
         try {
-            response = client.bulk(bulkRequest, RequestOptions.DEFAULT);
+            response = client.bulk(bulkRequest);
         } catch (IOException e) {
             throw new RuntimeException("Failed to index list of points", e);
         }
@@ -80,7 +79,7 @@ public class ElasticsearchIngestService implements IngestService {
                 );
         SearchResponse response;
         try {
-            response = client.search(request, RequestOptions.DEFAULT);
+            response = client.search(request);
         } catch (IOException e) {
             throw new RuntimeException("Failed to search", e);
         }

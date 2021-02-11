@@ -230,7 +230,7 @@ public class ElasticsearchIngestServiceTest {
         elasticsearchHelper.refresh();
         for (int i = 0; i < points.size(); i++)
             assertIngested(seriesDefinition, i, points.get(i), response);
-        assertEquals(points.size(), elasticsearchHelper.search(singletonList("*"), now.minusDays(1), now.plusDays(1)).getHits().getTotalHits().value);
+        assertEquals(points.size(), elasticsearchHelper.search(singletonList("*"), now.minusDays(1), now.plusDays(1)).getHits().getTotalHits());
     }
 
     private void assertNotIngested(int index, IngestResponse response) {

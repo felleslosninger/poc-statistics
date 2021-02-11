@@ -15,7 +15,7 @@ import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.range.Range;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.aggregations.metrics.TopHits;
+import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.time.ZonedDateTime;

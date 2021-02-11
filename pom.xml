@@ -22,7 +22,9 @@
         <module>statistics-model</module>
         <module>statistics-common-elasticsearch</module>
         <module>statistics-ingest-elasticsearch</module>
+        <!--<module>statistics-ingest-influxdb</module>-->
         <module>statistics-test-utils</module>
+        <!--<module>statistics-query-influxdb</module>-->
         <module>statistics-client-ingest</module>
         <module>statistics-elasticsearch</module>
         <module>statistics-authenticate</module>
@@ -30,11 +32,12 @@
 
     <properties>
         <!-- NB! elasticserach-version must also be updated in Dockerfile _AND_ ElasticSearchRule.java -->
-        <elasticsearch.version>7.9.2</elasticsearch.version>
+        <elasticsearch.version>6.4.0</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <no.difi.jenkins-pipeline.docker-registry>local</no.difi.jenkins-pipeline.docker-registry>
-        <no.difi.jenkins-pipeline.docker-image-version>${project.version}</no.difi.jenkins-pipeline.docker-image-version>
+        <no.difi.jenkins-pipeline.docker-image-version>${project.version}
+        </no.difi.jenkins-pipeline.docker-image-version>
     </properties>
 
     <scm>
@@ -61,12 +64,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-core</artifactId>
-                <version>2.13.2</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-api</artifactId>
-                <version>2.13.2</version>
+                <version>2.7</version>
             </dependency>
             <dependency>
                 <groupId>org.influxdb</groupId>
@@ -127,13 +125,6 @@
                 <groupId>javax.xml.bind</groupId>
                 <artifactId>jaxb-api</artifactId>
                 <version>2.3.0</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson</groupId>
-                <artifactId>jackson-bom</artifactId>
-                <version>2.12.1</version>
-                <scope>import</scope>
-                <type>pom</type>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -232,10 +223,13 @@
                                         ["java","-jar","-Ddifi.version=${project.version}","/maven/${project.artifactId}.${project.packaging}"]
                                     </entryPoint>
                                     <runCmds>
-                                        <runCmd>apt update &amp;&amp; apt install -y curl</runCmd> <!-- Used for health checks -->
+                                        <runCmd>apt update &amp;&amp; apt install -y curl
+                                        </runCmd> <!-- Used for health checks -->
                                     </runCmds>
                                 </build>
-                                <name>${no.difi.jenkins-pipeline.docker-registry}/${project.artifactId}:${no.difi.jenkins-pipeline.docker-image-version}</name>
+                                <name>
+                                    ${no.difi.jenkins-pipeline.docker-registry}/${project.artifactId}:${no.difi.jenkins-pipeline.docker-image-version}
+                                </name>
                             </image>
                         </images>
                     </configuration>
@@ -264,7 +258,9 @@
                             <configuration>
                                 <images>
                                     <image>
-                                        <name>${no.difi.jenkins-pipeline.docker-registry}/${project.artifactId}:${project.version}</name>
+                                        <name>
+                                            ${no.difi.jenkins-pipeline.docker-registry}/${project.artifactId}:${project.version}
+                                        </name>
                                         <build>
                                             <labels>
                                                 <label>ScmId=${buildNumber}</label>

@@ -36,10 +36,11 @@ services:
     ports:
       - "8082:9200"
     stop_grace_period: 5m
+    command: bin/elasticsearch
     environment:
-      - discovery.seed_hosts=elasticsearch_gossip:9301
+      - discovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301
       - node.master=false
-      - bootstrap.memory_lock=true # Fails in ondemand (windows and jenkins), so change to false to run locally.
+      - bootstrap.memory_lock=true
     volumes:
       - statistics-data:/usr/share/elasticsearch/data
     networks:
@@ -48,18 +49,15 @@ services:
       mode: global
   elasticsearch_gossip:
     image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
-    container_name: elasticsearch_gossip
     ports:
       - "9201:9200"
-    command: bin/elasticsearch -Etransport.tcp.port=9301
     stop_grace_period: 5m
+    command: bin/elasticsearch -Etransport.tcp.port=9301
     environment:
-      - node.name=elasticsearch_gossip
       - node.data=false
-#      - cluster.initial_master_nodes=elasticsearch_gossip # only on first deploy, otherwise remove.
-      - bootstrap.memory_lock=true # Fails in ondemand (windows and jenkins), so change to false to run locally.
+      - bootstrap.memory_lock=true
     networks:
-      - net
+      net:
     deploy:
       mode: replicated
       replicas: 1

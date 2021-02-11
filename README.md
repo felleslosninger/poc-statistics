@@ -46,12 +46,7 @@ $ docker/run-local
 
 ### Lag en versjonert utgave av applikasjonen
 
-Dette laster opp Docker-bildene til Difi sitt område `difi` på DockerHub. De blir samtidig tagget med et tidsstempel som
-gjenspeiler byggetidspunktet.
-
-```
-$ mvn deploy
-```
+Utførtes av byggepipeline.
 
 ## Sporbarhet
 
@@ -79,7 +74,7 @@ $ docker inspect --format={{.ContainerConfig.Labels.label}} difi/statistics-quer
 
 For å understøtte kontinuerlig utrulling benyttes Jenkins sin ['pipeline-as-code'](https://jenkins.io/solutions/pipeline/)-
 funksjonalitet. Det benyttes da en _Jenkinsfile_ som ligger på roten av prosjektet og spesifiserer byggejobben. I dette
-prosjektet vil endringer på _feature_-grener og _bugfix_-grener føre til at det gjøres et raskt verifiseringsbygg med
+prosjektet vil endringer på _work_-grener føre til at det gjøres et raskt verifiseringsbygg med
 automatiske tester (`Build`). Endringer på _master_-grenen vil utløse et verifiseringsbygg med påfølgende utrulling til
 testmiljøet (`Staging deploy`). Status på dette kan følges [her](http://eid-jenkins02.dmz.local/job/poc-statistics/job/master)
 (krever tilgang til Difis lokalnett):

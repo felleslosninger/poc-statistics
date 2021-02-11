@@ -9,7 +9,7 @@ public class ElasticsearchRule extends ElasticsearchContainer {
     private final static int EXPOSED_CONTAINER_PORT = 9200;
 
     public ElasticsearchRule() {
-        super("docker.elastic.co/elasticsearch/elasticsearch-oss:7.9.2");
+        super("docker.elastic.co/elasticsearch/elasticsearch-oss:6.4.0");
     }
 
     public String getHost() {

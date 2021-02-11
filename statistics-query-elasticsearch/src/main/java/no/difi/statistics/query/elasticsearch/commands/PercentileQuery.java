@@ -9,7 +9,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.aggregations.metrics.Percentiles;
+import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

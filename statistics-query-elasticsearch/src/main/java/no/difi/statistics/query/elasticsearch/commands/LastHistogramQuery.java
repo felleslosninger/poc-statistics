@@ -10,7 +10,7 @@ import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.aggregations.metrics.Sum;
+import org.elasticsearch.search.aggregations.metrics.sum.Sum;
 
 import java.time.ZonedDateTime;
 import java.util.HashMap;
