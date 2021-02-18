@@ -3,7 +3,6 @@ version: '3.4'
 services:
   query:
     image: ${REGISTRY}/statistics-query-elasticsearch:${VERSION}
-    hostname: query
     ports:
       - "8080:8080"
     networks:
@@ -14,7 +13,6 @@ services:
       mode: global
   ingest:
     image: ${REGISTRY}/statistics-ingest-elasticsearch:${VERSION}
-    hostname: ingest
     ports:
       - "8081:8080"
     networks:
@@ -35,11 +33,9 @@ services:
     image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
     ports:
       - "8082:9200"
+    command: bin/elasticsearch -Ediscovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301 -Enode.master=false
     stop_grace_period: 5m
-    command: bin/elasticsearch
     environment:
-      - discovery.zen.ping.unicast.hosts=elasticsearch_gossip:9301
-      - node.master=false
       - bootstrap.memory_lock=true
     volumes:
       - statistics-data:/usr/share/elasticsearch/data
@@ -51,13 +47,12 @@ services:
     image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
     ports:
       - "9201:9200"
+    command: bin/elasticsearch -Etransport.tcp.port=9301 -Enode.data=false
     stop_grace_period: 5m
-    command: bin/elasticsearch -Etransport.tcp.port=9301
     environment:
-      - node.data=false
       - bootstrap.memory_lock=true
     networks:
-      net:
+      - net
     deploy:
       mode: replicated
       replicas: 1
