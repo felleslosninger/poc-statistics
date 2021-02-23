@@ -29,7 +29,7 @@
     </modules>
 
     <properties>
-        <!-- NB! elasticserach-version must also be updated in Dockerfile _AND_ ElasticSearchRule.java -->
+        <!-- NB! elasticsearch-version must also be updated in Dockerfile _AND_ ElasticSearchRule.java -->
         <elasticsearch.version>6.4.0</elasticsearch.version>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
