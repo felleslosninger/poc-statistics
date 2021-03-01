@@ -3,17 +3,17 @@ package no.difi.statistics.query.elasticsearch.commands;
 import no.difi.statistics.elasticsearch.Timestamp;
 import no.difi.statistics.model.TimeRange;
 import no.difi.statistics.query.model.QueryFilter;
-import org.apache.http.ConnectionClosedException;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.metrics.sum.Sum;
+import org.elasticsearch.search.aggregations.metrics.Sum;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
@@ -33,10 +33,10 @@ public abstract class Query {
 
     SearchResponse search(SearchRequest request) {
         try {
-            return elasticsearchClient.search(request);
+            return elasticsearchClient.search(request, RequestOptions.DEFAULT);
         } catch (IOException e) {
             try {
-                return elasticsearchClient.search(request);
+                return elasticsearchClient.search(request, RequestOptions.DEFAULT);
             } catch (IOException ee) {
                 throw new RuntimeException("Search failed (performed a retry after IOException)", ee);
             }

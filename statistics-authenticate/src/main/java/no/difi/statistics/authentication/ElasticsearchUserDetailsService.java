@@ -2,6 +2,7 @@ package no.difi.statistics.authentication;
 
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.rest.RestStatus;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -26,7 +27,7 @@ public class ElasticsearchUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         try {
-            return user(client.get(new GetRequest("authentication", "authentication", username)).getSource());
+            return user(client.get(new GetRequest("authentication", "authentication", username), RequestOptions.DEFAULT).getSource());
         } catch (ElasticsearchStatusException e) {
             if (e.status() == RestStatus.NOT_FOUND)
                 throw new UsernameNotFoundException(username);

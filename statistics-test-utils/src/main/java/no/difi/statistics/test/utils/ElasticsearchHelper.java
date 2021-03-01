@@ -14,6 +14,8 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.IndicesOptions;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
@@ -57,8 +59,9 @@ public class ElasticsearchHelper {
     }
 
     public void clear() {
+        Request request = new Request("DELETE", "/_all");
         try {
-            client.lowLevel().performRequest("DELETE", "/_all");
+            client.lowLevel().performRequest(request);
         } catch (ConnectException|ConnectionClosedException e) {
             // Assume Elasticsearch is stopped
         } catch (IOException e) {
@@ -67,8 +70,9 @@ public class ElasticsearchHelper {
     }
 
     public void refresh() {
+        Request request = new Request("GET", "/_refresh");
         try {
-            client.lowLevel().performRequest("GET", "/_refresh");
+            client.lowLevel().performRequest(request);
         } catch (IOException e) {
             throw new RuntimeException("Failed to refresh", e);
         }
@@ -76,7 +80,8 @@ public class ElasticsearchHelper {
 
     public String[] indices() {
         List<String> indices = new ArrayList<>();
-        try (InputStream response = client.lowLevel().performRequest("GET", "/_cat/indices?h=index").getEntity().getContent();
+        Request request = new Request("GET", "/_cat/indices?h=index");
+        try (InputStream response = client.lowLevel().performRequest(request).getEntity().getContent();
              Scanner scanner = new Scanner(response)) {
             scanner.forEachRemaining(indices::add);
         } catch (IOException e) {
@@ -90,7 +95,7 @@ public class ElasticsearchHelper {
             client.highLevel().index(new IndexRequest(indexName, indexType, id)
                     .source(document, JSON)
                     .create(true)
-                    .setRefreshPolicy(IMMEDIATE)); // Make document immediately searchable for testing purposes
+                    .setRefreshPolicy(IMMEDIATE), RequestOptions.DEFAULT); // Make document immediately searchable for testing purposes
         } catch (IOException e) {
             throw new RuntimeException("Failed to index", e);
         }
@@ -100,7 +105,7 @@ public class ElasticsearchHelper {
         try {
             client.highLevel().index(new IndexRequest(indexName, indexType, id)
                     .source(document, JSON)
-                    .setRefreshPolicy(IMMEDIATE)); // Make document immediately searchable for testing purposes
+                    .setRefreshPolicy(IMMEDIATE), RequestOptions.DEFAULT); // Make document immediately searchable for testing purposes
         } catch (IOException e) {
             throw new RuntimeException("Failed to index", e);
         }
@@ -114,7 +119,7 @@ public class ElasticsearchHelper {
         BulkRequest bulkRequest = new BulkRequest().setRefreshPolicy(IMMEDIATE).timeout(timeValueMinutes(1));
         points.forEach(point -> bulkRequest.add(indexRequest(seriesDefinition, point)));
         try {
-            BulkResponse response = client.highLevel().bulk(bulkRequest);
+            BulkResponse response = client.highLevel().bulk(bulkRequest, RequestOptions.DEFAULT);
             if (response.hasFailures())
                 throw new RuntimeException("Failed to bulk index points: " + response.buildFailureMessage());
         } catch (IOException e) {
@@ -158,8 +163,8 @@ public class ElasticsearchHelper {
                 resolveIndexName()
                         .seriesDefinition(seriesDefinition)
                         .at(normalize(point.getTimestamp(), seriesDefinition.getDistance()))
-                        .single(),
-                "default",
+                        .single()
+                ,"default",
                 id(point, seriesDefinition)
         )
                 .source(Strings.toString(document(point)), JSON)
@@ -205,7 +210,7 @@ public class ElasticsearchHelper {
                         .query(timeRangeQuery(from, to))
                         .size(10_000)); // 10 000 is maximum
         try {
-            return client.highLevel().search(request);
+            return client.highLevel().search(request, RequestOptions.DEFAULT);
         } catch (IOException e) {
             throw new RuntimeException("Search failed", e);
         }
@@ -214,7 +219,7 @@ public class ElasticsearchHelper {
     public Long get(String indexName, String id, String measurementId) {
         GetResponse response;
         try {
-            response = client.highLevel().get(new GetRequest(indexName, defaultType, id));
+            response = client.highLevel().get(new GetRequest(indexName, defaultType, id), RequestOptions.DEFAULT);
         } catch (IOException e) {
             throw new RuntimeException("Failed to get document", e);
         }
@@ -225,10 +230,11 @@ public class ElasticsearchHelper {
     public void waitForGreenStatus() {
         logger.info("Waiting for Elasticsearch to have green status (" + client + ")...");
         long t0 = System.currentTimeMillis();
+        Request request = new Request("GET", "/_cluster/health?wait_for_status=green&timeout=10s");
         try {
             for (int i = 0; i < 200; i++) {
                 try {
-                    client.lowLevel().performRequest("GET", "/_cluster/health?wait_for_status=green&timeout=10s");
+                    client.lowLevel().performRequest(request );
                     logger.info("Green status after " + ((System.currentTimeMillis() - t0) / 1000) + " seconds (i=" + i + ")");
                     return;
                 } catch (IOException e) {
