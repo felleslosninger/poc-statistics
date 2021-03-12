@@ -1,14 +1,55 @@
 #!/usr/bin/env bash
 
-export DOCKER_REGISTRY=local
-export DOCKER_IMAGE_VERSION=local-${RANDOM}
+configName=inndata-api-properties
+syntax="[d|c|r], deploy (docker), configure (properties), remove (properties)"
 
-mvn package \
-    -Dno.difi.jenkins-pipeline.docker-registry=${DOCKER_REGISTRY} \
-    -Dno.difi.jenkins-pipeline.docker-image-version=${DOCKER_IMAGE_VERSION} \
-    -DskipTests || exit 1
+if [ -z "${1}" ]; then
+  echo "usage: ${0} ${syntax}"
+  exit 0
+fi
 
-VERSION=${DOCKER_IMAGE_VERSION} REGISTRY=${DOCKER_REGISTRY} \
-    docker stack deploy -c docker/stack.yml --prune --resolve-image=never statistics || exit 1
+if [ "${1}" = "d" ]; then
+    echo "Deploy"
 
-echo "Deployed services using locally built image(s) with tag ${DOCKER_IMAGE_VERSION}"
+    export DOCKER_REGISTRY=local
+    export DOCKER_IMAGE_VERSION=local-${RANDOM}
+
+    mvn package \
+        -Dno.difi.jenkins-pipeline.docker-registry=${DOCKER_REGISTRY} \
+        -Dno.difi.jenkins-pipeline.docker-image-version=${DOCKER_IMAGE_VERSION} \
+        -DskipTests || exit 1
+
+    VERSION=${DOCKER_IMAGE_VERSION} REGISTRY=${DOCKER_REGISTRY} \
+        docker stack deploy -c docker/stack.yml --prune --resolve-image=never statistics || exit 1
+
+    echo "Deployed services using locally built image(s) with tag ${DOCKER_IMAGE_VERSION}"
+
+    exit 0
+fi
+
+if [ "${1}" = "c" ]; then
+
+configString="no.difi.statistics.elasticsearch.host = 7834108d7d5d491587be2a1a9452d636.northeurope.azure.elastic-cloud.com
+no.difi.statistics.elasticsearch.port = 9243"
+
+    if [ -z $(docker config ls -qf name=${configName}) ]; then
+        read -p "No configuration found for service. Do you want me to create one? [Y/n] " answer
+        [[ -z ${answer} ]] && answer='y'
+        [[ ${answer} =~ [yY] ]] && { echo "${configString}" | docker config create ${configName} -; } || { exit 1; }
+    else
+        echo "Already a configuration named ${configName}"
+    fi
+
+    exit 0
+fi
+
+if [ "${1}" = "r" ]; then
+    echo "Remove docker config properties"
+    [[ -z $(docker config ls -qf name=${configName}) ]] || docker config rm ${configName}
+    exit 0
+fi
+
+if [ -n "${1}" ]; then
+  echo "usage: ${0} ${syntax}"
+  exit 0
+fi

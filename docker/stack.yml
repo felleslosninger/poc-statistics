@@ -13,6 +13,12 @@ services:
       mode: global
   ingest:
     image: ${REGISTRY}/statistics-ingest-elasticsearch:${VERSION}
+    configs:
+      - source: inndata-api-properties
+        target: /application.properties
+    secrets:
+      - source: inndata-api-elasticcloud-api-key
+        target: inndata-api-elasticcloud-felles
     ports:
       - "8081:8080"
     networks:
@@ -70,4 +76,12 @@ networks:
 
 volumes:
   statistics-data:
+    external: true
+
+secrets:
+  inndata-api-elasticcloud-api-key:
+    external: true
+
+configs:
+  inndata-api-properties:
     external: true
