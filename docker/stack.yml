@@ -5,6 +5,12 @@ services:
     image: ${REGISTRY}/statistics-query-elasticsearch:${VERSION}
     ports:
       - "8080:8080"
+    configs:
+      - source: utdata-api-properties
+        target: /application.properties
+    secrets:
+      - source: utdata-api-elasticcloud-api-key
+        target: inndata-api-elasticcloud-felles
     networks:
       net:
         aliases:

@@ -5,7 +5,9 @@ import no.difi.statistics.query.QueryService;
 import no.difi.statistics.query.config.BackendConfig;
 import no.difi.statistics.query.elasticsearch.*;
 import no.difi.statistics.query.elasticsearch.commands.*;
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
+import org.apache.http.message.BasicHeader;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -100,7 +102,11 @@ public class ElasticsearchConfig implements BackendConfig {
     private RestClientBuilder elasticsearchLowLevelClient() {
         String host = environment.getRequiredProperty("no.difi.statistics.elasticsearch.host");
         int port = environment.getRequiredProperty("no.difi.statistics.elasticsearch.port", Integer.class);
-        return RestClient.builder(new HttpHost(host, port, "http"));
+        RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"));
+        String apiKey = environment.getRequiredProperty("no.difi.statistics.elasticsearch.api_key");
+        Header[] headers = new Header[]{new BasicHeader("Authorization","ApiKey " + apiKey)};
+        builder.setDefaultHeaders(headers);
+        return  builder;
     }
 
     private String elasticsearchHost() {
