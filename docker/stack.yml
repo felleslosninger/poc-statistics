@@ -10,7 +10,7 @@ services:
         target: /application.properties
     secrets:
       - source: utdata-api-elasticcloud-api-key
-        target: inndata-api-elasticcloud-felles
+        target: utdata-api-elasticcloud-felles
     networks:
       net:
         aliases:
@@ -59,7 +59,6 @@ services:
       mode: global
   elasticsearch-gossip01:
     image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
-    container_name: elasticsearch-gossip01
     ports:
       - "9201:9200"
     command: bin/elasticsearch -Etransport.tcp.port=9301
@@ -87,7 +86,11 @@ volumes:
 secrets:
   inndata-api-elasticcloud-api-key:
     external: true
+  utdata-api-elasticcloud-api-key:
+    external: true
 
 configs:
   inndata-api-properties:
+    external: true
+  utdata-api-properties:
     external: true

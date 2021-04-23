@@ -26,6 +26,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
@@ -61,6 +62,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
         webEnvironment = RANDOM_PORT
 )
 @ContextConfiguration(classes = {AppConfig.class, ElasticsearchConfig.class}, initializers = ElasticsearchIngestServiceTest.Initializer.class)
+@TestPropertySource(properties = {"file.base.difi-statistikk=src/test/resources/apikey"})
 @RunWith(SpringRunner.class)
 public class ElasticsearchIngestServiceTest {
 

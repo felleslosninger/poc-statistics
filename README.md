@@ -15,6 +15,7 @@ Du må ha følgende installert:
 * [Docker](https://www.docker.com/products/docker-toolbox) 17-09 eller nyere.
 
 Du trenger også nettverkstilgang til Difi sin [artifakt-brønn](http://eid-artifactory.dmz.local:8080).
+Tilgang til statistikkapplikasjonen i ElasticCloud (må legge inn secrets og config i docker mot dette, blir berre gitt internt i Digdir)
 
 ### Lag Docker-bilder
 
