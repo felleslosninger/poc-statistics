@@ -14,7 +14,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.util.EnvironmentTestUtils;
+import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -42,11 +42,10 @@ public class AuthenticationServiceTest {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            EnvironmentTestUtils.addEnvironment(
-                    applicationContext.getEnvironment(),
+            TestPropertyValues.of(
                     "no.difi.statistics.elasticsearch.host=" + elasticsearchRule.getHost(),
                     "no.difi.statistics.elasticsearch.port=" + elasticsearchRule.getPort()
-            );
+            ).applyTo(applicationContext.getEnvironment());
         }
 
     }

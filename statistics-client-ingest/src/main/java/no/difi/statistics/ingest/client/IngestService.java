@@ -9,7 +9,7 @@ import java.util.Optional;
 
 public interface IngestService {
 
-    IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints);
+    IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints, String token);
 
     Optional<TimeSeriesPoint> last(TimeSeriesDefinition seriesDefinition);
 

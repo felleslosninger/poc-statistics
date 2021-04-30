@@ -33,14 +33,14 @@ services:
           - ingest
     deploy:
       mode: global
-  authenticate:
-    image: ${REGISTRY}/statistics-authenticate:${VERSION}
-    ports:
-      - "8083:8080"
-    networks:
-      - net
-    deploy:
-      mode: global
+#  authenticate:
+#    image: ${REGISTRY}/statistics-authenticate:${VERSION}
+#    ports:
+#      - "8083:8080"
+#    networks:
+#      - net
+#    deploy:
+#      mode: global
   elasticsearch:
     image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
     ports:

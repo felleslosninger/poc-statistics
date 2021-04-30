@@ -11,7 +11,9 @@ import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import no.difi.statistics.ingest.client.model.IngestResponse;
 import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
-import org.junit.*;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.net.HttpURLConnection;
@@ -53,6 +55,7 @@ public class IngestClientTest {
     private static final String series_name = "seriesname";
 
     private static final String owner = "999888777";
+    private static final String BEARER_TOKEN = "fakeToken";
     private static final String valid_url = "/999888777/seriesname/minutes";
     private final ZonedDateTime aTimestamp = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneId.of("UTC"));
 
@@ -67,7 +70,7 @@ public class IngestClientTest {
 
     @Before
     public void before() throws MalformedURLException {
-        ingestClient = new IngestClient(new URL("http://localhost:" + wireMockRule.port()), 500, 500, owner, "aUser", "aPassword");
+        ingestClient = new IngestClient(new URL("http://localhost:" + wireMockRule.port()), 500, 500, owner);
     }
 
     @Test
@@ -75,7 +78,7 @@ public class IngestClientTest {
         givenOkResponse(1);
         IngestResponse response = ingestClient.ingest(
                 timeSeriesDefinition().name("aSeries").distance(hours),
-                singletonList(aPoint())
+                singletonList(aPoint()),BEARER_TOKEN
         );
         assertEquals(1, response.getStatuses().size());
         assertEquals(Ok, response.getStatuses().get(0));
@@ -86,7 +89,7 @@ public class IngestClientTest {
         createWiremockStub(HttpURLConnection.HTTP_OK);
         wireMockRule.addRequestProcessingDelay(10000);
         expectedEx.expect(IngestService.Failed.class);
-        ingestClient.ingest(aSeriesDefinition(), twoPoints());
+        ingestClient.ingest(aSeriesDefinition(), twoPoints(), BEARER_TOKEN);
     }
 
     @Test
@@ -96,7 +99,7 @@ public class IngestClientTest {
         expectedEx.expect(IngestClient.Unauthorized.class);
         expectedEx.expectMessage("Failed to authorize Ingest service");
 
-        ingestClient.ingest(aSeriesDefinition(), twoPoints());
+        ingestClient.ingest(aSeriesDefinition(), twoPoints(), BEARER_TOKEN);
     }
 
     @Test
@@ -106,7 +109,7 @@ public class IngestClientTest {
         expectedEx.expect(IngestClient.Unauthorized.class);
         expectedEx.expectMessage("Failed to authorize Ingest service");
 
-        ingestClient.ingest(aSeriesDefinition(), twoPoints());
+        ingestClient.ingest(aSeriesDefinition(), twoPoints(), BEARER_TOKEN);
     }
 
     @Test
@@ -114,13 +117,13 @@ public class IngestClientTest {
         createWiremockStub(HttpURLConnection.HTTP_NOT_FOUND);
 
         expectedEx.expect(IngestService.Failed.class);
-        ingestClient.ingest(aSeriesDefinition(), twoPoints());
+        ingestClient.ingest(aSeriesDefinition(), twoPoints(), BEARER_TOKEN);
     }
 
     @Test
     public void shouldSucceedWhenValidRequestWithAuthorizationForMinute() {
         givenOkResponse(1);
-        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()), BEARER_TOKEN);
         verify(postRequestedFor(urlEqualTo(valid_url))
                 .withHeader(content_type, equalTo(JSON)));
     }
@@ -128,7 +131,7 @@ public class IngestClientTest {
     @Test
     public void shouldSucceedWhenValidRequestWithAuthorizationForHour() {
         givenOkResponse(1);
-        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()), BEARER_TOKEN);
         verify(postRequestedFor(urlEqualTo(valid_url))
                 .withHeader(content_type, equalTo(JSON)));
     }
@@ -137,7 +140,7 @@ public class IngestClientTest {
     public void shouldThrowConnectFailedWhenConnectionFails(){
         wireMockRule.stop();
         expectedEx.expect(IngestService.ConnectFailed.class);
-        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()), BEARER_TOKEN);
     }
 
     @Test
@@ -147,14 +150,14 @@ public class IngestClientTest {
         expectedEx.expect(IngestService.Failed.class);
         expectedEx.expectMessage("Ingest failed (415)");
 
-        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()), BEARER_TOKEN);
     }
 
     @Test
     public void shouldGetAuthenticationErrorWhenAuthenticationFails() {
         createStub(HttpURLConnection.HTTP_UNAUTHORIZED);
         expectedEx.expect(IngestService.Unauthorized.class);
-        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()));
+        ingestClient.ingest(timeSeriesDefinition().name(series_name).distance(minutes), singletonList(aPoint()), BEARER_TOKEN);
     }
 
     @Test

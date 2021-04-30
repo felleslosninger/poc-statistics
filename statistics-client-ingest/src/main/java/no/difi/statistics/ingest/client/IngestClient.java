@@ -18,7 +18,6 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,20 +28,18 @@ public class IngestClient implements IngestService {
     private static final String CONTENT_TYPE_KEY = "Content-Type";
     private static final String JSON_CONTENT_TYPE = "application/json";
     private static final String AUTHORIZATION_KEY = "Authorization";
-    private static final String AUTH_METHOD = "Basic";
+    private static final String AUTH_METHOD = "Bearer";
 
     private final ObjectWriter requestWriter;
     private final ObjectReader responseReader;
     private final ObjectReader lastResponseReader;
 
-    private final String username;
-    private final String password;
     private final URL baseUrl;
     private final String owner;
     private final int readTimeoutMillis;
     private final int connectionTimeoutMillis;
 
-    public IngestClient(URL baseURL, int readTimeoutMillis, int connectionTimeoutMillis, String owner, String username, String password) {
+    public IngestClient(URL baseURL, int readTimeoutMillis, int connectionTimeoutMillis, String owner) {
         ObjectMapper objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .registerModule(new Jdk8Module())
@@ -50,20 +47,22 @@ public class IngestClient implements IngestService {
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
                 .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        this.requestWriter = objectMapper.writerFor(new TypeReference<List<TimeSeriesPoint>>() {});
+        this.requestWriter = objectMapper.writerFor(new TypeReference<List<TimeSeriesPoint>>() {
+        });
         this.responseReader = objectMapper.readerFor(IngestResponse.class);
         this.lastResponseReader = objectMapper.readerFor(TimeSeriesPoint.class);
         this.baseUrl = baseURL;
         this.connectionTimeoutMillis = connectionTimeoutMillis;
         this.readTimeoutMillis = readTimeoutMillis;
         this.owner = owner;
-        this.username = username;
-        this.password = password;
     }
 
     @Override
-    public IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints) {
-        HttpURLConnection connection = getConnection(ingestUrlFor(seriesDefinition), "POST");
+    public IngestResponse ingest(TimeSeriesDefinition seriesDefinition, List<TimeSeriesPoint> dataPoints, String token) {
+        if(token == null || token.isEmpty()){
+            throw new Unauthorized("Access token is null or emtpy. An valid access token from Maskinporten must be provided.");
+        }
+        HttpURLConnection connection = getConnection(ingestUrlFor(seriesDefinition), "POST", token);
         writeRequest(dataPoints, connection);
         handleResponseCode(connection);
         return readResponse(connection);
@@ -128,7 +127,7 @@ public class IngestClient implements IngestService {
     private Optional<TimeSeriesPoint> getFrom(URL url) {
         HttpURLConnection connection = null;
         try {
-            connection = getConnection(url, "GET");
+            connection = getConnection(url, "GET", null);
             if (connection.getResponseCode() == 204)
                 return Optional.empty();
             if (connection.getResponseCode() != 200)
@@ -148,7 +147,7 @@ public class IngestClient implements IngestService {
         }
     }
 
-    private HttpURLConnection getConnection(URL url, String requestMethod) {
+    private HttpURLConnection getConnection(URL url, String requestMethod, final String token) {
         HttpURLConnection conn;
         try {
             conn = (HttpURLConnection) url.openConnection();
@@ -164,17 +163,15 @@ public class IngestClient implements IngestService {
             throw new ConnectFailed(e);
         }
         conn.setRequestProperty(CONTENT_TYPE_KEY, JSON_CONTENT_TYPE);
-        conn.setRequestProperty(AUTHORIZATION_KEY, AUTH_METHOD + " " + createBase64EncodedCredentials());
+        if (token != null) {
+            conn.setRequestProperty(AUTHORIZATION_KEY, AUTH_METHOD + " " + token);
+        }
         try {
             conn.connect(); // Connect early. Otherwise will be called implicitly later.
         } catch (IOException e) {
             throw new ConnectFailed(e);
         }
         return conn;
-    }
-
-    private String createBase64EncodedCredentials(){
-        return Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
     private void writeRequest(List<TimeSeriesPoint> requestData, HttpURLConnection connection) {

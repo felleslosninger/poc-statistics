@@ -1,5 +1,16 @@
 package no.difi.statistics.ingest.elasticsearch;
 
+import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.KeyUse;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import no.difi.statistics.elasticsearch.Client;
 import no.difi.statistics.elasticsearch.IdResolver;
 import no.difi.statistics.ingest.api.IngestResponse;
@@ -11,31 +22,31 @@ import no.difi.statistics.test.utils.ElasticsearchHelper;
 import no.difi.statistics.test.utils.ElasticsearchRule;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.util.EnvironmentTestUtils;
+import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestTemplate;
 
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Base64;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ofPattern;
@@ -44,15 +55,9 @@ import static no.difi.statistics.elasticsearch.IndexNameResolver.resolveIndexNam
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Conflict;
 import static no.difi.statistics.ingest.api.IngestResponse.Status.Ok;
 import static no.difi.statistics.model.TimeSeriesDefinition.builder;
-import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
-import static org.springframework.http.HttpMethod.POST;
-import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
-import static org.springframework.test.web.client.ExpectedCount.manyTimes;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 /**
  * Komponent- og (delvis) integrasjonstest av inndata-tjenesten. Integrasjon mot <code>elasticsearch</code>-tjenesten
@@ -61,9 +66,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 @SpringBootTest(
         webEnvironment = RANDOM_PORT
 )
-@ContextConfiguration(classes = {AppConfig.class, ElasticsearchConfig.class}, initializers = ElasticsearchIngestServiceTest.Initializer.class)
+@ContextConfiguration(classes = {AppConfig.class,ElasticsearchConfig.class}, initializers = ElasticsearchIngestServiceTest.Initializer.class)
 @TestPropertySource(properties = {"file.base.difi-statistikk=src/test/resources/apikey"})
 @RunWith(SpringRunner.class)
+@ActiveProfiles("test")
 public class ElasticsearchIngestServiceTest {
 
     @ClassRule
@@ -73,40 +79,96 @@ public class ElasticsearchIngestServiceTest {
 
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            EnvironmentTestUtils.addEnvironment(
-                    applicationContext.getEnvironment(),
+            TestPropertyValues.of(
                     "no.difi.statistics.elasticsearch.host=" + elasticsearchRule.getHost(),
                     "no.difi.statistics.elasticsearch.port=" + elasticsearchRule.getPort()
-            );
+            ).applyTo(applicationContext.getEnvironment());
         }
 
     }
 
-    private final ZonedDateTime now = ZonedDateTime.of(2016, 3, 3, 0, 0, 0, 0, ZoneOffset.UTC);
+    private final ZonedDateTime now = ZonedDateTime.of(2021, 3, 3, 0, 0, 0, 0, ZoneOffset.UTC);
 
     @Autowired
     private TestRestTemplate restTemplate;
     @Autowired
     private Client client;
     private ElasticsearchHelper elasticsearchHelper;
-    @Autowired
-    private RestTemplate authenticationRestTemplate;
-    private MockRestServiceServer authenticationService;
-    private String owner = "123456789";
-    private String password = "aPassword";
+    private String owner = "123456789"; // Not a valid orgno
+
+    @ClassRule
+    public static WireMockRule maskinporten = new WireMockRule(8888);
+
+    private static final String wellKnown = "{\"issuer\":\"http://localhost:8888/idporten-oidc-provider/\",\"authorization_endpoint\":\"http://localhost:8888/idporten-oidc-provider/authorize\",\"pushed_authorization_request_endpoint\":\"http://localhost:8888/idporten-oidc-provider/par\",\"token_endpoint\":\"http://localhost:8888/idporten-oidc-provider/token\",\"end_session_endpoint\":\"http://localhost:8888/idporten-oidc-provider/endsession\",\"revocation_endpoint\":\"http://localhost:8888/idporten-oidc-provider/revoke\",\"jwks_uri\":\"http://localhost:8888/idporten-oidc-provider/jwk\",\"response_types_supported\":[\"code\",\"id_token\",\"id_token token\",\"token\"],\"response_modes_supported\":[\"query\",\"form_post\",\"fragment\"],\"subject_types_supported\":[\"pairwise\"],\"id_token_signing_alg_values_supported\":[\"RS256\"],\"code_challenge_methods_supported\":[\"S256\"],\"userinfo_endpoint\":\"http://localhost:8888/idporten-oidc-provider/userinfo\",\"scopes_supported\":[\"openid\",\"profile\"],\"ui_locales_supported\":[\"nb\",\"nn\",\"en\",\"se\"],\"acr_values_supported\":[\"Level3\",\"Level4\"],\"frontchannel_logout_supported\":true,\"frontchannel_logout_session_supported\":true,\"introspection_endpoint\":\"http://localhost:8888/idporten-oidc-provider/tokeninfo\",\"token_endpoint_auth_methods_supported\":[\"client_secret_post\",\"client_secret_basic\",\"private_key_jwt\",\"none\"],\"request_parameter_supported\":true,\"request_uri_parameter_supported\":false,\"request_object_signing_alg_values_supported\":[\"RS256\",\"RS384\",\"RS512\"]}";
+    private static String kid = "mykey10";
+    private static RSAKey jwk;
+
+    @BeforeClass
+    public static void setupMaskinporten(){
+        maskinporten.stubFor(any(urlMatching(".*well-known.*"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(wellKnown)));
+
+        jwk = createKey();
+        maskinporten.stubFor(any(urlMatching(".*jwk.*"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"keys\":["+jwk.toJSONString()+"]}")));
+    }
+
+    @AfterClass
+    public static void reset(){
+        maskinporten.resetAll();
+    }
 
     @Before
     public void prepare() {
-        authenticationService = MockRestServiceServer.bindTo(authenticationRestTemplate).build();
-        authenticationService
-                .expect(manyTimes(), requestTo("http://authenticate:8080/authentications"))
-                .andExpect(method(POST))
-                .andExpect(content().contentType(APPLICATION_JSON_UTF8))
-                .andExpect(jsonPath("username", equalTo(owner)))
-                .andExpect(jsonPath("password", equalTo(password)))
-                .andRespond(withSuccess("{\"authenticated\": true}", APPLICATION_JSON_UTF8));
         elasticsearchHelper = new ElasticsearchHelper(client);
         elasticsearchHelper.waitForGreenStatus();
+    }
+
+
+    private static RSAKey createKey() {
+        try {
+            return new RSAKeyGenerator(2048)
+                    .keyUse(KeyUse.SIGNATURE)
+                    .keyID(kid)
+                    .generate();
+        } catch (JOSEException e) {
+            throw new RuntimeException("Failed to create RSAKey", e);
+        }
+    }
+
+    private String signJwt(JWTClaimsSet claims) {
+        try {
+            JWSSigner signer = new RSASSASigner(jwk.toPrivateKey());
+            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
+                    .keyID(kid)
+                    .build();
+            SignedJWT signedJWT = new SignedJWT(header, claims);
+            signedJWT.sign(signer);
+            return signedJWT.serialize();
+        } catch (JOSEException e) {
+            throw new RuntimeException("Failed to sign JWT", e);
+        }
+    }
+
+
+    private JWTClaimsSet createJWTClaimsSet(){
+        final HashMap<String, String> consumer = new HashMap<>();
+        consumer.put("authority", "iso6523-actorid-upis");
+        consumer.put("ID", "0192:" + owner);
+
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer("http://localhost:8888/idporten-oidc-provider/") // must match issuer in .well-known/openid-configuration in stub
+                .claim("consumer", consumer)
+                .claim("scope", "digdir:statistikk.skriv")
+                .issueTime(new Date())
+                .expirationTime(new Date(Instant.now().plusMillis(120000).toEpochMilli()))
+                .build();
+        return claims;
+
     }
 
     @After
@@ -117,9 +179,9 @@ public class ElasticsearchIngestServiceTest {
     @Test
     public void whenBulkIngestingPointsThenAllPointsAreIngested() {
         List<TimeSeriesPoint> points = newArrayList(
-            point().timestamp(now).measurement("aMeasurement", 10546L).build(),
-            point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build(),
-            point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build()
+                point().timestamp(now).measurement("aMeasurement", 10546L).build(),
+                point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 346346L).build(),
+                point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build()
         );
         TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
         ResponseEntity<IngestResponse> response = ingest(seriesDefinition, points.get(0), points.get(1), points.get(2));
@@ -184,7 +246,7 @@ public class ElasticsearchIngestServiceTest {
     public void whenIngestingAPointThenProperlyNamedIndexIsCreated() {
         TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
         ResponseEntity<IngestResponse> response =
-                ingest(seriesDefinition, password, point().timestamp(now).measurement("aMeasurement", 103L).build());
+                ingest(seriesDefinition, point().timestamp(now).measurement("aMeasurement", 103L).build());
         assertEquals(Ok, response.getBody().getStatuses().get(0));
         assertEquals(
                 format("%s@%s@minute%d", owner, seriesDefinition.getName(), now.getYear()),
@@ -217,7 +279,8 @@ public class ElasticsearchIngestServiceTest {
                 point().timestamp(now.plusMinutes(2)).measurement("aMeasurement", 786543L).build()
         );
         TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
-        ingest(seriesDefinition, points.get(0), points.get(1), points.get(2));
+        final ResponseEntity<IngestResponse> ingest = ingest(seriesDefinition, points.get(0), points.get(1), points.get(2));
+        assertEquals(HttpStatus.OK,ingest.getStatusCode());
         elasticsearchHelper.refresh();
         JSONObject lastPoint = new JSONObject(last("series").getBody());
         assertEquals(now.plusMinutes(2).format(ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")), lastPoint.get("timestamp"));
@@ -282,10 +345,10 @@ public class ElasticsearchIngestServiceTest {
         return TimeSeriesDefinition.builder();
     }
 
-    private ResponseEntity<IngestResponse> ingest(TimeSeriesDefinition seriesDefinition, String password, TimeSeriesPoint...points) {
+    private ResponseEntity<IngestResponse> ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint... points) {
         return restTemplate.postForEntity(
                 "/{owner}/{seriesName}/{distance}",
-                request(points, seriesDefinition.getOwner(), password),
+                request(points),
                 IngestResponse.class,
                 seriesDefinition.getOwner(),
                 seriesDefinition.getName(),
@@ -293,12 +356,8 @@ public class ElasticsearchIngestServiceTest {
         );
     }
 
-    private ResponseEntity<IngestResponse> ingest(TimeSeriesDefinition seriesDefinition, TimeSeriesPoint...points) {
-        return ingest(seriesDefinition, password, points);
-    }
-
-    private ResponseEntity<String> last(String series) {
-        return restTemplate.getForEntity(
+    private ResponseEntity<String> last(String series)  {
+         return restTemplate.getForEntity(
                 "/{owner}/{seriesName}/minutes/last",
                 String.class,
                 owner,
@@ -306,9 +365,10 @@ public class ElasticsearchIngestServiceTest {
         );
     }
 
-    private <T> HttpEntity<T> request(T entity, String owner, String password) {
+    private <T> HttpEntity<T> request(T entity) {
+        final String token = signJwt(createJWTClaimsSet());
         HttpHeaders headers = new HttpHeaders();
-        headers.add("Authorization", "Basic " + Base64.getEncoder().encodeToString(format("%s:%s", owner, password).getBytes()));
+        headers.add("Authorization", "Bearer " +  token);
         return new HttpEntity<>(
                 entity,
                 headers
