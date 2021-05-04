@@ -46,20 +46,14 @@ __serviceAvailabilityUrl() {
     local service=$1
     local host=${2-'localhost'}
     case "${service}" in
-        'elasticsearch_gossip')
-            echo -n "http://${host}:9201"
-            ;;
         'elasticsearch')
-            echo -n "http://${host}:8082"
+            echo -n "http://${host}:9200"
             ;;
         'query')
-            echo -n "http://${host}:8080/health"
+            echo -n "http://${host}:8090/health"
             ;;
         'ingest')
-            echo -n "http://${host}:8081/health"
-            ;;
-        'authenticate')
-            echo -n "http://${host}:8083/health"
+            echo -n "http://${host}:8091/health"
             ;;
         *)
             return 1
@@ -83,13 +77,13 @@ __enableShardAllocation() {
 __doDisableShardAllocation() {
     local host=${1-'localhost'}
     >/dev/null curl -s -f --connect-timeout 3 --max-time 10 \
-        -XPUT http://${host}:8082/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable":"none"}}'
+        -XPUT http://${host}:8092/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable":"none"}}'
 }
 
 __doEnableShardAllocation() {
     local host=${1-'localhost'}
     >/dev/null curl -s -f --connect-timeout 3 --max-time 10 \
-        -XPUT http://${host}:8082/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable":"all"}}'
+        -XPUT http://${host}:8092/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable":"all"}}'
 }
 
 __waitForServiceUpdateToComplete() {

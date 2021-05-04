@@ -16,6 +16,10 @@ Du må ha følgende installert:
 
 Du trenger også nettverkstilgang til Difi sin [artifakt-brønn](http://eid-artifactory.dmz.local:8080).
 Tilgang til statistikkapplikasjonen i ElasticCloud (må legge inn secrets og config i docker mot dette, blir berre gitt internt i Digdir)
+For å køyre lokalt:
+* ./docker/run-local c # Opprett docker configs og secrets
+* ./docker/run-local d # Deploy docker stack med tenestene inndata-api og utdata-api i tillegg til ElasticSearch instans spesielt for lokal køyring og testing
+* ./docker/run-local r # slett config
 
 ### Lag Docker-bilder
 

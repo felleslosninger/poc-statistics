@@ -1,10 +1,10 @@
-version: '3.4'
+version: '3.5'
 
 services:
   query:
     image: ${REGISTRY}/statistics-query-elasticsearch:${VERSION}
     ports:
-      - "8080:8080"
+      - "8090:8080"
     configs:
       - source: utdata-api-properties
         target: /application.properties
@@ -26,63 +26,20 @@ services:
       - source: inndata-api-elasticcloud-api-key
         target: inndata-api-elasticcloud-felles
     ports:
-      - "8081:8080"
+      - "8091:8080"
     networks:
       net:
         aliases:
           - ingest
     deploy:
       mode: global
-#  authenticate:
-#    image: ${REGISTRY}/statistics-authenticate:${VERSION}
-#    ports:
-#      - "8083:8080"
-#    networks:
-#      - net
-#    deploy:
-#      mode: global
-  elasticsearch:
-    image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
-    ports:
-      - "8082:9200"
-    stop_grace_period: 5m
-    environment:
-      - node.name=${HOSTNAME}
-      - discovery.seed_hosts=elasticsearch-gossip01:9301
-      - node.master=false
-      - bootstrap.memory_lock=false # Fails in ondemand (windows and jenkins), so change to false to run locally.
-    volumes:
-      - statistics-data:/usr/share/elasticsearch/data
-    networks:
-      - net
-    deploy:
-      mode: global
-  elasticsearch-gossip01:
-    image: ${REGISTRY}/statistics-elasticsearch:${VERSION}
-    ports:
-      - "9201:9200"
-    command: bin/elasticsearch -Etransport.tcp.port=9301
-    stop_grace_period: 5m
-    environment:
-      - node.name=elasticsearch-gossip01
-      - node.data=false
-      - cluster.initial_master_nodes=elasticsearch-gossip01 # only on first deploy, otherwise remove.
-      - bootstrap.memory_lock=false # Fails in ondemand (windows and jenkins), so change to false to run locally. Should be true...
-    networks:
-      - net
-    deploy:
-      mode: replicated
-      replicas: 1
 
 networks:
   net:
     driver: overlay
     attachable: true
 
-volumes:
-  statistics-data:
-    external: true
-
+# Can be random secret locally since using internal ElasticSearch in docker, but must exist otherwise startup of swarm fails.
 secrets:
   inndata-api-elasticcloud-api-key:
     external: true

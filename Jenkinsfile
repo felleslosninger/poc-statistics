@@ -5,5 +5,5 @@ pipelineWithMavenAndDocker {
     stagingEnvironmentType = 'docker'
 //     productionEnvironment = 'statistics'
     productionEnvironmentType = 'docker'
-    stackName = 'statistics'
+    stackName = 'statistics-api'
 }

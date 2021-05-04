@@ -2,6 +2,8 @@
 
 configNameInndata=inndata-api-properties
 configNameUtdata=utdata-api-properties
+secretNameInndata=inndata-api-elasticcloud-api-key
+secretNameUtdata=utdata-api-elasticcloud-api-key
 
 syntax="[d|c|r], deploy (docker), configure (properties), remove (properties)"
 
@@ -15,6 +17,7 @@ if [ "${1}" = "d" ]; then
 
     export DOCKER_REGISTRY=local
     export DOCKER_IMAGE_VERSION=local-${RANDOM}
+    export STACK_NAME=statistics-api
 
     mvn package \
         -Dno.difi.jenkins-pipeline.docker-registry=${DOCKER_REGISTRY} \
@@ -22,8 +25,9 @@ if [ "${1}" = "d" ]; then
         -DskipTests || exit 1
 
     VERSION=${DOCKER_IMAGE_VERSION} REGISTRY=${DOCKER_REGISTRY} \
-        docker stack deploy -c docker/stack.yml --prune --resolve-image=never statistics || exit 1
-
+        docker stack deploy -c docker/stack.yml --prune --resolve-image=never ${STACK_NAME} || exit 1
+    VERSION=${DOCKER_IMAGE_VERSION} REGISTRY=${DOCKER_REGISTRY} \
+        docker stack deploy -c docker/stack-local.yml --resolve-image=never ${STACK_NAME} || exit 1
     echo "Deployed services using locally built image(s) with tag ${DOCKER_IMAGE_VERSION}"
 
     exit 0
@@ -31,8 +35,11 @@ fi
 
 if [ "${1}" = "c" ]; then
 
-configString="no.difi.statistics.elasticsearch.host = 7834108d7d5d491587be2a1a9452d636.northeurope.azure.elastic-cloud.com
-no.difi.statistics.elasticsearch.port = 9243"
+configString="no.difi.statistics.elasticsearch.host = elasticsearch
+no.difi.statistics.elasticsearch.port = 9200"
+#Config below to ElasticCloud test environment:
+#configString="no.difi.statistics.elasticsearch.host = 7834108d7d5d491587be2a1a9452d636.northeurope.azure.elastic-cloud.com
+#no.difi.statistics.elasticsearch.port = 9243"
 
     if [ -z $(docker config ls -qf name=${configNameInndata}) ]; then
         read -p "No configuration found for ${configNameInndata}. Do you want me to create one? [Y/n] " answer
@@ -49,6 +56,21 @@ no.difi.statistics.elasticsearch.port = 9243"
     else
         echo "Already a configuration named ${utdataConfigName}"
     fi
+    if [ -z $(docker secret ls -qf name=${secretNameInndata}) ]; then
+        read -p "No secret found for ${secretNameInndata}. Do you want me to create one? [Y/n] " answer
+        [[ -z ${answer} ]] && answer='y'
+        [[ ${answer} =~ [yY] ]] && { echo "fakeKeyInn" | docker secret create ${secretNameInndata} -; } || { exit 1; }
+    else
+        echo "Already a secret named ${secretNameInndata}"
+    fi
+        if [ -z $(docker secret ls -qf name=${secretNameUtdata}) ]; then
+        read -p "No secret found for ${secretNameUtdata}. Do you want me to create one? [Y/n] " answer
+        [[ -z ${answer} ]] && answer='y'
+        [[ ${answer} =~ [yY] ]] && { echo "fakeKeyUt" | docker secret create ${secretNameUtdata} -; } || { exit 1; }
+    else
+        echo "Already a secret named ${secretNameUtdata}"
+    fi
+
 
     exit 0
 fi
@@ -57,6 +79,9 @@ if [ "${1}" = "r" ]; then
     echo "Remove docker config properties"
     [[ -z $(docker config ls -qf name=${configNameInndata}) ]] || docker config rm ${configNameInndata}
     [[ -z $(docker config ls -qf name=${configNameUtdata}) ]] || docker config rm ${configNameUtdata}
+    echo "Remove docker secrets"
+    [[ -z $(docker secret ls -qf name=${secretNameInndata}) ]] || docker secret rm ${secretNameInndata}
+    [[ -z $(docker secret ls -qf name=${secretNameUtdata}) ]] || docker secret rm ${secretNameUtdata}
     exit 0
 fi
 

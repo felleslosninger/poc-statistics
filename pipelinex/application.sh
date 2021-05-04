@@ -105,20 +105,14 @@ serviceAvailabilityUrl() {
     requireArgument 'service'
     local host=${2-'localhost'}
     case "${service}" in
-        'elasticsearch-gossip')
-            echo -n "http://${host}:9201"
-            ;;
         'elasticsearch')
-            echo -n "http://${host}:8082"
+            echo -n "http://${host}:9200"
             ;;
         'query')
-            echo -n "http://${host}:8080/health"
+            echo -n "http://${host}:8085/health"
             ;;
         'ingest')
-            echo -n "http://${host}:8081/health"
-            ;;
-        'authenticate')
-            echo -n "http://${host}:8083/health"
+            echo -n "http://${host}:8086/health"
             ;;
         *)
             return 1
@@ -141,16 +135,6 @@ createService() {
     local serviceArgs=$(serviceArgs ${service})
     local start=$SECONDS
     case ${service} in
-    elasticsearch_gossip)
-        output=$(sudo docker service create \
-            --network ${network} \
-            --mode replicated --replicas 1 \
-            --stop-grace-period 5m \
-            --name ${service} \
-            -p 9201:9200 \
-            ${image} ${serviceArgs}) \
-            || fail "Failed to create service ${service}"
-        ;;
     elasticsearch)
         output=$(sudo docker service create \
             --network ${network} \
@@ -177,15 +161,6 @@ createService() {
             --mode global \
             --name ${service} \
             -p 8081:8080 \
-            ${image} ${serviceArgs}) \
-            || fail "Failed to create service ${service}"
-        ;;
-    authenticate)
-        output=$(sudo docker service create \
-            --network ${network} \
-            --mode global \
-            --name ${service} \
-            -p 8083:8080 \
             ${image} ${serviceArgs}) \
             || fail "Failed to create service ${service}"
         ;;
@@ -293,12 +268,13 @@ indexExists() {
     echo -n "Checking existence of index \"${index}\": "
     local start=$SECONDS
     local output
-    output=$(waitFor "curl -sS --connect-timeout 1 --max-time 1 -f http://${host}:8082/${index}/_search") || return 1
+    output=$(waitFor "curl -sS --connect-timeout 1 --max-time 1 -f http://${host}:9200/${index}/_search") || return 1
     echo ${output} | grep -q "\"total\":1440" || return 2
     return 0
 }
 
 createTestData() {
+    echo "This does not work with maskinporten integration of inndata-api"
     local host=${1-'localhost'}
     local user='991825827'
     echo -n "Creating credentials for user ${user}: "
