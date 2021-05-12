@@ -1,7 +1,7 @@
 pipelineWithMavenAndDocker {
     parallelMavenDeploy = false
 //    verificationEnvironment = 'eid-verification'
-     stagingEnvironment = 'statistics-staging'
+    stagingEnvironment = 'statistics-staging'
     stagingEnvironmentType = 'docker'
 //     productionEnvironment = 'statistics'
     productionEnvironmentType = 'docker'

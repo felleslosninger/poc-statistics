@@ -10,7 +10,7 @@ services:
     environment:
       - node.name=elasticsearch
       - cluster.initial_master_nodes=elasticsearch # only on first deploy, otherwise remove.
-      - bootstrap.memory_lock=false # Fails in ondemand (windows and jenkins), so change to false to run locally. Should be true...
+      - bootstrap.memory_lock=false # Fails in ondemand (windows and jenkins) if true.
     volumes:
       - statistics-local-data:/usr/share/elasticsearch/data
     networks:
