@@ -36,7 +36,9 @@ fi
 if [ "${1}" = "c" ]; then
 
 configString="no.difi.statistics.elasticsearch.host = elasticsearch
-no.difi.statistics.elasticsearch.port = 9200"
+no.difi.statistics.elasticsearch.port = 9200
+spring.security.oauth2.resourceserver.jwt.issuer-uri = https://test1.maskinporten.no/
+spring.security.oauth2.resourceserver.jwt.jwk-set-uri = https://test1.maskinporten.no/jwk"
 #Config below to ElasticCloud test environment:
 #configString="no.difi.statistics.elasticsearch.host = 7834108d7d5d491587be2a1a9452d636.northeurope.azure.elastic-cloud.com
 #no.difi.statistics.elasticsearch.port = 9243"
@@ -56,6 +58,7 @@ no.difi.statistics.elasticsearch.port = 9200"
     else
         echo "Already a configuration named ${utdataConfigName}"
     fi
+
     if [ -z $(docker secret ls -qf name=${secretNameInndata}) ]; then
         read -p "No secret found for ${secretNameInndata}. Do you want me to create one? [Y/n] " answer
         [[ -z ${answer} ]] && answer='y'
@@ -63,14 +66,14 @@ no.difi.statistics.elasticsearch.port = 9200"
     else
         echo "Already a secret named ${secretNameInndata}"
     fi
-        if [ -z $(docker secret ls -qf name=${secretNameUtdata}) ]; then
+
+    if [ -z $(docker secret ls -qf name=${secretNameUtdata}) ]; then
         read -p "No secret found for ${secretNameUtdata}. Do you want me to create one? [Y/n] " answer
         [[ -z ${answer} ]] && answer='y'
         [[ ${answer} =~ [yY] ]] && { echo "fakeKeyUt" | docker secret create ${secretNameUtdata} -; } || { exit 1; }
     else
         echo "Already a secret named ${secretNameUtdata}"
     fi
-
 
     exit 0
 fi
@@ -79,9 +82,11 @@ if [ "${1}" = "r" ]; then
     echo "Remove docker config properties"
     [[ -z $(docker config ls -qf name=${configNameInndata}) ]] || docker config rm ${configNameInndata}
     [[ -z $(docker config ls -qf name=${configNameUtdata}) ]] || docker config rm ${configNameUtdata}
+
     echo "Remove docker secrets"
     [[ -z $(docker secret ls -qf name=${secretNameInndata}) ]] || docker secret rm ${secretNameInndata}
     [[ -z $(docker secret ls -qf name=${secretNameUtdata}) ]] || docker secret rm ${secretNameUtdata}
+
     exit 0
 fi
 

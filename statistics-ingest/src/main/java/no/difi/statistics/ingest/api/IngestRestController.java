@@ -50,7 +50,6 @@ public class IngestRestController {
         // Do nothing
     }
 
-    // TODO validate orgno
     @ApiOperation(value = "Legg inn data for ein tidsserie for din organisasjon. Organisasjonen må ha fått tilgong til dette i forkant i Maskinporten.")
     @PostMapping(
             value = "{owner}/{seriesName}/{distance}",
@@ -79,7 +78,6 @@ public class IngestRestController {
         );
     }
 
-    // TODO improve code
     private String getOrgNoFromAuthorizedToken(Jwt principal) {
         final Map<String, Object> consumer = principal.getClaimAsMap("consumer");
         if(consumer==null || consumer.isEmpty() || consumer.get("ID") == null){
@@ -91,6 +89,7 @@ public class IngestRestController {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN, "Invalid access token, can not extract consumer orgno.");
         }
+
         return id.substring(id.indexOf(":") + 1);
     }
 
