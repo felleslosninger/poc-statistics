@@ -52,7 +52,7 @@ public class IngestRestControllerTest {
 
     static final String PREFIX = "digdir";
     static final String SUBSCOPE = "statistikk.skriv";
-    final String SCOPE = PREFIX + ":"+SUBSCOPE;
+    final String SCOPE = PREFIX + ":" + SUBSCOPE;
     static final String OWNER = "991825827";
 
 

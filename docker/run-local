@@ -35,6 +35,9 @@ fi
 
 if [ "${1}" = "c" ]; then
 
+api_key="fakeKey"
+inndata_api_id="8yQm93cBNa9aEm3gDJZ0"
+utdata_api_id="-SRR93cBNa9aEm3gOJa_"
 configString="no.difi.statistics.elasticsearch.host = elasticsearch
 no.difi.statistics.elasticsearch.port = 9200
 spring.security.oauth2.resourceserver.jwt.issuer-uri = https://test1.maskinporten.no/
@@ -46,7 +49,7 @@ spring.security.oauth2.resourceserver.jwt.jwk-set-uri = https://test1.maskinport
     if [ -z $(docker config ls -qf name=${configNameInndata}) ]; then
         read -p "No configuration found for ${configNameInndata}. Do you want me to create one? [Y/n] " answer
         [[ -z ${answer} ]] && answer='y'
-        [[ ${answer} =~ [yY] ]] && { echo "${configString}" | docker config create ${configNameInndata} -; } || { exit 1; }
+        [[ ${answer} =~ [yY] ]] && { echo -n "${configString}" | docker config create ${configNameInndata} -; } || { exit 1; }
     else
         echo "Already a configuration named ${configNameInndata}"
     fi
@@ -54,7 +57,7 @@ spring.security.oauth2.resourceserver.jwt.jwk-set-uri = https://test1.maskinport
     if [ -z $(docker config ls -qf name=${configNameUtdata}) ]; then
         read -p "No configuration found for ${configNameUtdata}. Do you want me to create one? [Y/n] " answer
         [[ -z ${answer} ]] && answer='y'
-        [[ ${answer} =~ [yY] ]] && { echo "${configString}" | docker config create ${configNameUtdata} -; } || { exit 1; }
+        [[ ${answer} =~ [yY] ]] && { echo -n "${configString}" | docker config create ${configNameUtdata} -; } || { exit 1; }
     else
         echo "Already a configuration named ${utdataConfigName}"
     fi
@@ -62,7 +65,7 @@ spring.security.oauth2.resourceserver.jwt.jwk-set-uri = https://test1.maskinport
     if [ -z $(docker secret ls -qf name=${secretNameInndata}) ]; then
         read -p "No secret found for ${secretNameInndata}. Do you want me to create one? [Y/n] " answer
         [[ -z ${answer} ]] && answer='y'
-        [[ ${answer} =~ [yY] ]] && { echo "fakeKeyInn" | docker secret create ${secretNameInndata} -; } || { exit 1; }
+        [[ ${answer} =~ [yY] ]] && { echo -n "${inndata_api_id}:${api_key}" | base64 | docker secret create ${secretNameInndata} -; } || { exit 1; }
     else
         echo "Already a secret named ${secretNameInndata}"
     fi
@@ -70,7 +73,7 @@ spring.security.oauth2.resourceserver.jwt.jwk-set-uri = https://test1.maskinport
     if [ -z $(docker secret ls -qf name=${secretNameUtdata}) ]; then
         read -p "No secret found for ${secretNameUtdata}. Do you want me to create one? [Y/n] " answer
         [[ -z ${answer} ]] && answer='y'
-        [[ ${answer} =~ [yY] ]] && { echo "fakeKeyUt" | docker secret create ${secretNameUtdata} -; } || { exit 1; }
+        [[ ${answer} =~ [yY] ]] && { echo -n "${inndata_api_id}:${api_key}" | base64 | docker secret create ${secretNameUtdata} -; } || { exit 1; }
     else
         echo "Already a secret named ${secretNameUtdata}"
     fi
