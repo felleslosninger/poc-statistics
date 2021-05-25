@@ -9,7 +9,7 @@ services:
       - source: utdata-api-properties
         target: /application.properties
     secrets:
-      - source: utdata-api-elasticcloud-api-key
+      - source: utdata-api-elasticcloud-api-key-31122022
         target: utdata-api-elasticcloud-felles
     networks:
       net:
@@ -43,7 +43,7 @@ networks:
 secrets:
   inndata-api-elasticcloud-api-key:
     external: true
-  utdata-api-elasticcloud-api-key:
+  utdata-api-elasticcloud-api-key-31122022:
     external: true
 
 configs:
