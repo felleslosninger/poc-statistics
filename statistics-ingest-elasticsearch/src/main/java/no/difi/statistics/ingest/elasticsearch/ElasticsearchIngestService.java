@@ -55,7 +55,7 @@ public class ElasticsearchIngestService implements IngestService {
                             id(point, seriesDefinition)
                     )
                             .source(document(point, seriesDefinition))
-                            .create(true)
+                            .create(false) // false->tillate update av requests. true->feilar på same request fleire gonger
             );
         }
         BulkResponse response;
