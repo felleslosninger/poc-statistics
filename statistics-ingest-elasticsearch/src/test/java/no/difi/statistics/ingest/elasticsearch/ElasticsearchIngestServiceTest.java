@@ -192,31 +192,30 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @Test
-    public void whenBulkIngestingDuplicatePointsThenAllPointsButDuplicatesAreIngested() {
+    public void whenBulkIngestingUdateOfPointsThenAllPointsAreIngestedAndLastUpdatedStored() {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
-        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
+        TimeSeriesPoint updateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
         TimeSeriesPoint point2 = point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 567543L).build();
         TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
-        ResponseEntity<IngestResponse> response = ingest(seriesDefinition, point1, duplicateOfPoint1, point2);
+        ResponseEntity<IngestResponse> response = ingest(seriesDefinition, point1, updateOfPoint1, point2);
         assertEquals(3, response.getBody().getStatuses().size());
-        assertIngested(seriesDefinition, 0, point1, response.getBody());
-        assertNotIngested(1, response.getBody());
-        assertIngested(seriesDefinition, 2, point2, response.getBody());
+        assertIngested(seriesDefinition, 0, updateOfPoint1, response.getBody());
+        assertIngested(seriesDefinition, 1, point2, response.getBody());
     }
 
     @Test
-    public void whenIngestingDuplicatePointThenFailAndPointIsNotIngested() {
+    public void whenIngestingUpdatePointThenIngestedLastUpdated() {
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 103L).build();
-        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
+        TimeSeriesPoint updateOfPoint1 = point().timestamp(now).measurement("aMeasurement", 2354L).build();
         TimeSeriesPoint point2 = point().timestamp(now.plusMinutes(1)).measurement("aMeasurement", 567543L).build();
         TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
         ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition, point1);
-        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition, duplicateOfPoint1);
+        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition, updateOfPoint1);
         ResponseEntity<IngestResponse> response3 = ingest(seriesDefinition, point2);
         assertEquals(Ok, response1.getBody().getStatuses().get(0));
-        assertEquals(Conflict, response2.getBody().getStatuses().get(0));
+        assertEquals(Ok, response2.getBody().getStatuses().get(0));
         assertEquals(Ok, response3.getBody().getStatuses().get(0));
-        assertIngested(seriesDefinition, point1);
+        assertIngested(seriesDefinition, updateOfPoint1);
         assertIngested(seriesDefinition, point2);
     }
 
@@ -232,14 +231,14 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @Test
-    public void whenIngestingTwoPointsWithSameTimestampAndSameCategoriesThenLastPointIsNotIngested() {
+    public void whenIngestingTwoPointsWithSameTimestampAndSameCategoriesThenLastPointIsIngested() {
         TimeSeriesPoint point1 = point().timestamp(now).category("category", "abc").measurement("aMeasurement", 103L).build();
-        TimeSeriesPoint duplicateOfPoint1 = point().timestamp(now).category("category", "abc").measurement("aMeasurement", 2354L).build();
+        TimeSeriesPoint updateOfPoint1 = point().timestamp(now).category("category", "abc").measurement("aMeasurement", 2354L).build();
         TimeSeriesDefinition seriesDefinition = seriesDefinition().name("series").minutes().owner(owner);
         ResponseEntity<IngestResponse> response1 = ingest(seriesDefinition, point1);
-        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition, duplicateOfPoint1);
         assertIngested(seriesDefinition, 0, point1, response1.getBody());
-        assertNotIngested(0, response2.getBody());
+        ResponseEntity<IngestResponse> response2 = ingest(seriesDefinition, updateOfPoint1);
+        assertIngested(seriesDefinition, 0, updateOfPoint1, response2.getBody());
     }
 
     @Test
@@ -255,7 +254,7 @@ public class ElasticsearchIngestServiceTest {
     }
 
     @Test
-    public void whenIngestingDuplicateOnTheHourPointThenFailAndPointIsNotIngested() {
+    public void whenIngestingUpdateOnTheHourPointThenPointIsIngested() {
         int addMinute = now.getMinute() == 59 ? -1 : 1;
         TimeSeriesPoint point1 = point().timestamp(now).measurement("aMeasurement", 105L).build();
         TimeSeriesPoint pointSameHourAsFirst = point().timestamp(now.plusMinutes(addMinute)).measurement("aMeasurement", 108L).build();
@@ -265,9 +264,9 @@ public class ElasticsearchIngestServiceTest {
         ResponseEntity<IngestResponse> response3 = ingest(seriesDefinition, pointSameHourAsFirst);
         ResponseEntity<IngestResponse> response4 = ingest(seriesDefinition, pointNextHour);
         assertEquals(Ok, response1.getBody().getStatuses().get(0));
-        assertEquals(Conflict, response3.getBody().getStatuses().get(0));
+        assertEquals(Ok, response3.getBody().getStatuses().get(0));
         assertEquals(Ok, response4.getBody().getStatuses().get(0));
-        assertIngestedHour(seriesDefinition, point1);
+        assertIngestedHour(seriesDefinition, pointSameHourAsFirst);
         assertIngestedHour(seriesDefinition, pointNextHour);
     }
 
