@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import no.difi.statistics.ingest.client.model.IngestResponse;
 import no.difi.statistics.ingest.client.model.TimeSeriesDefinition;
 import no.difi.statistics.ingest.client.model.TimeSeriesPoint;
@@ -30,6 +32,7 @@ public class IngestClient implements IngestService {
     private static final String AUTHORIZATION_KEY = "Authorization";
     private static final String AUTH_METHOD = "Bearer";
 
+    private final Logger log = LoggerFactory.getLogger(getClass());
     private final ObjectWriter requestWriter;
     private final ObjectReader responseReader;
     private final ObjectReader lastResponseReader;
@@ -63,6 +66,7 @@ public class IngestClient implements IngestService {
             throw new Unauthorized("Access token is null or emtpy. An valid access token from Maskinporten must be provided.");
         }
         HttpURLConnection connection = getConnection(ingestUrlFor(seriesDefinition), "POST", token);
+        log.info("Writing data points to {} using token={}", connection.getURL(), token);
         writeRequest(dataPoints, connection);
         handleResponseCode(connection);
         return readResponse(connection);
@@ -116,6 +120,10 @@ public class IngestClient implements IngestService {
                 throw new DataPointAlreadyExists();
             case HTTP_UNAUTHORIZED:
             case HTTP_FORBIDDEN:
+                try {
+                    log.info("Failed auth with message={}", connection.getResponseMessage());
+                } catch (IOException ignored) {
+                }
                 throw new Unauthorized("Failed to authorize Ingest service (" + responseCode + ")");
             case HTTP_NOT_FOUND:
                 throw new Failed("Not found");

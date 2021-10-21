@@ -8,6 +8,8 @@ import no.difi.statistics.ingest.validation.ValidOrgno;
 import no.difi.statistics.model.MeasurementDistance;
 import no.difi.statistics.model.TimeSeriesDefinition;
 import no.difi.statistics.model.TimeSeriesPoint;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,7 +33,7 @@ public class IngestRestController {
     private static final String OWNER_EXPLANATION = "eigar av tidsserien i form av eit organisasjonsnummer";
     private static final String SERIES_NAME_EXPLANATION = "tidsserier finnes ved oppslag i /meta";
     private static final String DISTANCE_EXPLANATION = "tidsserien sin måleavstand";
-
+    private final Logger log = LoggerFactory.getLogger(getClass());
     private IngestService ingestService;
 
     public IngestRestController(IngestService ingestService) {
@@ -66,6 +68,7 @@ public class IngestRestController {
             @PathVariable MeasurementDistance distance,
             @RequestBody List<TimeSeriesPoint> dataPoints
     ) {
+        log.info("Processing ingest");
         String authorizedOrgno = getOrgNoFromAuthorizedToken(principal);
 
         if (!owner.equals(authorizedOrgno)) {
