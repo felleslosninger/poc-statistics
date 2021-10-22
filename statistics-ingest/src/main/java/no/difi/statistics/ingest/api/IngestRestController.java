@@ -68,7 +68,7 @@ public class IngestRestController {
             @PathVariable MeasurementDistance distance,
             @RequestBody List<TimeSeriesPoint> dataPoints
     ) {
-        log.info("Processing ingest");
+        log.info("Processing ingest for owner={} and series={} with empty datapoints?={}, ", owner, seriesName, dataPoints != null ? dataPoints.isEmpty() : "null");
         String authorizedOrgno = getOrgNoFromAuthorizedToken(principal);
 
         if (!owner.equals(authorizedOrgno)) {
